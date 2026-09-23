@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Print Calc Pro | Calculadora & Orçamentos 3D</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0b1120',
+                        darkcard: '#1e293b',
+                        darkborder: '#334155',
+                        brand: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- JSZip for client-side 3MF extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-darkbg text-slate-100 flex min-h-screen font-sans antialiased">
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- ================= AUTH OVERLAY (Shown if not logged in) ================= -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+        <div class="card-dark max-w-md w-full p-8 shadow-2xl animate-fade-in border border-slate-700">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600/20 text-blue-500 mb-3 border border-blue-500/30">
+                    <i data-lucide="box" class="w-8 h-8"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight text-white">3D Print Calc Pro</h1>
+                <p class="text-sm text-slate-400 mt-1">Calculadora Profissional de Custos & Orçamentos</p>
+            </div>
+
+            <!-- Tab Buttons: Login / Register -->
+            <div class="flex border-b border-slate-700 mb-6">
+                <button id="tab-login-btn" onclick="switchAuthTab('login')" class="flex-1 pb-3 text-sm font-semibold border-b-2 border-blue-500 text-blue-400 transition-colors">
+                    Entrar
+                </button>
+                <button id="tab-register-btn" onclick="switchAuthTab('register')" class="flex-1 pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors">
+                    Criar Conta
+                </button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">E-mail</label>
+                    <input type="email" id="login-email" required class="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="seu@email.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Senha</label>
+                    <input type="password" id="login-password" required class="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 font-semibold text-white rounded-lg text-sm shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="log-in" class="w-4 h-4"></i> Entrar
+                </button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="form-register" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                <div class="p-3 bg-blue-950/40 border border-blue-800/50 rounded-lg text-xs text-blue-300">
+                    <span class="font-semibold">Conta Inicial Limpa:</span> Seu ambiente começará 100% limpo, pronto para cadastrar suas impressoras e projetos reais.
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Nome Completo</label>
+                    <input type="text" id="reg-name" required class="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Seu Nome">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Empresa / Oficina (Opcional)</label>
+                    <input type="text" id="reg-company" class="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: Studio 3D Pro">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">E-mail</label>
+                    <input type="email" id="reg-email" required class="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="seu@email.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Senha (Mín. 6 dígitos)</label>
+                    <input type="password" id="reg-password" minlength="6" required class="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 font-semibold text-white rounded-lg text-sm shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> Criar Conta Grátis
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MAIN LAYOUT ================= -->
+    <div id="app-layout" class="flex-1 flex overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between shrink-0">
+            <div>
+                <!-- Brand Header -->
+                <div class="h-16 flex items-center gap-3 px-6 border-b border-slate-800">
+                    <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                        <i data-lucide="layers" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-white text-base tracking-tight leading-none">PrintCost 3D</h2>
+                        <span class="text-[10px] text-blue-400 font-medium tracking-wide uppercase">Calculadora & Gestão</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Links -->
+                <nav class="p-3 space-y-1">
+                    <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                        Visão Geral
+                    </button>
+                    <button onclick="navigateTo('projects')" id="nav-projects" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <i data-lucide="folder-kanban" class="w-4 h-4"></i>
+                        Projetos & Orçamentos
+                    </button>
+                    <button onclick="navigateTo('printers')" id="nav-printers" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <i data-lucide="printer" class="w-4 h-4"></i>
+                        Minhas Impressoras
+                    </button>
+                    <button onclick="navigateTo('filaments')" id="nav-filaments" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <i data-lucide="cylinder" class="w-4 h-4"></i>
+                        Meus Filamentos
+                    </button>
+                    <button onclick="navigateTo('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <i data-lucide="settings" class="w-4 h-4"></i>
+                        Configurações & Taxas
+                    </button>
+                </nav>
+            </div>
+
+            <!-- User Profile & Logout -->
+            <div class="p-4 border-t border-slate-800 bg-slate-900/50">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0" id="user-avatar">
+                            U
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs font-semibold text-white truncate" id="user-display-name">Carregando...</p>
+                            <p class="text-[10px] text-slate-400 truncate" id="user-display-company">Oficina</p>
+                        </div>
+                    </div>
+                    <button onclick="API.auth.logout()" title="Sair da conta" class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+            
+            <!-- Topbar -->
+            <header class="h-16 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between px-8 sticky top-0 z-20 backdrop-blur">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-lg font-bold text-white tracking-tight" id="view-title">Visão Geral</h2>
+                </div>
+                <div class="flex items-center gap-3" id="topbar-actions">
+                    <button onclick="openNewProject()" class="py-1.5 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo Orçamento
+                    </button>
+                </div>
+            </header>
+
+            <div class="p-8 flex-1 max-w-7xl w-full mx-auto">
+                
+                <!-- 1. DASHBOARD VIEW -->
+                <section id="view-dashboard" class="space-y-8 animate-fade-in">
+                    <!-- Metric Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        <div class="card-dark p-5 flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
+                                <i data-lucide="folder-kanban" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Projetos Totais</p>
+                                <h3 class="text-2xl font-bold text-white mt-0.5" id="stat-projects-count">0</h3>
+                            </div>
+                        </div>
+
+                        <div class="card-dark p-5 flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                                <i data-lucide="badge-dollar-sign" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Orçamentos Ativos</p>
+                                <h3 class="text-2xl font-bold text-white mt-0.5" id="stat-active-quotes">0</h3>
+                            </div>
+                        </div>
+
+                        <div class="card-dark p-5 flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
+                                <i data-lucide="printer" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Impressoras</p>
+                                <h3 class="text-2xl font-bold text-white mt-0.5" id="stat-printers-count">0</h3>
+                            </div>
+                        </div>
+
+                        <div class="card-dark p-5 flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0">
+                                <i data-lucide="cylinder" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Filamentos</p>
+                                <h3 class="text-2xl font-bold text-white mt-0.5" id="stat-filaments-count">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clean Account Welcome Notice if 0 items -->
+                    <div id="dashboard-empty-banner" class="hidden card-dark p-6 border-blue-500/30 bg-blue-950/20">
+                        <div class="flex items-start gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                                <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-white">Sua conta começou 100% limpa!</h3>
+                                <p class="text-sm text-slate-300 mt-1 leading-relaxed">
+                                    Para começar a orçar com máxima precisão técnica e financeira, recomendamos cadastrar suas <b>impressoras</b> (para cálculo de depreciação e energia) e seus <b>filamentos reais</b>. Ou você pode criar um projeto diretamente informando valores manuais ou subindo um arquivo <b>.3MF / .GCODE</b>!
+                                </p>
+                                <div class="flex items-center gap-3 mt-4">
+                                    <button onclick="openPrinterModal()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Cadastrar Impressora
+                                    </button>
+                                    <button onclick="openFilamentModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Cadastrar Filamento
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Projects List -->
+                    <div class="card-dark p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <i data-lucide="clock" class="w-4 h-4 text-blue-400"></i> Orçamentos Recentes
+                            </h3>
+                            <button onclick="navigateTo('projects')" class="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors">
+                                Ver Todos &rarr;
+                            </button>
+                        </div>
+                        <div id="dashboard-recent-projects" class="overflow-x-auto">
+                            <!-- Injected by app.js -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. PROJECTS LIST VIEW -->
+                <section id="view-projects" class="space-y-6 hidden animate-fade-in">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="relative w-full sm:w-80">
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                            <input type="text" id="project-search-input" oninput="filterProjects()" placeholder="Buscar por projeto ou cliente..." class="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500">
+                        </div>
+                        <button onclick="openNewProject()" class="w-full sm:w-auto py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Criar Orçamento
+                        </button>
+                    </div>
+
+                    <div class="card-dark overflow-hidden">
+                        <div id="projects-table-container" class="overflow-x-auto">
+                            <!-- Injected by app.js -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. PROJECT DETAIL & CALCULATOR VIEW -->
+                <section id="view-project-editor" class="space-y-6 hidden animate-fade-in">
+                    <!-- Top header with Back and Primary Actions -->
+                    <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <button onclick="navigateTo('projects')" class="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+                                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                            </button>
+                            <div>
+                                <h2 class="text-xl font-bold text-white tracking-tight" id="editor-project-title">Editar Orçamento</h2>
+                                <p class="text-xs text-slate-400" id="editor-project-subtitle">Defina placas impressas, insumos adicionais e parâmetros financeiros</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button onclick="saveCurrentProject()" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5">
+                                <i data-lucide="save" class="w-4 h-4"></i> Salvar Projeto
+                            </button>
+                            <button onclick="exportCurrentPdf('client')" class="py-2 px-3.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5" title="Baixar Orçamento para Cliente em PDF">
+                                <i data-lucide="file-text" class="w-4 h-4 text-blue-400"></i> PDF Cliente
+                            </button>
+                            <button onclick="exportCurrentPdf('technical')" class="py-2 px-3.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5" title="Baixar Ficha Técnica de Produção em PDF">
+                                <i data-lucide="clipboard-list" class="w-4 h-4 text-emerald-400"></i> Ficha Técnica
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Main Grid: Left Editor & Right Live Financial Summary -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                        
+                        <!-- Left Column (8 cols): Project Config, Plates & BOM -->
+                        <div class="lg:col-span-8 space-y-6">
+                            
+                            <!-- 1. Metadata Box -->
+                            <div class="card-dark p-6 space-y-4">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                    <i data-lucide="info" class="w-4 h-4 text-blue-400"></i> Informações do Projeto & Cliente
+                                </h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Título do Projeto *</label>
+                                        <input type="text" id="proj-name" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: Gabinete Modular para Rádio">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Nome do Cliente</label>
+                                        <input type="text" id="proj-client-name" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: João da Silva">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Status do Orçamento</label>
+                                        <select id="proj-status" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                            <option value="draft">Rascunho</option>
+                                            <option value="quoted">Orçado / Enviado</option>
+                                            <option value="approved">Aprovado pelo Cliente</option>
+                                            <option value="in_production">Em Produção</option>
+                                            <option value="completed">Concluído</option>
+                                            <option value="cancelled">Cancelado</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">E-mail do Cliente</label>
+                                        <input type="email" id="proj-client-email" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="cliente@email.com">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Telefone / WhatsApp</label>
+                                        <input type="text" id="proj-client-phone" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="(11) 98765-4321">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Hybrid File Upload Dropzone (Bambu/Orca .3MF & Prusa/Cura .GCODE) -->
+                            <div class="card-dark p-6">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                        <i data-lucide="upload-cloud" class="w-4 h-4 text-blue-400"></i> Entrada Híbrida: Importar 3MF ou G-Code
+                                    </h3>
+                                    <span class="text-[10px] text-blue-400 bg-blue-950/60 border border-blue-800 px-2 py-0.5 rounded font-mono">Bambu / Orca / Prusa / Cura</span>
+                                </div>
+                                <div id="dropzone" class="dropzone p-6 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer">
+                                    <i data-lucide="file-up" class="w-10 h-10 text-slate-400 mb-2"></i>
+                                    <p class="text-sm font-medium text-white">Arraste seu arquivo <span class="text-blue-400">.3mf</span> ou <span class="text-emerald-400">.gcode</span> aqui</p>
+                                    <p class="text-xs text-slate-400 mt-1">Extração automática de placas, tempo de impressão e gramas de filamento direto no navegador</p>
+                                    <input type="file" id="file-slicer-input" accept=".3mf,.gcode" class="hidden">
+                                </div>
+                            </div>
+
+                            <!-- 3. Printed Plates Manager -->
+                            <div class="card-dark p-6 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                            <i data-lucide="layers" class="w-4 h-4 text-blue-400"></i> Placas Impressas
+                                        </h3>
+                                        <p class="text-xs text-slate-400">Adicione uma ou múltiplas placas com diferentes impressoras e filamentos</p>
+                                    </div>
+                                    <button type="button" onclick="addNewPlateRow()" class="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova Placa
+                                    </button>
+                                </div>
+
+                                <div id="plates-container" class="space-y-4">
+                                    <!-- Dynamic plate cards will be rendered here by app.js -->
+                                </div>
+                            </div>
+
+                            <!-- 4. BOM Items Manager (Accessories, Screws, Inserts) -->
+                            <div class="card-dark p-6 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                            <i data-lucide="wrench" class="w-4 h-4 text-blue-400"></i> Componentes & Acessórios Adicionais (BOM)
+                                        </h3>
+                                        <p class="text-xs text-slate-400">Parafusos, insertos térmicos, ímãs, rolamentos, componentes eletrônicos</p>
+                                    </div>
+                                    <button type="button" onclick="addNewBomRow()" class="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo Insumo
+                                    </button>
+                                </div>
+
+                                <div id="bom-container" class="space-y-3">
+                                    <!-- Dynamic BOM rows will be rendered here by app.js -->
+                                </div>
+                            </div>
+
+                            <!-- 5. Services, Labor & Commercial Adjustments -->
+                            <div class="card-dark p-6 space-y-4">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                    <i data-lucide="user-check" class="w-4 h-4 text-blue-400"></i> Mão de Obra & Custos Indiretos
+                                </h3>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Horas Modelagem CAD</label>
+                                        <input type="number" id="proj-cad-hours" step="0.1" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Taxa CAD (R$/h)</label>
+                                        <input type="number" id="proj-cad-rate" step="0.1" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="50">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Horas Pós-Processo</label>
+                                        <input type="number" id="proj-post-hours" step="0.1" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Taxa Pós (R$/h)</label>
+                                        <input type="number" id="proj-post-rate" step="0.1" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="30">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-800">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Overhead / Indiretos (R$)</label>
+                                        <input type="number" id="proj-overhead" step="0.5" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Margem Lucro Alvo (%)</label>
+                                        <input type="number" id="proj-margin" step="0.5" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="30">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Impostos / Taxas (%)</label>
+                                        <input type="number" id="proj-tax" step="0.5" min="0" max="99" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="6">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Desconto Comercial (%)</label>
+                                        <input type="number" id="proj-discount" step="0.5" min="0" max="100" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                    </div>
+                                </div>
+
+                                <div class="pt-2">
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">Custo de Frete / Envio (R$)</label>
+                                    <input type="number" id="proj-shipping" step="0.5" min="0" oninput="recalcLiveSummary()" class="w-full max-w-xs px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                </div>
+
+                                <div class="pt-2">
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">Observações do Orçamento / Condições Comerciais</label>
+                                    <textarea id="proj-notes" rows="3" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: Prazo de entrega em até 3 dias úteis. Pagamento via PIX com 50% de sinal."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column (4 cols): Sticky Live Financial Summary Card -->
+                        <div class="lg:col-span-4 sticky top-20 space-y-4">
+                            <div class="card-dark p-6 border-blue-500/40 shadow-xl space-y-5">
+                                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                                    <h3 class="font-bold text-white text-base flex items-center gap-2">
+                                        <i data-lucide="calculator" class="w-5 h-5 text-blue-400"></i> Resumo Financeiro
+                                    </h3>
+                                    <span class="text-[10px] bg-blue-900/50 text-blue-300 border border-blue-700 px-2 py-0.5 rounded font-mono uppercase">Tempo Real</span>
+                                </div>
+
+                                <!-- Operational Stats -->
+                                <div class="space-y-2 text-xs">
+                                    <div class="flex justify-between text-slate-300">
+                                        <span>Consumo Filamento:</span>
+                                        <span class="font-medium text-white" id="live-weight">0.0 g</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-300">
+                                        <span>Tempo de Impressão:</span>
+                                        <span class="font-medium text-white" id="live-time">0.0 h</span>
+                                    </div>
+                                </div>
+
+                                <div class="h-px bg-slate-800"></div>
+
+                                <!-- Costs Breakdown -->
+                                <div class="space-y-2 text-xs">
+                                    <div class="flex justify-between text-slate-300">
+                                        <span>Custo Filamento (c/ perda):</span>
+                                        <span class="font-medium text-white" id="live-material-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-300">
+                                        <span>Custo Máquina & Energia:</span>
+                                        <span class="font-medium text-white" id="live-machine-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-300">
+                                        <span>Custo Insumos BOM:</span>
+                                        <span class="font-medium text-white" id="live-bom-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-300">
+                                        <span>Mão de Obra (CAD + Pós):</span>
+                                        <span class="font-medium text-white" id="live-labor-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-300">
+                                        <span>Custos Indiretos (Overhead):</span>
+                                        <span class="font-medium text-white" id="live-overhead-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-100 font-semibold pt-1 border-t border-slate-800/80">
+                                        <span>Custo Base Total:</span>
+                                        <span class="text-white" id="live-base-cost">R$ 0,00</span>
+                                    </div>
+                                </div>
+
+                                <div class="h-px bg-slate-800"></div>
+
+                                <!-- Commercial Pricing & Taxes -->
+                                <div class="space-y-2 text-xs">
+                                    <div class="flex justify-between text-slate-300">
+                                        <span>Preço Sugerido (s/ frete):</span>
+                                        <span class="font-medium text-white" id="live-suggested-price">R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-300" id="live-discount-row">
+                                        <span>Desconto Comercial:</span>
+                                        <span class="font-medium text-red-400" id="live-discount-amount">- R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-300" id="live-shipping-row">
+                                        <span>Frete / Envio:</span>
+                                        <span class="font-medium text-slate-200" id="live-shipping-amount">+ R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-400">
+                                        <span>Impostos Estimados:</span>
+                                        <span id="live-tax-amount">R$ 0,00</span>
+                                    </div>
+                                </div>
+
+                                <!-- Highlighted Final Price -->
+                                <div class="p-4 rounded-xl bg-blue-600/10 border border-blue-500/30 text-center">
+                                    <p class="text-[11px] font-semibold text-blue-300 uppercase tracking-wider">Preço Final de Venda</p>
+                                    <h4 class="text-2xl font-black text-blue-400 mt-1" id="live-final-price">R$ 0,00</h4>
+                                </div>
+
+                                <!-- Net Profit & Real Margin -->
+                                <div class="p-3.5 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-xs text-emerald-300 flex items-center justify-between">
+                                    <span>Lucro Líquido Real:</span>
+                                    <span class="font-bold text-sm text-emerald-400" id="live-net-profit">R$ 0,00 (0%)</span>
+                                </div>
+
+                                <!-- Quick Actions in Summary Card -->
+                                <div class="pt-2 space-y-2">
+                                    <button onclick="saveCurrentProject()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2">
+                                        <i data-lucide="save" class="w-4 h-4"></i> Salvar Orçamento
+                                    </button>
+                                    <button onclick="exportCurrentPdf('client')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-2">
+                                        <i data-lucide="file-text" class="w-4 h-4 text-blue-400"></i> Exportar Orçamento PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- 4. PRINTERS VIEW -->
+                <section id="view-printers" class="space-y-6 hidden animate-fade-in">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-base font-bold text-white">Impressoras Cadastradas</h3>
+                            <p class="text-xs text-slate-400">Gerencie suas máquinas para apuração de depreciação, potência elétrica e manutenção</p>
+                        </div>
+                        <button onclick="openPrinterModal()" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Cadastrar Impressora
+                        </button>
+                    </div>
+
+                    <div id="printers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Injected by app.js -->
+                    </div>
+                </section>
+
+                <!-- 5. FILAMENTS VIEW -->
+                <section id="view-filaments" class="space-y-6 hidden animate-fade-in">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-base font-bold text-white">Carretéis de Filamento</h3>
+                            <p class="text-xs text-slate-400">Estoque de materiais com cálculo automático de custo por grama</p>
+                        </div>
+                        <button onclick="openFilamentModal()" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Cadastrar Filamento
+                        </button>
+                    </div>
+
+                    <div id="filaments-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Injected by app.js -->
+                    </div>
+                </section>
+
+                <!-- 6. SETTINGS VIEW -->
+                <section id="view-settings" class="space-y-6 hidden animate-fade-in">
+                    <div class="card-dark p-6 max-w-3xl space-y-6">
+                        <div>
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <i data-lucide="building" class="w-5 h-5 text-blue-400"></i> Dados da Minha Empresa / Oficina
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-0.5">Estas informações aparecerão no cabeçalho dos seus orçamentos em PDF</p>
+                        </div>
+
+                        <form id="form-settings" onsubmit="handleSavePreferences(event)" class="space-y-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">Nome Fantasia / Razão Social</label>
+                                    <input type="text" id="pref-company" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: Studio 3D Print">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">Nome do Responsável</label>
+                                    <input type="text" id="pref-fullname" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: Vitor Silva">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">Telefone / WhatsApp Comercial</label>
+                                    <input type="text" id="pref-phone" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: (11) 98765-4321">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-300 mb-1">Chave PIX para Pagamento</label>
+                                    <input type="text" id="pref-pix" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: pix@minhaempresa.com.br">
+                                </div>
+                            </div>
+
+                            <div class="pt-4 border-t border-slate-800">
+                                <h4 class="text-sm font-bold text-white mb-1">Padrões para Novos Orçamentos</h4>
+                                <p class="text-xs text-slate-400 mb-4">Taxas padrão que serão preenchidas automaticamente ao criar um novo orçamento</p>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Tarifa de Energia (R$/kWh)</label>
+                                        <input type="number" id="pref-energy" step="0.01" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Margem de Lucro Alvo (%)</label>
+                                        <input type="number" id="pref-margin" step="0.5" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Alíquota de Impostos (%)</label>
+                                        <input type="number" id="pref-tax" step="0.5" min="0" max="99" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Margem de Falha Padrão (%)</label>
+                                        <input type="number" id="pref-failure" step="0.5" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Taxa CAD Padrão (R$/h)</label>
+                                        <input type="number" id="pref-cad-rate" step="0.5" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-300 mb-1">Taxa Pós Padrão (R$/h)</label>
+                                        <input type="number" id="pref-post-rate" step="0.5" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="py-2.5 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm shadow-md shadow-blue-600/20 transition-all flex items-center gap-2">
+                                <i data-lucide="check" class="w-4 h-4"></i> Salvar Preferências
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= MODAL PRINTER ================= -->
+    <div id="modal-printer" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="card-dark max-w-lg w-full p-6 animate-fade-in border border-slate-700">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2" id="modal-printer-title">
+                    <i data-lucide="printer" class="w-5 h-5 text-blue-400"></i> Cadastrar Impressora
+                </h3>
+                <button onclick="closePrinterModal()" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="form-printer" onsubmit="handleSavePrinter(event)" class="space-y-4">
+                <input type="hidden" id="printer-id">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Nome / Apelido *</label>
+                        <input type="text" id="printer-name" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: Bambu Lab P1S">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Modelo / Volume</label>
+                        <input type="text" id="printer-model" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: CoreXY 256x256">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Custo de Aquisição (R$)</label>
+                        <input type="number" id="printer-cost" step="10" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="4500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Vida Útil Estimada (Horas)</label>
+                        <input type="number" id="printer-lifespan" step="100" min="1" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="5000">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Potência Média (Watts)</label>
+                        <input type="number" id="printer-power" step="5" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="150">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Reserva Manutenção (R$/h)</label>
+                        <input type="number" id="printer-maintenance" step="0.1" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="1.0">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Tarifa de Energia Específica (R$/kWh)</label>
+                        <input type="number" id="printer-energy" step="0.01" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0.85">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closePrinterModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-md shadow-blue-600/20">Salvar Impressora</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL FILAMENT ================= -->
+    <div id="modal-filament" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="card-dark max-w-lg w-full p-6 animate-fade-in border border-slate-700">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2" id="modal-filament-title">
+                    <i data-lucide="cylinder" class="w-5 h-5 text-blue-400"></i> Cadastrar Filamento
+                </h3>
+                <button onclick="closeFilamentModal()" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="form-filament" onsubmit="handleSaveFilament(event)" class="space-y-4">
+                <input type="hidden" id="filament-id">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Nome do Filamento *</label>
+                        <input type="text" id="filament-name" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: PLA Preto Fosco">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Marca / Fabricante</label>
+                        <input type="text" id="filament-brand" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: Voolt3D / eSun">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Material</label>
+                        <select id="filament-material" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                            <option value="PLA">PLA</option>
+                            <option value="PETG">PETG</option>
+                            <option value="ABS">ABS</option>
+                            <option value="TPU">TPU (Flexível)</option>
+                            <option value="ASA">ASA</option>
+                            <option value="Resina">Resina UV</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Cor</label>
+                        <input type="text" id="filament-color" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Ex: Preto">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Peso do Carretel (Gramas)</label>
+                        <input type="number" id="filament-weight" step="50" min="1" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="1000">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Preço do Carretel (R$)</label>
+                        <input type="number" id="filament-price" step="1" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="95">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeFilamentModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-md shadow-blue-600/20">Salvar Filamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/parsers/threemf.js"></script>
+    <script src="/static/js/parsers/gcode.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
