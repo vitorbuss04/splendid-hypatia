@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     restart: always
     expose:
+      - "80"
       - "8000"
     environment:
       - APP_ENV=production
@@ -14,7 +15,7 @@ services:
     volumes:
       - app_data:/app/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || curl -f http://localhost:80/api/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

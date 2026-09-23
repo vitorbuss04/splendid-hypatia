@@ -12,10 +12,18 @@ from backend.config import APP_ENV
 # Initialize tables
 init_db()
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _start_dual_port_forwarder()
+    yield
+
 app = FastAPI(
     title="3D Print Cost Calculator & Quoting Engine",
     description="Calculadora Profissional e Sistema de Orçamentos para Impressão 3D",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS configuration
@@ -26,6 +34,56 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _start_dual_port_forwarder():
+    import socket
+    import threading
+
+    main_port = int(os.getenv("PORT", 8000))
+    alt_port = 80 if main_port != 80 else 8000
+
+    def forward(src, dst):
+        try:
+            while True:
+                data = src.recv(4096)
+                if not data:
+                    break
+                dst.sendall(data)
+        except Exception:
+            pass
+        finally:
+            try: src.close()
+            except Exception: pass
+            try: dst.close()
+            except Exception: pass
+
+    def handle_client(client_sock):
+        try:
+            target_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            target_sock.connect(('127.0.0.1', main_port))
+            t1 = threading.Thread(target=forward, args=(client_sock, target_sock), daemon=True)
+            t2 = threading.Thread(target=forward, args=(target_sock, client_sock), daemon=True)
+            t1.start()
+            t2.start()
+        except Exception:
+            try: client_sock.close()
+            except Exception: pass
+
+    def listen_loop():
+        try:
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server.bind(('0.0.0.0', alt_port))
+            server.listen(128)
+            while True:
+                client, _ = server.accept()
+                threading.Thread(target=handle_client, args=(client,), daemon=True).start()
+        except Exception:
+            # If unable to bind (e.g. non-root on local dev), silently pass
+            pass
+
+    threading.Thread(target=listen_loop, daemon=True).start()
 
 # Include routers
 app.include_router(auth_routes.router)
