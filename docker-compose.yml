@@ -1,15 +1,11 @@
-version: '3.8'
-
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: print3d-calculator:latest
-    container_name: print3d_calculator
     restart: always
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - APP_ENV=production
       - SECRET_KEY=${SECRET_KEY:-change_this_to_a_random_secure_secret_in_easypanel}
