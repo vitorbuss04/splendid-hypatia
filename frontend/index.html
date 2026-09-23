@@ -416,44 +416,44 @@
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Horas Modelagem CAD</label>
-                                        <input type="number" id="proj-cad-hours" step="0.1" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                        <input type="number" id="proj-cad-hours" step="any" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Taxa CAD (R$/h)</label>
-                                        <input type="number" id="proj-cad-rate" step="0.1" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="50">
+                                        <input type="number" id="proj-cad-rate" step="any" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="50">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Horas Pós-Processo</label>
-                                        <input type="number" id="proj-post-hours" step="0.1" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                        <input type="number" id="proj-post-hours" step="any" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Taxa Pós (R$/h)</label>
-                                        <input type="number" id="proj-post-rate" step="0.1" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="30">
+                                        <input type="number" id="proj-post-rate" step="any" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="30">
                                     </div>
                                 </div>
 
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-slate-800">
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Overhead / Indiretos (R$)</label>
-                                        <input type="number" id="proj-overhead" step="0.5" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                        <input type="number" id="proj-overhead" step="any" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Margem Lucro Alvo (%)</label>
-                                        <input type="number" id="proj-margin" step="0.5" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="30">
+                                        <input type="number" id="proj-margin" step="any" min="0" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="30">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Impostos / Taxas (%)</label>
-                                        <input type="number" id="proj-tax" step="0.5" min="0" max="99" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="6">
+                                        <input type="number" id="proj-tax" step="any" min="0" max="99" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="6">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Desconto Comercial (%)</label>
-                                        <input type="number" id="proj-discount" step="0.5" min="0" max="100" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                        <input type="number" id="proj-discount" step="any" min="0" max="100" oninput="recalcLiveSummary()" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
                                     </div>
                                 </div>
 
                                 <div class="pt-2">
                                     <label class="block text-xs font-medium text-slate-300 mb-1">Custo de Frete / Envio (R$)</label>
-                                    <input type="number" id="proj-shipping" step="0.5" min="0" oninput="recalcLiveSummary()" class="w-full max-w-xs px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
+                                    <input type="number" id="proj-shipping" step="any" min="0" oninput="recalcLiveSummary()" class="w-full max-w-xs px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0">
                                 </div>
 
                                 <div class="pt-2">
@@ -635,27 +635,27 @@
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Tarifa de Energia (R$/kWh)</label>
-                                        <input type="number" id="pref-energy" step="0.01" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                        <input type="number" id="pref-energy" step="any" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Margem de Lucro Alvo (%)</label>
-                                        <input type="number" id="pref-margin" step="0.5" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                        <input type="number" id="pref-margin" step="any" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Alíquota de Impostos (%)</label>
-                                        <input type="number" id="pref-tax" step="0.5" min="0" max="99" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                        <input type="number" id="pref-tax" step="any" min="0" max="99" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Margem de Falha Padrão (%)</label>
-                                        <input type="number" id="pref-failure" step="0.5" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                        <input type="number" id="pref-failure" step="any" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Taxa CAD Padrão (R$/h)</label>
-                                        <input type="number" id="pref-cad-rate" step="0.5" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                        <input type="number" id="pref-cad-rate" step="any" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-300 mb-1">Taxa Pós Padrão (R$/h)</label>
-                                        <input type="number" id="pref-post-rate" step="0.5" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+                                        <input type="number" id="pref-post-rate" step="any" min="0" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
                                     </div>
                                 </div>
                             </div>
@@ -695,23 +695,23 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Custo de Aquisição (R$)</label>
-                        <input type="number" id="printer-cost" step="10" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="4500">
+                        <input type="number" id="printer-cost" step="any" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="4500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Vida Útil Estimada (Horas)</label>
-                        <input type="number" id="printer-lifespan" step="100" min="1" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="5000">
+                        <input type="number" id="printer-lifespan" step="any" min="1" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="5000">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Potência Média (Watts)</label>
-                        <input type="number" id="printer-power" step="5" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="150">
+                        <input type="number" id="printer-power" step="any" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="150">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Reserva Manutenção (R$/h)</label>
-                        <input type="number" id="printer-maintenance" step="0.1" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="1.0">
+                        <input type="number" id="printer-maintenance" step="any" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="1.0">
                     </div>
                     <div class="sm:col-span-2">
                         <label class="block text-xs font-medium text-slate-300 mb-1">Tarifa de Energia Específica (R$/kWh)</label>
-                        <input type="number" id="printer-energy" step="0.01" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0.85">
+                        <input type="number" id="printer-energy" step="any" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="0.85">
                     </div>
                 </div>
 
@@ -763,11 +763,11 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Peso do Carretel (Gramas)</label>
-                        <input type="number" id="filament-weight" step="50" min="1" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="1000">
+                        <input type="number" id="filament-weight" step="any" min="1" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" value="1000">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Preço do Carretel (R$)</label>
-                        <input type="number" id="filament-price" step="1" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="95">
+                        <input type="number" id="filament-price" step="any" min="0" required class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="95.00">
                     </div>
                 </div>
 

@@ -20,6 +20,66 @@ function formatCurrency(val) {
     return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function parseLocaleFloat(val, fallback = 0) {
+    if (val === null || val === undefined || val === '') return fallback;
+    if (typeof val === 'number') return isNaN(val) ? fallback : val;
+
+    let str = String(val).trim();
+    // Strip non-numeric prefixes like R$, $, etc.
+    str = str.replace(/^[^\d\-+]+/, '');
+    if (!str) return fallback;
+
+    const lastDot = str.lastIndexOf('.');
+    const lastComma = str.lastIndexOf(',');
+    if (lastDot !== -1 && lastComma !== -1) {
+        if (lastComma > lastDot) {
+            // Brazilian format: 1.234,56 -> remove dots, replace comma with dot
+            str = str.replace(/\./g, '').replace(',', '.');
+        } else {
+            // US format: 1,234.56 -> remove commas
+            str = str.replace(/,/g, '');
+        }
+    } else if (lastComma !== -1) {
+        // Comma only (e.g. 56,50)
+        str = str.replace(',', '.');
+    }
+
+    const num = parseFloat(str);
+    return isNaN(num) ? fallback : num;
+}
+
+// Global enhancement for number inputs: ensure comma key works across all browser locales and paste handles Brazilian formats
+document.addEventListener('beforeinput', (e) => {
+    const target = e.target;
+    if (target && target.tagName === 'INPUT' && target.type === 'number') {
+        if (e.data === ',') {
+            e.preventDefault();
+            if (!target.value.includes('.')) {
+                if (!document.execCommand('insertText', false, '.')) {
+                    target.value += '.';
+                }
+                target.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    }
+});
+
+document.addEventListener('paste', (e) => {
+    const target = e.target;
+    if (target && target.tagName === 'INPUT' && target.type === 'number') {
+        const text = (e.clipboardData || window.clipboardData)?.getData('text');
+        if (text && (text.includes(',') || text.includes('R$') || text.includes('.'))) {
+            const val = parseLocaleFloat(text, null);
+            if (val !== null && !isNaN(val)) {
+                e.preventDefault();
+                target.value = val;
+                target.dispatchEvent(new Event('input', { bubbles: true }));
+                target.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+    }
+});
+
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -515,7 +575,7 @@ function renderPlates() {
                         <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded border border-slate-700/60">
                             <span class="text-[10px] text-amber-400 font-medium">Taxa manual:</span>
                             <span class="text-[10px] text-slate-400">R$</span>
-                            <input type="number" step="0.1" min="0" value="${plate.custom_printer_hourly_rate ?? 2.50}" oninput="state.currentPlates[${idx}].custom_printer_hourly_rate = parseFloat(this.value)||0; recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400" placeholder="2.50">
+                            <input type="number" step="any" min="0" value="${plate.custom_printer_hourly_rate ?? 2.50}" oninput="state.currentPlates[${idx}].custom_printer_hourly_rate = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400" placeholder="2.50">
                             <span class="text-[10px] text-slate-400">/h</span>
                         </div>
                     ` : ''}
@@ -535,7 +595,7 @@ function renderPlates() {
                         <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded border border-slate-700/60">
                             <span class="text-[10px] text-amber-400 font-medium">Custo manual:</span>
                             <span class="text-[10px] text-slate-400">R$</span>
-                            <input type="number" step="0.01" min="0" value="${plate.custom_filament_cost_per_g ?? 0.10}" oninput="state.currentPlates[${idx}].custom_filament_cost_per_g = parseFloat(this.value)||0; recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400" placeholder="0.10">
+                            <input type="number" step="any" min="0" value="${plate.custom_filament_cost_per_g ?? 0.10}" oninput="state.currentPlates[${idx}].custom_filament_cost_per_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400" placeholder="0.10">
                             <span class="text-[10px] text-slate-400">/g</span>
                         </div>
                     ` : ''}
@@ -546,19 +606,19 @@ function renderPlates() {
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2 border-t border-slate-800/80">
                 <div>
                     <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Tempo (Horas)</label>
-                    <input type="number" step="0.1" min="0" value="${plate.print_time_hours}" oninput="state.currentPlates[${idx}].print_time_hours = parseFloat(this.value)||0; recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
+                    <input type="number" step="any" min="0" value="${plate.print_time_hours}" oninput="state.currentPlates[${idx}].print_time_hours = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
                 </div>
                 <div>
                     <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Peso Peça (g)</label>
-                    <input type="number" step="1" min="0" value="${plate.part_weight_g}" oninput="state.currentPlates[${idx}].part_weight_g = parseFloat(this.value)||0; recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
+                    <input type="number" step="any" min="0" value="${plate.part_weight_g}" oninput="state.currentPlates[${idx}].part_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
                 </div>
                 <div>
                     <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Purga (g)</label>
-                    <input type="number" step="1" min="0" value="${plate.purge_weight_g}" oninput="state.currentPlates[${idx}].purge_weight_g = parseFloat(this.value)||0; recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
+                    <input type="number" step="any" min="0" value="${plate.purge_weight_g}" oninput="state.currentPlates[${idx}].purge_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
                 </div>
                 <div>
                     <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Falha (%)</label>
-                    <input type="number" step="1" min="0" value="${plate.failure_margin_percent}" oninput="state.currentPlates[${idx}].failure_margin_percent = parseFloat(this.value)||0; recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
+                    <input type="number" step="any" min="0" value="${plate.failure_margin_percent}" oninput="state.currentPlates[${idx}].failure_margin_percent = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
                 </div>
                 <div>
                     <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Qtd Cópias</label>
@@ -658,7 +718,7 @@ function renderBOM() {
                 <input type="number" min="1" step="1" value="${item.quantity}" oninput="state.currentBOM[${idx}].quantity = parseInt(this.value,10)||1; recalcLiveSummary();" placeholder="Qtd" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white text-center font-bold">
             </div>
             <div class="w-24">
-                <input type="number" min="0" step="0.01" value="${item.unit_cost}" oninput="state.currentBOM[${idx}].unit_cost = parseFloat(this.value)||0; recalcLiveSummary();" placeholder="R$ Unit" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white">
+                <input type="number" min="0" step="any" value="${item.unit_cost}" oninput="state.currentBOM[${idx}].unit_cost = parseLocaleFloat(this.value, 0); recalcLiveSummary();" placeholder="R$ Unit" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white">
             </div>
             <div class="w-24 text-right font-bold text-white" id="bom-subtotal-${idx}">
                 ${formatCurrency((item.quantity || 1) * (item.unit_cost || 0))}
@@ -697,7 +757,7 @@ function recalcLiveSummary() {
         if (filament && filament.spool_weight_g > 0) {
             costPerGram = filament.spool_price / filament.spool_weight_g;
         } else if (plate.custom_filament_cost_per_g != null) {
-            costPerGram = parseFloat(plate.custom_filament_cost_per_g) || 0;
+            costPerGram = parseLocaleFloat(plate.custom_filament_cost_per_g, 0);
         } else {
             costPerGram = 0.09; // fallback standard PLA
         }
@@ -707,7 +767,7 @@ function recalcLiveSummary() {
         if (printer) {
             machineHourlyRate = printer.machine_hourly_rate || 2.0;
         } else if (plate.custom_printer_hourly_rate != null) {
-            machineHourlyRate = parseFloat(plate.custom_printer_hourly_rate) || 0;
+            machineHourlyRate = parseLocaleFloat(plate.custom_printer_hourly_rate, 0);
         } else {
             machineHourlyRate = 2.0; // fallback standard rate
         }
@@ -750,25 +810,25 @@ function recalcLiveSummary() {
     });
 
     // 3. Labor costs
-    const cadHours = parseFloat(document.getElementById('proj-cad-hours')?.value || 0);
-    const cadRate = parseFloat(document.getElementById('proj-cad-rate')?.value || 50);
+    const cadHours = parseLocaleFloat(document.getElementById('proj-cad-hours')?.value, 0);
+    const cadRate = parseLocaleFloat(document.getElementById('proj-cad-rate')?.value, 50);
     const cadCost = cadHours * cadRate;
 
-    const postHours = parseFloat(document.getElementById('proj-post-hours')?.value || 0);
-    const postRate = parseFloat(document.getElementById('proj-post-rate')?.value || 30);
+    const postHours = parseLocaleFloat(document.getElementById('proj-post-hours')?.value, 0);
+    const postRate = parseLocaleFloat(document.getElementById('proj-post-rate')?.value, 30);
     const postCost = postHours * postRate;
 
     const totalLaborCost = cadCost + postCost;
 
     // 4. Overhead & Base Cost
-    const overheadCost = parseFloat(document.getElementById('proj-overhead')?.value || 0);
+    const overheadCost = parseLocaleFloat(document.getElementById('proj-overhead')?.value, 0);
     const baseCost = totalPlatesCost + totalBOMCost + totalLaborCost + overheadCost;
 
     // 5. Pricing, Margins, Taxes
-    const marginPercent = parseFloat(document.getElementById('proj-margin')?.value || 30);
-    const taxPercent = Math.min(99, parseFloat(document.getElementById('proj-tax')?.value || 6));
-    const discountPercent = Math.min(100, parseFloat(document.getElementById('proj-discount')?.value || 0));
-    const shippingCost = parseFloat(document.getElementById('proj-shipping')?.value || 0);
+    const marginPercent = parseLocaleFloat(document.getElementById('proj-margin')?.value, 30);
+    const taxPercent = Math.min(99, parseLocaleFloat(document.getElementById('proj-tax')?.value, 6));
+    const discountPercent = Math.min(100, parseLocaleFloat(document.getElementById('proj-discount')?.value, 0));
+    const shippingCost = parseLocaleFloat(document.getElementById('proj-shipping')?.value, 0);
 
     const taxDivisor = Math.max(0.01, 1.0 - (taxPercent / 100.0));
     const suggestedPrice = baseCost > 0 ? ((baseCost * (1.0 + (marginPercent / 100.0))) / taxDivisor) : 0;
@@ -819,34 +879,34 @@ async function saveCurrentProject() {
         client_email: document.getElementById('proj-client-email').value.trim(),
         client_phone: document.getElementById('proj-client-phone').value.trim(),
         status: document.getElementById('proj-status').value,
-        cad_hours: parseFloat(document.getElementById('proj-cad-hours').value) || 0,
-        cad_hourly_rate: parseFloat(document.getElementById('proj-cad-rate').value) || 0,
-        post_process_hours: parseFloat(document.getElementById('proj-post-hours').value) || 0,
-        post_process_hourly_rate: parseFloat(document.getElementById('proj-post-rate').value) || 0,
-        overhead_cost: parseFloat(document.getElementById('proj-overhead').value) || 0,
-        profit_margin_percent: parseFloat(document.getElementById('proj-margin').value) || 0,
-        tax_rate_percent: parseFloat(document.getElementById('proj-tax').value) || 0,
-        discount_percent: parseFloat(document.getElementById('proj-discount').value) || 0,
-        shipping_cost: parseFloat(document.getElementById('proj-shipping').value) || 0,
+        cad_hours: parseLocaleFloat(document.getElementById('proj-cad-hours').value, 0),
+        cad_hourly_rate: parseLocaleFloat(document.getElementById('proj-cad-rate').value, 0),
+        post_process_hours: parseLocaleFloat(document.getElementById('proj-post-hours').value, 0),
+        post_process_hourly_rate: parseLocaleFloat(document.getElementById('proj-post-rate').value, 0),
+        overhead_cost: parseLocaleFloat(document.getElementById('proj-overhead').value, 0),
+        profit_margin_percent: parseLocaleFloat(document.getElementById('proj-margin').value, 0),
+        tax_rate_percent: parseLocaleFloat(document.getElementById('proj-tax').value, 0),
+        discount_percent: parseLocaleFloat(document.getElementById('proj-discount').value, 0),
+        shipping_cost: parseLocaleFloat(document.getElementById('proj-shipping').value, 0),
         notes: document.getElementById('proj-notes').value.trim(),
         plates: state.currentPlates.map(p => ({
             name: p.name,
             printer_id: p.printer_id,
             filament_id: p.filament_id,
-            custom_printer_hourly_rate: p.custom_printer_hourly_rate,
-            custom_filament_cost_per_g: p.custom_filament_cost_per_g,
-            print_time_hours: p.print_time_hours,
-            part_weight_g: p.part_weight_g,
-            purge_weight_g: p.purge_weight_g,
-            failure_margin_percent: p.failure_margin_percent,
-            quantity: p.quantity,
+            custom_printer_hourly_rate: p.custom_printer_hourly_rate !== undefined ? parseLocaleFloat(p.custom_printer_hourly_rate, 0) : undefined,
+            custom_filament_cost_per_g: p.custom_filament_cost_per_g !== undefined ? parseLocaleFloat(p.custom_filament_cost_per_g, 0) : undefined,
+            print_time_hours: parseLocaleFloat(p.print_time_hours, 0),
+            part_weight_g: parseLocaleFloat(p.part_weight_g, 0),
+            purge_weight_g: parseLocaleFloat(p.purge_weight_g, 0),
+            failure_margin_percent: parseLocaleFloat(p.failure_margin_percent, 0),
+            quantity: parseInt(p.quantity, 10) || 1,
             notes: p.notes,
         })),
         bom_items: state.currentBOM.map(b => ({
             name: b.name,
             category: b.category,
-            quantity: b.quantity,
-            unit_cost: b.unit_cost,
+            quantity: parseInt(b.quantity, 10) || 1,
+            unit_cost: parseLocaleFloat(b.unit_cost, 0),
             notes: b.notes,
         })),
     };
@@ -1075,7 +1135,10 @@ async function handleSinglePlateFile(e, plateIdx) {
     }
 }
 
-// ================= PRINTERS CRUD =================
+function editPrinter(id) {
+    const printer = state.printers.find(p => p.id === id);
+    if (printer) openPrinterModal(printer);
+}
 
 function openPrinterModal(printer = null) {
     const modal = document.getElementById('modal-printer');
@@ -1116,11 +1179,11 @@ async function handleSavePrinter(e) {
     const payload = {
         name: document.getElementById('printer-name').value.trim(),
         model: document.getElementById('printer-model').value.trim(),
-        acquisition_cost: parseFloat(document.getElementById('printer-cost').value) || 0,
-        lifespan_hours: parseFloat(document.getElementById('printer-lifespan').value) || 5000,
-        avg_power_watts: parseFloat(document.getElementById('printer-power').value) || 150,
-        maintenance_cost_per_hour: parseFloat(document.getElementById('printer-maintenance').value) || 1.0,
-        energy_rate_kwh: parseFloat(document.getElementById('printer-energy').value) || 0.85,
+        acquisition_cost: parseLocaleFloat(document.getElementById('printer-cost').value, 0),
+        lifespan_hours: parseLocaleFloat(document.getElementById('printer-lifespan').value, 5000),
+        avg_power_watts: parseLocaleFloat(document.getElementById('printer-power').value, 150),
+        maintenance_cost_per_hour: parseLocaleFloat(document.getElementById('printer-maintenance').value, 1.0),
+        energy_rate_kwh: parseLocaleFloat(document.getElementById('printer-energy').value, 0.85),
     };
 
     try {
@@ -1181,7 +1244,7 @@ function renderPrintersGrid() {
                             <p class="text-xs text-slate-400">${p.model || 'FDM'}</p>
                         </div>
                         <div class="flex items-center gap-1">
-                            <button onclick='openPrinterModal(${JSON.stringify(p)})' class="p-1 text-slate-400 hover:text-white transition-colors" title="Editar">
+                            <button onclick="editPrinter(${p.id})" class="p-1 text-slate-400 hover:text-white transition-colors" title="Editar">
                                 <i data-lucide="edit-2" class="w-4 h-4"></i>
                             </button>
                             <button onclick="deletePrinter(${p.id})" class="p-1 text-slate-400 hover:text-red-400 transition-colors" title="Excluir">
@@ -1225,7 +1288,10 @@ function renderPrintersGrid() {
     refreshIcons();
 }
 
-// ================= FILAMENTS CRUD =================
+function editFilament(id) {
+    const filament = state.filaments.find(f => f.id === id);
+    if (filament) openFilamentModal(filament);
+}
 
 function openFilamentModal(filament = null) {
     const modal = document.getElementById('modal-filament');
@@ -1249,7 +1315,7 @@ function openFilamentModal(filament = null) {
         document.getElementById('filament-material').value = 'PLA';
         document.getElementById('filament-color').value = '';
         document.getElementById('filament-weight').value = '1000';
-        document.getElementById('filament-price').value = '90';
+        document.getElementById('filament-price').value = '95.00';
     }
     refreshIcons();
 }
@@ -1266,8 +1332,8 @@ async function handleSaveFilament(e) {
         brand: document.getElementById('filament-brand').value.trim(),
         material: document.getElementById('filament-material').value,
         color: document.getElementById('filament-color').value.trim(),
-        spool_weight_g: parseFloat(document.getElementById('filament-weight').value) || 1000,
-        spool_price: parseFloat(document.getElementById('filament-price').value) || 90,
+        spool_weight_g: parseLocaleFloat(document.getElementById('filament-weight').value, 1000),
+        spool_price: parseLocaleFloat(document.getElementById('filament-price').value, 90),
     };
 
     try {
@@ -1333,7 +1399,7 @@ function renderFilamentsGrid() {
                             <p class="text-xs text-slate-400 mt-1">${f.brand || 'Genérico'} • ${f.color || 'Cor padrão'}</p>
                         </div>
                         <div class="flex items-center gap-1">
-                            <button onclick='openFilamentModal(${JSON.stringify(f)})' class="p-1 text-slate-400 hover:text-white transition-colors" title="Editar">
+                            <button onclick="editFilament(${f.id})" class="p-1 text-slate-400 hover:text-white transition-colors" title="Editar">
                                 <i data-lucide="edit-2" class="w-4 h-4"></i>
                             </button>
                             <button onclick="deleteFilament(${f.id})" class="p-1 text-slate-400 hover:text-red-400 transition-colors" title="Excluir">
@@ -1386,12 +1452,12 @@ async function handleSavePreferences(e) {
         full_name: document.getElementById('pref-fullname').value.trim(),
         phone: document.getElementById('pref-phone').value.trim(),
         pix_key: document.getElementById('pref-pix').value.trim(),
-        default_energy_rate: parseFloat(document.getElementById('pref-energy').value) || 0.85,
-        default_profit_margin: parseFloat(document.getElementById('pref-margin').value) || 30,
-        default_tax_rate: parseFloat(document.getElementById('pref-tax').value) || 6,
-        default_failure_rate: parseFloat(document.getElementById('pref-failure').value) || 10,
-        default_cad_rate: parseFloat(document.getElementById('pref-cad-rate').value) || 50,
-        default_post_rate: parseFloat(document.getElementById('pref-post-rate').value) || 30,
+        default_energy_rate: parseLocaleFloat(document.getElementById('pref-energy').value, 0.85),
+        default_profit_margin: parseLocaleFloat(document.getElementById('pref-margin').value, 30),
+        default_tax_rate: parseLocaleFloat(document.getElementById('pref-tax').value, 6),
+        default_failure_rate: parseLocaleFloat(document.getElementById('pref-failure').value, 10),
+        default_cad_rate: parseLocaleFloat(document.getElementById('pref-cad-rate').value, 50),
+        default_post_rate: parseLocaleFloat(document.getElementById('pref-post-rate').value, 30),
     };
 
     try {

@@ -391,3 +391,179 @@ def test_auth_case_insensitive_email(client):
     assert login_resp.status_code == 200
     assert "access_token" in login_resp.json()
 
+
+def test_filament_feedback_decimal_price_and_weights(client, make_user):
+    """
+    Validates user feedback:
+    - Filament spool price accepts cents/decimals (e.g. R$ 56.50)
+    - Filament spool weight accepts both standard 1000g and odd values (1001g) or custom weights
+    """
+    user = make_user(email="filament_decimal@example.com")
+    headers = user["headers"]
+
+    # Test 1: Spool price with cents (56.50) and round weight 1000g
+    resp1 = client.post("/api/filaments", json={
+        "name": "PLA Amarelo Canário",
+        "brand": "Voolt3D",
+        "material": "PLA",
+        "color": "Amarelo",
+        "spool_weight_g": 1000.0,
+        "spool_price": 56.50,
+    }, headers=headers)
+    assert resp1.status_code == 201
+    f1 = resp1.json()
+    assert f1["spool_price"] == 56.50
+    assert f1["spool_weight_g"] == 1000.0
+    assert f1["cost_per_gram"] == 0.0565
+
+    # Test 2: Odd weight 1001g and decimal price 89.90
+    resp2 = client.post("/api/filaments", json={
+        "name": "PLA Branco Puro",
+        "brand": "eSun",
+        "material": "PLA",
+        "color": "Branco",
+        "spool_weight_g": 1001.0,
+        "spool_price": 89.90,
+    }, headers=headers)
+    assert resp2.status_code == 201
+    f2 = resp2.json()
+    assert f2["spool_weight_g"] == 1001.0
+    assert f2["spool_price"] == 89.90
+    assert f2["cost_per_gram"] == round(89.90 / 1001.0, 4)
+
+    # Test 3: Sample spool 250g with cents 32.75
+    resp3 = client.post("/api/filaments", json={
+        "name": "TPU Flex Azul",
+        "brand": "Suntop",
+        "material": "TPU",
+        "color": "Azul",
+        "spool_weight_g": 250.0,
+        "spool_price": 32.75,
+    }, headers=headers)
+    assert resp3.status_code == 201
+    f3 = resp3.json()
+    assert f3["spool_weight_g"] == 250.0
+    assert f3["spool_price"] == 32.75
+    assert f3["cost_per_gram"] == round(32.75 / 250.0, 4)
+
+
+def test_printer_feedback_lifespan_and_decimal_cost(client, make_user):
+    """
+    Validates user feedback:
+    - Printer lifespan accepts standard 5000h, odd hours, or any positive number
+    - Acquisition cost accepts decimal currency values (e.g. 3499.90)
+    """
+    user = make_user(email="printer_lifespan@example.com")
+    headers = user["headers"]
+
+    # Test 1: Standard 5000h lifespan and 3499.90 acquisition cost
+    resp1 = client.post("/api/printers", json={
+        "name": "Creality K1 Max",
+        "model": "CoreXY 300x300",
+        "acquisition_cost": 3499.90,
+        "lifespan_hours": 5000.0,
+        "avg_power_watts": 180.0,
+        "maintenance_cost_per_hour": 1.25,
+        "energy_rate_kwh": 0.85,
+    }, headers=headers)
+    assert resp1.status_code == 201
+    p1 = resp1.json()
+    assert p1["lifespan_hours"] == 5000.0
+    assert p1["acquisition_cost"] == 3499.90
+    expected_deprec = round(3499.90 / 5000.0, 4)
+    assert p1["rates_breakdown"]["depreciation_per_hour"] == expected_deprec
+
+    # Test 2: Odd lifespan 5001h
+    resp2 = client.post("/api/printers", json={
+        "name": "Bambu Lab A1 Mini",
+        "model": "Bedslinger 180x180",
+        "acquisition_cost": 1999.00,
+        "lifespan_hours": 5001.0,
+        "avg_power_watts": 80.0,
+        "maintenance_cost_per_hour": 0.50,
+        "energy_rate_kwh": 0.85,
+    }, headers=headers)
+    assert resp2.status_code == 201
+    p2 = resp2.json()
+    assert p2["lifespan_hours"] == 5001.0
+
+
+def test_filament_and_printer_updates_with_feedback_values(client, make_user):
+    """
+    Validates that updating existing filaments and printers accepts
+    decimal spool prices, standard/odd weights, and standard/odd lifespan hours.
+    """
+    user = make_user(email="update_feedback@example.com")
+    headers = user["headers"]
+
+    # 1. Create initial filament
+    f_res = client.post("/api/filaments", json={
+        "name": "Filamento Inicial",
+        "spool_weight_g": 1000.0,
+        "spool_price": 90.0,
+    }, headers=headers)
+    assert f_res.status_code == 201
+    f_id = f_res.json()["id"]
+
+    # Update to decimal price 56.50
+    up_f = client.put(f"/api/filaments/{f_id}", json={
+        "spool_price": 56.50,
+        "spool_weight_g": 1000.0,
+    }, headers=headers)
+    assert up_f.status_code == 200
+    assert up_f.json()["spool_price"] == 56.50
+    assert up_f.json()["spool_weight_g"] == 1000.0
+    assert up_f.json()["cost_per_gram"] == 0.0565
+
+    # 2. Create initial printer
+    p_res = client.post("/api/printers", json={
+        "name": "Impressora Inicial",
+        "acquisition_cost": 3000.0,
+        "lifespan_hours": 4000.0,
+    }, headers=headers)
+    assert p_res.status_code == 201
+    p_id = p_res.json()["id"]
+
+    # Update to standard 5000h lifespan and decimal cost 3499.90
+    up_p = client.put(f"/api/printers/{p_id}", json={
+        "acquisition_cost": 3499.90,
+        "lifespan_hours": 5000.0,
+    }, headers=headers)
+    assert up_p.status_code == 200
+    assert up_p.json()["acquisition_cost"] == 3499.90
+    assert up_p.json()["lifespan_hours"] == 5000.0
+
+    # 3. Create project with this filament & printer, verify calculation & PDF export
+    proj_res = client.post("/api/projects", json={
+        "name": "Projeto com Filamento Feedback",
+        "client_name": "Cliente Feedback",
+        "plates": [
+            {
+                "name": "Placa 1",
+                "printer_id": p_id,
+                "filament_id": f_id,
+                "print_time_hours": 4.0,
+                "part_weight_g": 150.0,
+                "purge_weight_g": 10.0,
+                "failure_margin_percent": 10.0,
+                "quantity": 1,
+            }
+        ]
+    }, headers=headers)
+    assert proj_res.status_code == 201
+    proj = proj_res.json()
+    proj_id = proj["id"]
+    summary = proj["summary"]
+    # Check effective filament cost: (150+10)*1.1 = 176g * 0.0565 = 9.944 -> 9.94
+    assert summary["total_filament_weight_g"] == 160.0
+    assert summary["total_effective_filament_weight_g"] == 176.0
+    assert summary["total_material_cost"] == round(176.0 * 0.0565, 2)
+
+    # PDF download should succeed without float formatting errors
+    pdf_resp = client.get(f"/api/projects/{proj_id}/pdf?type=client", headers=headers)
+    assert pdf_resp.status_code == 200
+    assert pdf_resp.headers["content-type"] == "application/pdf"
+    assert len(pdf_resp.content) > 1000
+
+
+
