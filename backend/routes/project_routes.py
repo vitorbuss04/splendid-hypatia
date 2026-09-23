@@ -208,6 +208,7 @@ def duplicate_project(
         tax_rate_percent=orig.tax_rate_percent,
         discount_percent=orig.discount_percent,
         shipping_cost=orig.shipping_cost,
+        delivery_days=orig.delivery_days,
         notes=orig.notes,
     )
     db.add(cloned)

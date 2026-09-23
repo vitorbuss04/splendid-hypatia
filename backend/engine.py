@@ -242,10 +242,19 @@ def calculate_project_summary(
     base_cost = total_plates_cost + total_bom_cost + total_labor_cost + overhead_cost
 
     # 5. Pricing, Margins and Taxes
-    profit_margin_percent = max(0.0, float(get_attr(project, "profit_margin_percent", 30.0) or 0.0))
-    tax_rate_percent = max(0.0, min(99.0, float(get_attr(project, "tax_rate_percent", 6.0) or 0.0)))
-    discount_percent = max(0.0, min(100.0, float(get_attr(project, "discount_percent", 0.0) or 0.0)))
-    shipping_cost = max(0.0, float(get_attr(project, "shipping_cost", 0.0) or 0.0))
+    def _get_val(attr, default):
+        val = get_attr(project, attr, default)
+        if val is None:
+            return default
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
+    profit_margin_percent = max(0.0, _get_val("profit_margin_percent", 30.0))
+    tax_rate_percent = max(0.0, min(99.0, _get_val("tax_rate_percent", 6.0)))
+    discount_percent = max(0.0, min(100.0, _get_val("discount_percent", 0.0)))
+    shipping_cost = max(0.0, _get_val("shipping_cost", 0.0))
 
     # Mathematical formula from user requirement:
     # Final Selling Price = (Base Cost * (1 + profit_margin%)) / (1 - tax_rate%)

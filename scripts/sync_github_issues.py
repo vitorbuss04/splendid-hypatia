@@ -186,6 +186,67 @@ Ao invés de efetuar o download forçado e imediato do orçamento ao clicar, o s
 3. Atualizados os métodos `API.pdf.preview()` e `exportCurrentPdf()` em `frontend/js/app.js` e botões da interface em `frontend/index.html`.
 4. Coberto por testes em `tests/test_api.py` e `tests/test_frontend_inputs.py`.""",
         "comment": "Resolvido e testado com suíte de testes."
+    },
+    {
+        "number": 12,
+        "title": "[BUG] Edição de orçamento reseta campo Impostos / Taxas para 6% quando definido como 0%",
+        "labels": ["bug", "frontend", "financial", "ux"],
+        "body": """### Descrição do Problema
+Ao editar um orçamento salvo com alíquota de impostos de 0%, o campo "Impostos / Taxas (%)" no formulário de edição voltava indevidamente para o valor padrão de 6%, recalculando os valores comerciais de forma equivocada.
+
+### Causa Raiz
+No arquivo `frontend/js/app.js`, a função `editProject` utilizava o operador lógico OR (`||`) para carregar o valor no formulário:
+`document.getElementById('proj-tax').value = proj.tax_rate_percent || 6;`
+Como `0` é avaliado como falso em JavaScript (`0 || 6 === 6`), a alíquota zero era sempre substituída por 6. O mesmo ocorria nas preferências (`populateSettingsForm`) e na inicialização (`initNewProject`).
+
+### Solução Implementada
+1. No arquivo `frontend/js/app.js`:
+   - Substituído `||` pelo operador de coalescência nula (`??`) em `editProject`:
+     `proj.tax_rate_percent ?? 6`, `proj.profit_margin_percent ?? 30`, `proj.cad_hourly_rate ?? 50`, `proj.post_process_hourly_rate ?? 30`, etc.
+   - Atualizados `initNewProject`, `populateSettingsForm`, `openPrinterModal` e `createDefaultPlate` para preservar valores `0`.
+   - Ajustado fallback em `recalcLiveSummary()` para `0%`.
+2. No backend (`backend/engine.py` e `backend/routes/project_routes.py`):
+   - Função de extração de atributos protegida contra `None` vs `0.0`.
+   - Preservação do campo `delivery_days` na duplicação de projetos.
+3. Adicionados testes automatizados:
+   - `tests/test_api.py`: `test_project_zero_tax_rate_and_preservation`
+   - `tests/test_frontend_inputs.py`: `test_edit_project_preserves_zero_tax_rate_and_nullish_coalescing` (incluindo teste com navegador Chrome headless real).""",
+        "comment": "Resolvido com substituição por operador nullish coalescing (??) no frontend e engine protegida no backend. Verificado com 45 testes automatizados no pytest e navegador headless Chrome."
+    },
+    {
+        "number": 13,
+        "title": "[FEAT] Mudar a posição do botão \"Nova Placa\" para a parte de baixo",
+        "labels": ["enhancement", "frontend", "ux"],
+        "body": """### Descrição da Solicitação
+Na calculadora de orçamentos, o botão "Nova Placa" encontrava-se posicionado no cabeçalho superior da seção "Placas Impressas", enquanto as novas placas criadas eram adicionadas no final da lista. Quando um projeto continha múltiplas placas, o usuário era obrigado a rolar até o topo da tela para clicar no botão e depois descer até o rodapé para editar a placa adicionada.
+
+### Solução Implementada
+1. No arquivo `frontend/index.html`:
+   - Removido o botão de adição do topo do card de "Placas Impressas".
+   - Inserido botão proeminente `#btn-add-plate-bottom` imediatamente abaixo do container de placas (`#plates-container`), com largura total e estilo tracejado integrado.
+2. No arquivo `frontend/js/app.js`:
+   - Na função `addNewPlateRow()`, adicionada rolagem suave automática (`scrollIntoView`) para a nova placa adicionada.
+3. Coberto por testes em `tests/test_frontend_inputs.py` (`test_nova_placa_button_at_bottom`).""",
+        "comment": "Resolvido e verificado com testes automatizados: botão reposicionado abaixo do container de placas com rolagem automática suave."
+    },
+    {
+        "number": 14,
+        "title": "[FEAT] Suporte à leitura e importação de arquivos .gcode.3mf",
+        "labels": ["enhancement", "parsers", "frontend"],
+        "body": """### Descrição da Solicitação
+Fatiadores modernos como Bambu Studio e OrcaSlicer frequentemente exportam arquivos fatiados com a extensão composta `.gcode.3mf`. A plataforma aceitava apenas `.3mf` ou `.gcode`, impedindo a seleção ou importação direta desse formato comum.
+
+### Solução Implementada
+1. No arquivo `frontend/index.html`:
+   - Atualizados os atributos de upload para `accept=\".3mf,.gcode,.gcode.3mf\"` no dropzone híbrido e cards de placas.
+   - Atualizada a identidade visual e textos informativos do dropzone.
+2. No arquivo `frontend/js/parsers/threemf.js`:
+   - Implementado suporte a pacotes ZIP contendo arquivos G-code embutidos (`Metadata/plate_*.gcode`), extraindo metadados de impressão (tempo estimado, massa de filamento e polímero).
+   - Adicionado fallback resiliente para decodificação como texto caso o arquivo contenha código G-code puro.
+3. No arquivo `frontend/js/app.js`:
+   - Atualizados `handleSlicerFile` e `handleSinglePlateFile` para processar e reconhecer `.gcode.3mf`.
+4. Coberto por testes automatizados em `tests/test_parsers.py` e `tests/test_frontend_inputs.py`.""",
+        "comment": "Resolvido e verificado com testes automatizados: suporte completo a .gcode.3mf com leitura de metadados e G-code embutido."
     }
 ]
 
@@ -257,6 +318,20 @@ def sync():
             }
             updated = api_request(f"{API_BASE}/issues/{target_num}", method="PATCH", data=patch_data, token=token)
             print(f"  -> Issue #{target_num} atualizada e fechada como resolvida: {updated['html_url']}")
+
+            # Check if resolution comment already exists
+            try:
+                comments = api_request(f"{API_BASE}/issues/{target_num}/comments", token=token)
+                has_comment = any("Resolvido" in (c.get("body") or "") for c in comments)
+            except Exception:
+                has_comment = False
+
+            if not has_comment:
+                comment_data = {
+                    "body": f"✅ **Resolvido**: {item['comment']}"
+                }
+                api_request(f"{API_BASE}/issues/{target_num}/comments", method="POST", data=comment_data, token=token)
+                print(f"  -> Comentário de resolução publicado na Issue #{target_num}!")
         else:
             # Create issue
             print(f"Criando Issue: {item['title']}...")

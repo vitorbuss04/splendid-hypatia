@@ -287,4 +287,158 @@ def test_new_feedback_frontend_elements():
     assert "plate-time-m-" in js_content, "Minutes input ID prefix must be present"
 
 
+def test_edit_project_preserves_zero_tax_rate_and_nullish_coalescing(tmp_path):
+    """
+    Verifies that editProject and settings populate numeric values using nullish
+    coalescing (??) instead of logical OR (||) so that 0 (e.g. 0% tax) does not
+    get coerced back to 6%.
+    """
+    app_js_path = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    assert app_js_path.exists()
+    content = app_js_path.read_text(encoding="utf-8")
+
+    # Ensure editProject uses proj.tax_rate_percent ?? 6 and NOT proj.tax_rate_percent || 6
+    assert "proj.tax_rate_percent ?? 6" in content, "Must use ?? for tax_rate_percent in editProject"
+    assert "proj.tax_rate_percent || 6" not in content, "Must not use || for tax_rate_percent in editProject"
+
+    # Ensure initNewProject uses u.default_tax_rate ?? 6
+    assert "u.default_tax_rate ?? 6" in content, "Must use ?? for default_tax_rate in initNewProject"
+
+    # Ensure populateSettingsForm uses u.default_tax_rate ?? 6
+    assert "document.getElementById('pref-tax').value = u.default_tax_rate ?? 6;" in content
+
+    # Test via Headless Browser: run editProject with tax_rate_percent = 0
+    import subprocess
+    import shutil
+
+    chrome_candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        shutil.which("google-chrome"),
+        shutil.which("chromium"),
+        shutil.which("chrome"),
+    ]
+    browser = None
+    for c in chrome_candidates:
+        if c and Path(c).exists():
+            browser = c
+            break
+
+    if not browser:
+        return
+
+    html_test = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<span id="editor-project-title"></span>
+<span id="editor-project-subtitle"></span>
+<input id="proj-name">
+<input id="proj-client-name">
+<input id="proj-client-email">
+<input id="proj-client-phone">
+<select id="proj-status"><option value="draft">draft</option></select>
+<input id="proj-cad-hours">
+<input id="proj-cad-rate">
+<input id="proj-post-hours">
+<input id="proj-post-rate">
+<input id="proj-overhead">
+<input id="proj-margin">
+<input id="proj-tax">
+<input id="proj-discount">
+<input id="proj-shipping">
+<input id="proj-delivery-days">
+<textarea id="proj-notes"></textarea>
+<div id="plates-container"></div>
+<div id="bom-container"></div>
+<div id="test-result"></div>
+
+<script>
+window.lucide = {{ createIcons: () => {{}} }};
+window.API = {{
+    getToken: () => null,
+    projects: {{
+        get: async (id) => ({{
+            id: id,
+            name: "Projeto 0% Imposto",
+            client_name: "Cliente Teste",
+            tax_rate_percent: 0,
+            profit_margin_percent: 0,
+            cad_hourly_rate: 0,
+            post_process_hourly_rate: 0,
+            delivery_days: 7,
+            plates: [],
+            bom_items: []
+        }})
+    }}
+}};
+window.renderPlates = () => {{}};
+window.renderBOM = () => {{}};
+window.navigateTo = () => {{}};
+</script>
+<script src="file:///{app_js_path.resolve().as_posix()}"></script>
+<script>
+window.addEventListener('DOMContentLoaded', async () => {{
+    await editProject(42);
+    const taxVal = document.getElementById('proj-tax').value;
+    const marginVal = document.getElementById('proj-margin').value;
+    const deliveryVal = document.getElementById('proj-delivery-days').value;
+    document.getElementById('test-result').textContent = `TAX:[${{taxVal}}] MARGIN:[${{marginVal}}] DELIVERY:[${{deliveryVal}}]`;
+}});
+</script>
+</body>
+</html>"""
+    test_html_file = tmp_path / "browser_edit_test.html"
+    test_html_file.write_text(html_test, encoding="utf-8")
+
+    proc = subprocess.run(
+        [browser, "--headless=new", "--disable-gpu", "--dump-dom", f"file:///{test_html_file.resolve().as_posix()}"],
+        capture_output=True,
+        text=True,
+        timeout=15
+    )
+    dom_output = proc.stdout
+    assert "TAX:[0]" in dom_output, f"Tax value in editProject was not 0! Dom: {dom_output}"
+    assert "MARGIN:[0]" in dom_output, f"Margin value in editProject was not 0! Dom: {dom_output}"
+    assert "DELIVERY:[7]" in dom_output, f"Delivery days was not 7! Dom: {dom_output}"
+
+
+def test_nova_placa_button_at_bottom():
+    """
+    Verifies that the 'Nova Placa' button is positioned below #plates-container
+    (addressing Issue #13) so users don't need to scroll up to add plates.
+    """
+    html_file = Path(__file__).parent.parent / "frontend" / "index.html"
+    content = html_file.read_text(encoding="utf-8")
+
+    assert 'id="btn-add-plate-bottom"' in content, "Button #btn-add-plate-bottom must exist"
+    assert 'onclick="addNewPlateRow()"' in content, "Must trigger addNewPlateRow"
+
+    plates_idx = content.find('id="plates-container"')
+    button_idx = content.find('id="btn-add-plate-bottom"')
+
+    assert plates_idx != -1, "plates-container must exist"
+    assert button_idx != -1, "btn-add-plate-bottom must exist"
+    assert button_idx > plates_idx, "btn-add-plate-bottom must appear AFTER plates-container in DOM"
+
+
+def test_gcode_3mf_file_input_and_parser_support():
+    """
+    Verifies that the platform accepts and parses .gcode.3mf files (addressing Issue #14).
+    """
+    html_file = Path(__file__).parent.parent / "frontend" / "index.html"
+    html_content = html_file.read_text(encoding="utf-8")
+    assert ".gcode.3mf" in html_content, "index.html must accept .gcode.3mf in file inputs or dropzone"
+
+    app_js = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    js_content = app_js.read_text(encoding="utf-8")
+    assert ".gcode.3mf" in js_content, "app.js must handle .gcode.3mf files"
+
+    threemf_js = Path(__file__).parent.parent / "frontend" / "js" / "parsers" / "threemf.js"
+    parser_content = threemf_js.read_text(encoding="utf-8")
+    assert ".gcode" in parser_content, "threemf.js must handle embedded .gcode in .gcode.3mf"
+
+
+
+
 

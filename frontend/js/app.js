@@ -501,12 +501,12 @@ function openNewProject() {
     document.getElementById('proj-client-phone').value = '';
     document.getElementById('proj-status').value = 'draft';
     document.getElementById('proj-cad-hours').value = '0';
-    document.getElementById('proj-cad-rate').value = u.default_cad_rate || '50';
+    document.getElementById('proj-cad-rate').value = u.default_cad_rate ?? 50;
     document.getElementById('proj-post-hours').value = '0';
-    document.getElementById('proj-post-rate').value = u.default_post_rate || '30';
+    document.getElementById('proj-post-rate').value = u.default_post_rate ?? 30;
     document.getElementById('proj-overhead').value = '0';
-    document.getElementById('proj-margin').value = u.default_profit_margin || '30';
-    document.getElementById('proj-tax').value = u.default_tax_rate || '6';
+    document.getElementById('proj-margin').value = u.default_profit_margin ?? 30;
+    document.getElementById('proj-tax').value = u.default_tax_rate ?? 6;
     document.getElementById('proj-discount').value = '0';
     document.getElementById('proj-shipping').value = '0';
     document.getElementById('proj-delivery-days').value = '3';
@@ -532,15 +532,15 @@ async function editProject(id) {
         document.getElementById('proj-client-email').value = proj.client_email || '';
         document.getElementById('proj-client-phone').value = proj.client_phone || '';
         document.getElementById('proj-status').value = proj.status || 'draft';
-        document.getElementById('proj-cad-hours').value = proj.cad_hours || 0;
-        document.getElementById('proj-cad-rate').value = proj.cad_hourly_rate || 50;
-        document.getElementById('proj-post-hours').value = proj.post_process_hours || 0;
-        document.getElementById('proj-post-rate').value = proj.post_process_hourly_rate || 30;
-        document.getElementById('proj-overhead').value = proj.overhead_cost || 0;
-        document.getElementById('proj-margin').value = proj.profit_margin_percent || 30;
-        document.getElementById('proj-tax').value = proj.tax_rate_percent || 6;
-        document.getElementById('proj-discount').value = proj.discount_percent || 0;
-        document.getElementById('proj-shipping').value = proj.shipping_cost || 0;
+        document.getElementById('proj-cad-hours').value = proj.cad_hours ?? 0;
+        document.getElementById('proj-cad-rate').value = proj.cad_hourly_rate ?? 50;
+        document.getElementById('proj-post-hours').value = proj.post_process_hours ?? 0;
+        document.getElementById('proj-post-rate').value = proj.post_process_hourly_rate ?? 30;
+        document.getElementById('proj-overhead').value = proj.overhead_cost ?? 0;
+        document.getElementById('proj-margin').value = proj.profit_margin_percent ?? 30;
+        document.getElementById('proj-tax').value = proj.tax_rate_percent ?? 6;
+        document.getElementById('proj-discount').value = proj.discount_percent ?? 0;
+        document.getElementById('proj-shipping').value = proj.shipping_cost ?? 0;
         document.getElementById('proj-delivery-days').value = proj.delivery_days ?? 3;
         document.getElementById('proj-notes').value = proj.notes || '';
 
@@ -566,7 +566,7 @@ function createDefaultPlate(idx = 1) {
         print_time_hours: 0,
         part_weight_g: 0,
         purge_weight_g: 0,
-        failure_margin_percent: (state.user && state.user.default_failure_rate) || 10,
+        failure_margin_percent: (state.user?.default_failure_rate ?? 10),
         quantity: 1,
         notes: '',
     };
@@ -577,6 +577,10 @@ function addNewPlateRow() {
     state.currentPlates.push(createDefaultPlate(idx));
     renderPlates();
     recalcLiveSummary();
+    const container = document.getElementById('plates-container');
+    if (container && container.lastElementChild) {
+        container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 }
 
 function removePlateRow(index) {
@@ -619,9 +623,9 @@ function renderPlates() {
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <label class="cursor-pointer px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium border border-slate-700 flex items-center gap-1 transition-colors" title="Carregar 3MF ou Gcode especificamente nesta placa">
+                    <label class="cursor-pointer px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium border border-slate-700 flex items-center gap-1 transition-colors" title="Carregar 3MF, Gcode ou .gcode.3mf especificamente nesta placa">
                         <i data-lucide="upload" class="w-3 h-3 text-blue-400"></i> Importar 3MF/Gcode
-                        <input type="file" accept=".3mf,.gcode" class="hidden" onchange="handleSinglePlateFile(event, ${idx})">
+                        <input type="file" accept=".3mf,.gcode,.gcode.3mf" class="hidden" onchange="handleSinglePlateFile(event, ${idx})">
                     </label>
                     <button type="button" onclick="removePlateRow(${idx})" class="p-1 text-slate-400 hover:text-red-400 transition-colors" title="Remover Placa">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -913,7 +917,7 @@ function recalcLiveSummary() {
 
     // 5. Pricing, Margins, Taxes
     const marginPercent = parseLocaleFloat(document.getElementById('proj-margin')?.value, 30);
-    const taxPercent = Math.min(99, parseLocaleFloat(document.getElementById('proj-tax')?.value, 6));
+    const taxPercent = Math.min(99, parseLocaleFloat(document.getElementById('proj-tax')?.value, 0));
     const discountPercent = Math.min(100, parseLocaleFloat(document.getElementById('proj-discount')?.value, 0));
     const shippingCost = parseLocaleFloat(document.getElementById('proj-shipping')?.value, 0);
 
@@ -1100,7 +1104,7 @@ async function handleSlicerFile(file) {
     showToast(`Processando metadados de ${file.name}...`, 'info');
 
     try {
-        if (name.endsWith('.3mf')) {
+        if (name.endsWith('.3mf') || name.endsWith('.gcode.3mf')) {
             const extractedPlates = await parse3mfMetadata(file);
             if (extractedPlates && extractedPlates.length > 0) {
                 const defaultPrinter = state.printers[0] || null;
@@ -1131,7 +1135,7 @@ async function handleSlicerFile(file) {
                         p.custom_filament_cost_per_g = 0.10;
                     }
 
-                    p.failure_margin_percent = (state.user && state.user.default_failure_rate) || 10;
+                    p.failure_margin_percent = (state.user?.default_failure_rate ?? 10);
                     p.quantity = p.quantity || 1;
                     p.notes = p.notes || '';
                 });
@@ -1142,13 +1146,14 @@ async function handleSlicerFile(file) {
                 } else {
                     state.currentPlates = [...state.currentPlates, ...extractedPlates];
                 }
-                showToast(`Arquivo 3MF lido! ${extractedPlates.length} placa(s) adicionada(s).`, 'success');
+                const fileTypeLabel = name.endsWith('.gcode.3mf') ? '.gcode.3mf' : '3MF';
+                showToast(`Arquivo ${fileTypeLabel} lido! ${extractedPlates.length} placa(s) adicionada(s).`, 'success');
             }
         } else if (name.endsWith('.gcode')) {
             const text = await file.text();
             const meta = parseGcodeMetadata(text);
             const newPlate = createDefaultPlate(state.currentPlates.length + 1);
-            newPlate.name = file.name.replace(/\.gcode$/i, '');
+            newPlate.name = file.name.replace(/\.(?:gcode\.3mf|3mf|gcode)$/i, '');
             newPlate.print_time_hours = meta.print_time_hours;
             newPlate.part_weight_g = meta.part_weight_g;
 
@@ -1184,7 +1189,7 @@ async function handleSinglePlateFile(e, plateIdx) {
 
     try {
         const name = file.name.toLowerCase();
-        if (name.endsWith('.3mf')) {
+        if (name.endsWith('.3mf') || name.endsWith('.gcode.3mf')) {
             const plates = await parse3mfMetadata(file);
             if (plates.length > 0) {
                 state.currentPlates[plateIdx].print_time_hours = plates[0].print_time_hours;
@@ -1200,7 +1205,8 @@ async function handleSinglePlateFile(e, plateIdx) {
                     }
                 }
 
-                showToast(`Placa atualizada com dados do 3MF!`, 'success');
+                const fileTypeLabel = name.endsWith('.gcode.3mf') ? '.gcode.3mf' : '3MF';
+                showToast(`Placa atualizada com dados do ${fileTypeLabel}!`, 'success');
             }
         } else if (name.endsWith('.gcode')) {
             const text = await file.text();
@@ -1254,7 +1260,7 @@ function openPrinterModal(printer = null) {
         document.getElementById('printer-lifespan').value = '5000';
         document.getElementById('printer-power').value = '150';
         document.getElementById('printer-maintenance').value = '1.0';
-        document.getElementById('printer-energy').value = (state.user && state.user.default_energy_rate) || '0.85';
+        document.getElementById('printer-energy').value = (state.user?.default_energy_rate ?? 0.85);
     }
     refreshIcons();
 }
@@ -1556,12 +1562,12 @@ function populateSettingsForm() {
     document.getElementById('pref-fullname').value = u.full_name || '';
     document.getElementById('pref-phone').value = u.phone || '';
     document.getElementById('pref-pix').value = u.pix_key || '';
-    document.getElementById('pref-energy').value = u.default_energy_rate || 0.85;
-    document.getElementById('pref-margin').value = u.default_profit_margin || 30;
-    document.getElementById('pref-tax').value = u.default_tax_rate || 6;
-    document.getElementById('pref-failure').value = u.default_failure_rate || 10;
-    document.getElementById('pref-cad-rate').value = u.default_cad_rate || 50;
-    document.getElementById('pref-post-rate').value = u.default_post_rate || 30;
+    document.getElementById('pref-energy').value = u.default_energy_rate ?? 0.85;
+    document.getElementById('pref-margin').value = u.default_profit_margin ?? 30;
+    document.getElementById('pref-tax').value = u.default_tax_rate ?? 6;
+    document.getElementById('pref-failure').value = u.default_failure_rate ?? 10;
+    document.getElementById('pref-cad-rate').value = u.default_cad_rate ?? 50;
+    document.getElementById('pref-post-rate').value = u.default_post_rate ?? 30;
 }
 
 async function handleSavePreferences(e) {

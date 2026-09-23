@@ -666,6 +666,58 @@ def test_pdf_clean_material_and_delivery_days_grammar(client, make_user):
     assert buf_1.getvalue().startswith(b"%PDF")
 
 
+def test_project_zero_tax_rate_and_preservation(client, make_user):
+    user = make_user(email="zero_tax@example.com")
+    headers = user["headers"]
+
+    # 1. Create project with tax_rate_percent = 0.0
+    payload = {
+        "name": "Projeto Isento de Imposto",
+        "tax_rate_percent": 0.0,
+        "profit_margin_percent": 25.0,
+        "delivery_days": 5,
+        "plates": [
+            {
+                "name": "Placa 1",
+                "print_time_hours": 2.0,
+                "part_weight_g": 50.0,
+                "quantity": 1
+            }
+        ]
+    }
+    resp = client.post("/api/projects", json=payload, headers=headers)
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["tax_rate_percent"] == 0.0
+    assert data["summary"]["tax_rate_percent"] == 0.0
+    assert data["summary"]["tax_amount"] == 0.0
+    assert data["delivery_days"] == 5
+    proj_id = data["id"]
+
+    # 2. Get project by ID
+    get_resp = client.get(f"/api/projects/{proj_id}", headers=headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["tax_rate_percent"] == 0.0
+
+    # 3. Update project keeping tax_rate_percent = 0.0
+    upd_resp = client.put(f"/api/projects/{proj_id}", json={
+        "tax_rate_percent": 0.0,
+        "notes": "Atualizado com 0% imposto"
+    }, headers=headers)
+    assert upd_resp.status_code == 200
+    assert upd_resp.json()["tax_rate_percent"] == 0.0
+    assert upd_resp.json()["summary"]["tax_amount"] == 0.0
+
+    # 4. Duplicate project: ensure tax_rate_percent = 0.0 and delivery_days = 5 are preserved
+    dup_resp = client.post(f"/api/projects/{proj_id}/duplicate", headers=headers)
+    assert dup_resp.status_code == 200
+    dup_data = dup_resp.json()
+    assert dup_data["tax_rate_percent"] == 0.0
+    assert dup_data["delivery_days"] == 5
+    assert dup_data["summary"]["tax_amount"] == 0.0
+
+
+
 
 
 

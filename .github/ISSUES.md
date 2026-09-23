@@ -21,6 +21,9 @@ Todas as issues abaixo foram sincronizadas diretamente com o repositório remoto
 | [#9](#issue-9-exportação-de-pdf-exibir-apenas-o-nome-do-material-na-coluna-de-filamento) | Exportação de PDF: exibir apenas o nome do material na coluna de filamento | Melhoria / Relatórios | **FECHADA (Resolvida)** | [GitHub #9](https://github.com/vitorbuss04/splendid-hypatia/issues/9) | `tests/test_api.py` |
 | [#10](#issue-10-orçamento-campo-para-prazo-de-entrega-em-dias-úteis-após-aprovação-no-rodapé) | Orçamento: campo para prazo de entrega em dias úteis no rodapé | Melhoria / Backend | **FECHADA (Resolvida)** | [GitHub #10](https://github.com/vitorbuss04/splendid-hypatia/issues/10) | `tests/test_api.py` |
 | [#11](#issue-11-exportação-de-orçamento-visualização-em-nova-guia-com-opção-de-download) | Exportação de Orçamento: visualização em nova guia com opção de download | Melhoria / Frontend | **FECHADA (Resolvida)** | [GitHub #11](https://github.com/vitorbuss04/splendid-hypatia/issues/11) | `tests/test_api.py`, `tests/test_frontend_inputs.py` |
+| [#12](#issue-12-edição-de-orçamento-campo-impostos--taxas-reseta-para-6-quando-definido-como-0) | Edição de orçamento: campo Impostos / Taxas reseta para 6% quando definido como 0% | Bug / Frontend / Financeiro | **FECHADA (Resolvida)** | [GitHub #12](https://github.com/vitorbuss04/splendid-hypatia/issues/12) | `tests/test_api.py`, `tests/test_frontend_inputs.py` |
+| [#13](#issue-13-mudar-a-posição-do-botão-nova-placa-para-a-parte-de-baixo) | Mudar a posição do botão "Nova Placa" para a parte de baixo | Melhoria / UX / Frontend | **FECHADA (Resolvida)** | [GitHub #13](https://github.com/vitorbuss04/splendid-hypatia/issues/13) | `tests/test_frontend_inputs.py` |
+| [#14](#issue-14-suporte-à-leitura-e-importação-de-arquivos-gcode3mf) | Suporte à leitura e importação de arquivos .gcode.3mf | Melhoria / Parsers / Frontend | **FECHADA (Resolvida)** | [GitHub #14](https://github.com/vitorbuss04/splendid-hypatia/issues/14) | `tests/test_parsers.py`, `tests/test_frontend_inputs.py` |
 
 ---
 
@@ -179,6 +182,58 @@ Todas as issues abaixo foram sincronizadas diretamente com o repositório remoto
   3. Atualizado `API.pdf.preview()` para abrir a nova guia passando o token de autenticação de forma resiliente.
   4. Botões de exportação salvam alterações do editor antes de abrir a visualização.
 - **Verificação:** Coberto em `tests/test_api.py` e `tests/test_frontend_inputs.py`.
+
+---
+
+### Issue #12: Edição de orçamento: campo Impostos / Taxas reseta para 6% quando definido como 0%
+- **Status:** `CLOSED` (Resolvido)
+- **Link Remoto:** https://github.com/vitorbuss04/splendid-hypatia/issues/12
+- **Labels:** `bug`, `frontend`, `financial`, `ux`
+- **Origem:** Issue #12 no GitHub (*"O mesmo valor que é mostrado no preview do orçamento deveria aparecer ao clicar em editar, mas o campo 'Impostos / Taxas' sempre volta para o valor de 6%, sendo que eu havia definido 0"*)
+- **Comportamento Anterior:** Ao salvar um orçamento com taxa de impostos de 0% e posteriormente clicar no botão de editar orçamento em 'Projetos & Orçamentos', o campo 'Impostos / Taxas (%)' era preenchido automaticamente com 6%, ignorando a alíquota zero configurada e recalculando erroneamente as métricas financeiras.
+- **Causa Raiz:** No arquivo `frontend/js/app.js`, a função `editProject` atribuía o valor usando coerção por disjunção lógica (`||`):
+  `document.getElementById('proj-tax').value = proj.tax_rate_percent || 6;`
+  Como `0` é um valor falsy em JavaScript, a expressão `0 || 6` avaliava para `6`. O mesmo padrão afetava margem de lucro (`proj.profit_margin_percent`), taxas horárias nulas e carregamento de preferências (`populateSettingsForm`).
+- **Correção Implementada:**
+  1. No frontend (`frontend/js/app.js`):
+     - Substituído `||` pelo operador de coalescência nula (`??`) na leitura de todas as propriedades numéricas em `editProject`:
+       `proj.tax_rate_percent ?? 6`, `proj.profit_margin_percent ?? 30`, `proj.cad_hourly_rate ?? 50`, `proj.post_process_hourly_rate ?? 30`, `proj.overhead_cost ?? 0`, `proj.discount_percent ?? 0`, `proj.shipping_cost ?? 0`.
+     - Atualizadas funções `initNewProject`, `populateSettingsForm`, `openPrinterModal` e `createDefaultPlate` para preservar valores `0` (ex: `u.default_tax_rate ?? 6`).
+     - Atualizado fallback de `proj-tax` em `recalcLiveSummary()` para `0%`.
+  2. No backend (`backend/engine.py` e `backend/routes/project_routes.py`):
+     - Implementado helper `_get_val` em `calculate_project_summary` distinguindo de forma estrita `None` (retorna padrão) de `0.0` (preserva alíquota zero).
+     - Adicionada preservação de `delivery_days` na rota `duplicate_project`.
+- **Verificação:** Coberto com testes de integração de API em `tests/test_api.py` (`test_project_zero_tax_rate_and_preservation`) e teste com navegador headless Chrome em `tests/test_frontend_inputs.py` (`test_edit_project_preserves_zero_tax_rate_and_nullish_coalescing`), somando 45 testes passando na suíte pytest.
+
+---
+
+### Issue #13: Mudar a posição do botão "Nova Placa" para a parte de baixo
+- **Status:** `CLOSED` (Resolvido)
+- **Link Remoto:** https://github.com/vitorbuss04/splendid-hypatia/issues/13
+- **Labels:** `enhancement`, `frontend`, `ux`
+- **Origem:** Issue #13 no GitHub (*"Na calculadora, na seção 'Placas Impressas', o botão 'Nova placa' aparece acima das placas, mas quando clico, uma nova placa é adicionada abaixo. À medida que muitas placas são adicionadas, para cada placa, tenho que rolar a página até lá no alto e clicar, para descer a página denovo e poder editar a placa... Seria melhor se o botão ficasse fixo na parte de baixo, assim, não precisa de rolagem na página para adicionar novas placas"*)
+- **Comportamento Anterior:** O botão de adicionar placa ficava restrito ao cabeçalho superior do painel, forçando o usuário a subir e descer a página a cada placa adicionada em projetos com múltiplas placas.
+- **Correção Implementada:**
+  1. No arquivo `frontend/index.html`, o botão foi reposicionado logo abaixo do container de placas (`#plates-container`) com o identificador `#btn-add-plate-bottom`, em formato de largura total e estilo tracejado intuitivo.
+  2. No arquivo `frontend/js/app.js`, a função `addNewPlateRow()` passou a executar `scrollIntoView({ behavior: 'smooth', block: 'nearest' })` para o novo elemento inserido, garantindo foco imediato na edição.
+- **Verificação:** Coberto pelo teste `test_nova_placa_button_at_bottom` em `tests/test_frontend_inputs.py`.
+
+---
+
+### Issue #14: Suporte à leitura e importação de arquivos .gcode.3mf
+- **Status:** `CLOSED` (Resolvido)
+- **Link Remoto:** https://github.com/vitorbuss04/splendid-hypatia/issues/14
+- **Labels:** `enhancement`, `parsers`, `frontend`
+- **Origem:** Issue #14 no GitHub (*"Eu geralmente exporto minhas placas em arquivos '.gcode.3mf', mas a plataforma só aceita gcode ou 3mf. A solução ideal seria a plataforma ler o arquivo .gcode.3mf"*)
+- **Comportamento Anterior:** O seletor de arquivos e a validação de formato aceitavam apenas extensões `.3mf` ou `.gcode`, rejeitando ou não exibindo arquivos gerados por fatiadores como Bambu Studio e OrcaSlicer com a terminação `.gcode.3mf`.
+- **Correção Implementada:**
+  1. No frontend (`frontend/index.html` e `frontend/js/app.js`):
+     - Atualizados os atributos de upload para `accept=".3mf,.gcode,.gcode.3mf"` no dropzone híbrido e nas placas individuais.
+     - Atualizados os manipuladores `handleSlicerFile` e `handleSinglePlateFile` para reconhecer e processar arquivos `.gcode.3mf`.
+  2. No extrator de metadados (`frontend/js/parsers/threemf.js`):
+     - Adicionado suporte completo à extração de arquivos G-code embutidos no pacote ZIP (`Metadata/plate_*.gcode`), extraindo automaticamente tempo de impressão, massa de filamento e polímero.
+     - Adicionado fallback resiliente de decodificação como texto caso o arquivo seja código G-code puro sob o nome `.gcode.3mf`.
+- **Verificação:** Coberto por múltiplos testes em `tests/test_parsers.py` (`test_gcode_3mf_with_slice_info`, `test_gcode_3mf_with_embedded_gcode`, `test_gcode_3mf_plain_text_fallback`) e `tests/test_frontend_inputs.py` (`test_gcode_3mf_file_input_and_parser_support`).
 
 ---
 

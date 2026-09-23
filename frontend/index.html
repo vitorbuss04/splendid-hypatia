@@ -357,15 +357,15 @@
                             <div class="card-dark p-6">
                                 <div class="flex items-center justify-between mb-3">
                                     <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                                        <i data-lucide="upload-cloud" class="w-4 h-4 text-blue-400"></i> Entrada Híbrida: Importar 3MF ou G-Code
+                                        <i data-lucide="upload-cloud" class="w-4 h-4 text-blue-400"></i> Entrada Híbrida: Importar 3MF, G-Code ou .gcode.3mf
                                     </h3>
                                     <span class="text-[10px] text-blue-400 bg-blue-950/60 border border-blue-800 px-2 py-0.5 rounded font-mono">Bambu / Orca / Prusa / Cura</span>
                                 </div>
                                 <div id="dropzone" class="dropzone p-6 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer">
                                     <i data-lucide="file-up" class="w-10 h-10 text-slate-400 mb-2"></i>
-                                    <p class="text-sm font-medium text-white">Arraste seu arquivo <span class="text-blue-400">.3mf</span> ou <span class="text-emerald-400">.gcode</span> aqui</p>
+                                    <p class="text-sm font-medium text-white">Arraste seu arquivo <span class="text-blue-400">.3mf</span>, <span class="text-indigo-400">.gcode.3mf</span> ou <span class="text-emerald-400">.gcode</span> aqui</p>
                                     <p class="text-xs text-slate-400 mt-1">Extração automática de placas, tempo de impressão e gramas de filamento direto no navegador</p>
-                                    <input type="file" id="file-slicer-input" accept=".3mf,.gcode" class="hidden">
+                                    <input type="file" id="file-slicer-input" accept=".3mf,.gcode,.gcode.3mf" class="hidden">
                                 </div>
                             </div>
 
@@ -378,13 +378,16 @@
                                         </h3>
                                         <p class="text-xs text-slate-400">Adicione uma ou múltiplas placas com diferentes impressoras e filamentos</p>
                                     </div>
-                                    <button type="button" onclick="addNewPlateRow()" class="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
-                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova Placa
-                                    </button>
                                 </div>
 
                                 <div id="plates-container" class="space-y-4">
                                     <!-- Dynamic plate cards will be rendered here by app.js -->
+                                </div>
+
+                                <div class="pt-2">
+                                    <button type="button" id="btn-add-plate-bottom" onclick="addNewPlateRow()" class="w-full py-2.5 px-4 bg-slate-800/90 hover:bg-slate-700 text-blue-400 border border-dashed border-blue-500/40 hover:border-blue-400 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm">
+                                        <i data-lucide="plus" class="w-4 h-4"></i> Nova Placa
+                                    </button>
                                 </div>
                             </div>
 

@@ -1,16 +1,44 @@
 /**
- * 3MF Metadata Extractor for Bambu Studio, OrcaSlicer, PrusaSlicer & SuperSlicer
- * Reads ZIP contents in the browser using JSZip.
+ * 3MF and .gcode.3mf Metadata Extractor for Bambu Studio, OrcaSlicer, PrusaSlicer & SuperSlicer
+ * Reads ZIP contents or embedded G-code in the browser using JSZip and G-code parser.
  */
 async function parse3mfMetadata(file) {
     if (typeof JSZip === 'undefined') {
         throw new Error("Biblioteca JSZip não carregada. Verifique sua conexão com a internet.");
     }
 
-    const zip = await JSZip.loadAsync(file);
+    let zip;
+    try {
+        zip = await JSZip.loadAsync(file);
+    } catch (zipErr) {
+        // Fallback: If not a valid ZIP/3MF, attempt parsing as raw G-Code text
+        // (common when files are named .gcode.3mf but contain raw G-code)
+        try {
+            if (typeof file.text === 'function') {
+                const rawText = await file.text();
+                if (typeof parseGcodeMetadata === 'function') {
+                    const meta = parseGcodeMetadata(rawText);
+                    if (meta && (meta.print_time_hours > 0 || meta.part_weight_g > 0)) {
+                        const cleanName = (file.name || 'Placa 1').replace(/\.(?:gcode\.3mf|3mf|gcode)$/i, '');
+                        return [{
+                            name: cleanName || "Placa 1",
+                            print_time_hours: meta.print_time_hours || 0,
+                            part_weight_g: meta.part_weight_g || 0,
+                            purge_weight_g: 0.0,
+                            filament_type: meta.filament_type || "PLA",
+                            failure_margin_percent: 10.0,
+                            quantity: 1,
+                        }];
+                    }
+                }
+            }
+        } catch (_) {}
+        throw zipErr;
+    }
+
     const plates = [];
 
-    // 1. Search for slice_info.xml (standard in Bambu Studio / OrcaSlicer)
+    // 1. Search for slice_info.xml (standard in Bambu Studio / OrcaSlicer .3mf and .gcode.3mf)
     const sliceFiles = zip.file(/(?:^|\/)slice_info\.xml$/i);
     let sliceInfoFile = (sliceFiles && sliceFiles.length > 0) ? sliceFiles[0] : null;
 
@@ -96,7 +124,42 @@ async function parse3mfMetadata(file) {
         }
     }
 
-    // 2. Fallback to slicer config files (Bambu/Orca model_settings or Prusa print_config.ini)
+    // 2. Search for embedded G-code inside the .3mf/.gcode.3mf ZIP archive (e.g. Metadata/plate_1.gcode or plate_*.gcode)
+    if (plates.length === 0 || plates.every(p => p.print_time_hours === 0 && p.part_weight_g === 0)) {
+        const gcodeFiles = zip.file(/(?:Metadata\/)?.*\.gcode$/i);
+        if (gcodeFiles && gcodeFiles.length > 0) {
+            gcodeFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+            const gcodePlates = [];
+            for (let idx = 0; idx < gcodeFiles.length; idx++) {
+                const gFile = gcodeFiles[idx];
+                const gText = await gFile.async("text");
+                const meta = (typeof parseGcodeMetadata === 'function') ? parseGcodeMetadata(gText) : { print_time_hours: 0, part_weight_g: 0 };
+
+                let pName = gFile.name.replace(/^.*[\\\/]/, '').replace(/\.gcode$/i, '');
+                const plateNumMatch = pName.match(/(?:plate|placa)[-_ ]*(\d+)/i);
+                if (plateNumMatch) {
+                    pName = `Placa ${plateNumMatch[1]}`;
+                } else if (!pName) {
+                    pName = `Placa ${idx + 1}`;
+                }
+
+                gcodePlates.push({
+                    name: pName,
+                    print_time_hours: meta.print_time_hours || 0,
+                    part_weight_g: meta.part_weight_g || 0,
+                    purge_weight_g: 0.0,
+                    filament_type: meta.filament_type || "PLA",
+                    failure_margin_percent: 10.0,
+                    quantity: 1,
+                });
+            }
+            if (gcodePlates.length > 0 && gcodePlates.some(p => p.print_time_hours > 0 || p.part_weight_g > 0)) {
+                return gcodePlates;
+            }
+        }
+    }
+
+    // 3. Fallback to slicer config files (Bambu/Orca model_settings or Prusa print_config.ini)
     if (plates.length === 0) {
         const configFile = zip.file(/Metadata\/.*(?:model_settings|project_settings)\.config/i)[0] ||
                            zip.file(/print_config\.ini/i)[0];
@@ -124,7 +187,7 @@ async function parse3mfMetadata(file) {
         }
     }
 
-    // 3. Default fallback if it's an un-sliced 3MF
+    // 4. Default fallback if it's an un-sliced 3MF
     if (plates.length === 0) {
         plates.push({
             name: "Placa 1 (Não fatiado)",
