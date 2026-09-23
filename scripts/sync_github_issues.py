@@ -247,6 +247,53 @@ Fatiadores modernos como Bambu Studio e OrcaSlicer frequentemente exportam arqui
    - Atualizados `handleSlicerFile` e `handleSinglePlateFile` para processar e reconhecer `.gcode.3mf`.
 4. Coberto por testes automatizados em `tests/test_parsers.py` e `tests/test_frontend_inputs.py`.""",
         "comment": "Resolvido e verificado com testes automatizados: suporte completo a .gcode.3mf com leitura de metadados e G-code embutido."
+    },
+    {
+        "number": 15,
+        "title": "[FEAT] Adicionar opção de duplicar filamentos",
+        "labels": ["enhancement", "frontend", "filaments", "ux"],
+        "body": """### Descrição da Solicitação
+Adicionar opção de duplicar filamentos. Quando o usuário deseja cadastrar um novo filamento da mesma marca e linha de um já existente, não é necessário preencher todos os dados (marca, material, peso, preço, etc.) do zero. Ao clicar no botão de duplicar no card de filamento, o modal de cadastro é aberto pré-preenchido com os dados do filamento original e com o campo de cor limpo e com foco ativo pronto para digitação da nova cor.
+
+### Solução Implementada
+1. No frontend (`frontend/js/app.js`):
+   - Adicionada função `duplicateFilament(id)` que localiza o filamento e aciona `openFilamentModal(filament, true)`.
+   - No modal de filamento (`openFilamentModal`), configurado o modo duplicação: define `filament-id` como vazio (salva como novo registro), herda marca, material, peso, preço e tom de cor original, limpa o campo textual de cor, altera o placeholder para "Digite a nova cor..." e foca automaticamente no input (`#filament-color`).
+   - Atualizada a prévia em tempo real (`updateFilamentNamePreview`) para refletir dinamicamente a nova cor à medida que é digitada.
+   - No grid de filamentos (`renderFilamentsGrid`), adicionado o botão "Duplicar" com ícone de cópia (`data-lucide="copy"`).
+2. Na API cliente (`frontend/js/api.js`):
+   - Adicionado o método `API.filaments.duplicate(id)`.
+3. No backend (`backend/routes/filament_routes.py`):
+   - Implementado o endpoint `POST /api/filaments/{filament_id}/duplicate` com isolamento de usuário e enriquecimento de resposta com custo por grama.
+4. Coberto por testes automatizados:
+   - `tests/test_api.py`: `test_filament_duplicate_endpoint`
+   - `tests/test_frontend_inputs.py`: `test_filament_duplication_features` e `test_filament_duplication_browser_interaction`.""",
+        "comment": "Resolvido e verificado com testes automatizados: botão de duplicação implementado no card de filamento, abertura de modal com foco no campo de cor e suporte completo na API e no frontend."
+    },
+    {
+        "number": 16,
+        "title": "[FEAT] Campos editáveis para condições de pagamento e garantia no orçamento e preferências",
+        "labels": ["enhancement", "frontend", "backend", "pdf"],
+        "body": """### Descrição da Solicitação
+Os termos de Condição de Pagamento e Garantia apareciam fixos no rodapé da proposta comercial em PDF sem qualquer possibilidade de customização. O usuário necessita de campos para definir esses termos no orçamento individual, bem como definir valores padrão editáveis nas preferências/configurações da oficina para preenchimento automático.
+
+### Solução Implementada
+1. No modelo de dados e banco de dados:
+   - Em `User` (`backend/models.py`), adicionadas as colunas `default_payment_terms` e `default_warranty_terms`.
+   - Em `Project` (`backend/models.py`), adicionadas as colunas `payment_terms` e `warranty_terms`.
+   - Migração dinâmica segura em SQLite implementada em `backend/database.py`.
+2. Nos schemas Pydantic (`backend/schemas.py`):
+   - Atualizados `UserPreferencesUpdate`, `UserResponse`, `ProjectBase`, `ProjectCreate` e `ProjectUpdate`.
+3. No gerador de relatórios PDF (`backend/pdf_service.py`):
+   - Integrada a resolução hierárquica dos termos: orçamento específico -> preferências da oficina -> padrão do sistema.
+4. No frontend (`frontend/index.html` e `frontend/js/app.js`):
+   - Adicionados inputs `#proj-payment-terms` e `#proj-warranty-terms` no editor de orçamentos.
+   - Adicionados inputs `#pref-payment-terms` e `#pref-warranty-terms` no painel de preferências/configurações da oficina.
+   - Sincronização automática na inicialização de projetos (`initNewProject`), edição (`editProject`), salvamento (`saveCurrentProject`) e preferências (`handleSavePreferences`).
+5. Coberto por testes automatizados:
+   - `tests/test_api.py`: `test_project_payment_and_warranty_terms_and_pdf`
+   - `tests/test_frontend_inputs.py`: `test_payment_and_warranty_inputs_in_frontend`.""",
+        "comment": "Resolvido e verificado com testes automatizados: campos de termos de pagamento e garantia adicionados no editor de orçamento e nas preferências da oficina, com reflexo imediato no PDF."
     }
 ]
 

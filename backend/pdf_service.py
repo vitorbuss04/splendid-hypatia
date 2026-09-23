@@ -376,10 +376,21 @@ def build_pdf_document(
         if delivery_days <= 0:
             delivery_days = max(1, int(summary.get('total_print_time_hours', 1) / 8) + 1)
         unit_days = "dia útil" if delivery_days == 1 else "dias úteis"
-        terms_text = f"""<b>Condições de Pagamento:</b> A combinar / 50% na aprovação e 50% na entrega.<br/>
+        payment_terms = (
+            (project_data.get("payment_terms") or "").strip()
+            or (user_data.get("default_payment_terms") or "").strip()
+            or "A combinar / 50% na aprovação e 50% na entrega."
+        )
+        warranty_terms = (
+            (project_data.get("warranty_terms") or "").strip()
+            or (user_data.get("default_warranty_terms") or "").strip()
+            or "Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas."
+        )
+
+        terms_text = f"""<b>Condições de Pagamento:</b> {payment_terms}<br/>
 {f'<b>Chave PIX:</b> {pix_info}<br/>' if pix_info else ''}
 <b>Prazo de Produção:</b> Estimado em até {delivery_days} {unit_days} após aprovação.<br/>
-<b>Garantia:</b> Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas."""
+<b>Garantia:</b> {warranty_terms}"""
         
         terms_p = Paragraph(terms_text, ParagraphStyle("Terms", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=PRIMARY))
         terms_table = Table([[terms_p]], colWidths=[182 * mm])

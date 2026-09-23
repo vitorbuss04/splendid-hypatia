@@ -33,6 +33,12 @@ def init_db():
         inspector = inspect(engine)
         tables = inspector.get_table_names()
         with engine.connect() as conn:
+            if "users" in tables:
+                user_cols = [c["name"] for c in inspector.get_columns("users")]
+                if "default_payment_terms" not in user_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN default_payment_terms VARCHAR(500)"))
+                if "default_warranty_terms" not in user_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN default_warranty_terms VARCHAR(500)"))
             if "filaments" in tables:
                 fil_cols = [c["name"] for c in inspector.get_columns("filaments")]
                 if "color_hex" not in fil_cols:
@@ -41,6 +47,10 @@ def init_db():
                 proj_cols = [c["name"] for c in inspector.get_columns("projects")]
                 if "delivery_days" not in proj_cols:
                     conn.execute(text("ALTER TABLE projects ADD COLUMN delivery_days INTEGER DEFAULT 3"))
+                if "payment_terms" not in proj_cols:
+                    conn.execute(text("ALTER TABLE projects ADD COLUMN payment_terms VARCHAR(500)"))
+                if "warranty_terms" not in proj_cols:
+                    conn.execute(text("ALTER TABLE projects ADD COLUMN warranty_terms VARCHAR(500)"))
             conn.commit()
     except Exception as e:
         pass

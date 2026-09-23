@@ -717,6 +717,108 @@ def test_project_zero_tax_rate_and_preservation(client, make_user):
     assert dup_data["summary"]["tax_amount"] == 0.0
 
 
+def test_filament_duplicate_endpoint(client, make_user):
+    user1 = make_user(email="dup_fil1@example.com")
+    user2 = make_user(email="dup_fil2@example.com")
+
+    # 1. Create filament
+    create_resp = client.post("/api/filaments", json={
+        "name": "PETG Preto - Voolt3D",
+        "brand": "Voolt3D",
+        "material": "PETG",
+        "color": "Preto",
+        "color_hex": "#1a1a1a",
+        "spool_weight_g": 1000.0,
+        "spool_price": 109.90,
+    }, headers=user1["headers"])
+    assert create_resp.status_code == 201
+    fil_orig = create_resp.json()
+    fil_id = fil_orig["id"]
+
+    # 2. Duplicate filament
+    dup_resp = client.post(f"/api/filaments/{fil_id}/duplicate", headers=user1["headers"])
+    assert dup_resp.status_code == 201
+    fil_dup = dup_resp.json()
+
+    assert fil_dup["id"] != fil_id
+    assert fil_dup["name"] == "PETG Preto - Voolt3D (Cópia)"
+    assert fil_dup["brand"] == "Voolt3D"
+    assert fil_dup["material"] == "PETG"
+    assert fil_dup["color"] == "Preto"
+    assert fil_dup["color_hex"] == "#1a1a1a"
+    assert fil_dup["spool_weight_g"] == 1000.0
+    assert fil_dup["spool_price"] == 109.90
+    assert fil_dup["cost_per_gram"] == round(109.90 / 1000.0, 4)
+
+    # 3. User isolation: user2 cannot duplicate user1's filament
+    unauth_resp = client.post(f"/api/filaments/{fil_id}/duplicate", headers=user2["headers"])
+    assert unauth_resp.status_code == 404
+
+    # 4. Non-existent filament returns 404
+    nonexist_resp = client.post("/api/filaments/99999/duplicate", headers=user1["headers"])
+    assert nonexist_resp.status_code == 404
+
+
+def test_project_payment_and_warranty_terms_and_pdf(client, make_user):
+    user = make_user(email="terms_user@example.com")
+    headers = user["headers"]
+
+    # 1. Update user preferences with custom default terms
+    pref_res = client.put("/api/auth/preferences", json={
+        "default_payment_terms": "Padrão Oficina: 40% entrada, 60% entrega.",
+        "default_warranty_terms": "Padrão Oficina: 30 dias de garantia contra delaminação.",
+    }, headers=headers)
+    assert pref_res.status_code == 200
+    assert pref_res.json()["default_payment_terms"] == "Padrão Oficina: 40% entrada, 60% entrega."
+    assert pref_res.json()["default_warranty_terms"] == "Padrão Oficina: 30 dias de garantia contra delaminação."
+
+    # 2. Create project without specifying terms (fallback to user defaults in PDF)
+    proj_res = client.post("/api/projects", json={
+        "name": "Projeto com Termos Padrão",
+        "client_name": "Cliente Termos",
+        "plates": [
+            {
+                "name": "Placa 1",
+                "custom_printer_hourly_rate": 5.0,
+                "custom_filament_cost_per_g": 0.15,
+                "print_time_hours": 2.0,
+                "part_weight_g": 100.0,
+            }
+        ]
+    }, headers=headers)
+    assert proj_res.status_code == 201
+    proj_id = proj_res.json()["id"]
+
+    pdf_res1 = client.get(f"/api/projects/{proj_id}/pdf?type=client", headers=headers)
+    assert pdf_res1.status_code == 200
+    assert pdf_res1.headers["content-type"] == "application/pdf"
+    assert pdf_res1.content.startswith(b"%PDF")
+
+    # 3. Update project with project-specific custom terms
+    upd_res = client.put(f"/api/projects/{proj_id}", json={
+        "payment_terms": "100% antecipado via PIX com 5% de desconto",
+        "warranty_terms": "Garantia estendida de 90 dias com reposição imediata",
+    }, headers=headers)
+    assert upd_res.status_code == 200
+    assert upd_res.json()["payment_terms"] == "100% antecipado via PIX com 5% de desconto"
+    assert upd_res.json()["warranty_terms"] == "Garantia estendida de 90 dias com reposição imediata"
+
+    # 4. Duplicate project preserves custom terms
+    dup_res = client.post(f"/api/projects/{proj_id}/duplicate", headers=headers)
+    assert dup_res.status_code == 200
+    dup_data = dup_res.json()
+    assert dup_data["payment_terms"] == "100% antecipado via PIX com 5% de desconto"
+    assert dup_data["warranty_terms"] == "Garantia estendida de 90 dias com reposição imediata"
+
+    # 5. Export PDF reflects project-specific terms
+    pdf_res2 = client.get(f"/api/projects/{proj_id}/pdf?type=client", headers=headers)
+    assert pdf_res2.status_code == 200
+    assert pdf_res2.headers["content-type"] == "application/pdf"
+    assert pdf_res2.content.startswith(b"%PDF")
+
+
+
+
 
 
 

@@ -510,6 +510,8 @@ function openNewProject() {
     document.getElementById('proj-discount').value = '0';
     document.getElementById('proj-shipping').value = '0';
     document.getElementById('proj-delivery-days').value = '3';
+    document.getElementById('proj-payment-terms').value = u.default_payment_terms || '';
+    document.getElementById('proj-warranty-terms').value = u.default_warranty_terms || '';
     document.getElementById('proj-notes').value = '';
 
     renderPlates();
@@ -542,6 +544,8 @@ async function editProject(id) {
         document.getElementById('proj-discount').value = proj.discount_percent ?? 0;
         document.getElementById('proj-shipping').value = proj.shipping_cost ?? 0;
         document.getElementById('proj-delivery-days').value = proj.delivery_days ?? 3;
+        document.getElementById('proj-payment-terms').value = proj.payment_terms || '';
+        document.getElementById('proj-warranty-terms').value = proj.warranty_terms || '';
         document.getElementById('proj-notes').value = proj.notes || '';
 
         renderPlates();
@@ -984,6 +988,8 @@ async function saveCurrentProject(navigateBack = true) {
         discount_percent: parseLocaleFloat(document.getElementById('proj-discount').value, 0),
         shipping_cost: parseLocaleFloat(document.getElementById('proj-shipping').value, 0),
         delivery_days: parseInt(document.getElementById('proj-delivery-days')?.value, 10) || 3,
+        payment_terms: document.getElementById('proj-payment-terms')?.value.trim() || null,
+        warranty_terms: document.getElementById('proj-warranty-terms')?.value.trim() || null,
         notes: document.getElementById('proj-notes').value.trim(),
         plates: state.currentPlates.map(p => ({
             name: p.name,
@@ -1389,13 +1395,20 @@ function renderPrintersGrid() {
 }
 
 function editFilament(id) {
-    const filament = state.filaments.find(f => f.id === id);
+    const filament = state.filaments.find(f => f.id === id || String(f.id) === String(id));
     if (filament) openFilamentModal(filament);
+}
+
+function duplicateFilament(id) {
+    const filament = state.filaments.find(f => f.id === id || String(f.id) === String(id));
+    if (filament) openFilamentModal(filament, true);
 }
 
 function updateFilamentNamePreview() {
     const mat = document.getElementById('filament-material')?.value.trim() || 'PLA';
-    const col = document.getElementById('filament-color')?.value.trim() || 'Preto';
+    const colInput = document.getElementById('filament-color');
+    const colVal = colInput?.value.trim();
+    const col = colVal || (colInput?.placeholder && colInput.placeholder.includes('nova cor') ? 'Nova Cor' : 'Preto');
     const brd = document.getElementById('filament-brand')?.value.trim() || 'Marca';
     const hex = document.getElementById('filament-color-hex')?.value || '#10b981';
     const textElem = document.getElementById('filament-preview-text');
@@ -1404,12 +1417,13 @@ function updateFilamentNamePreview() {
     if (dotElem) dotElem.style.backgroundColor = hex;
 }
 
-function openFilamentModal(filament = null) {
+function openFilamentModal(filament = null, isDuplicate = false) {
     const modal = document.getElementById('modal-filament');
     const title = document.getElementById('modal-filament-title');
+    const colorInput = document.getElementById('filament-color');
     modal.classList.remove('hidden');
 
-    if (filament) {
+    if (filament && !isDuplicate) {
         title.innerHTML = `<i data-lucide="cylinder" class="w-5 h-5 text-blue-400"></i> Editar Filamento`;
         document.getElementById('filament-id').value = filament.id;
         document.getElementById('filament-material').value = filament.material || 'PLA';
@@ -1418,6 +1432,23 @@ function openFilamentModal(filament = null) {
         document.getElementById('filament-color-hex').value = filament.color_hex || '#10b981';
         document.getElementById('filament-weight').value = filament.spool_weight_g;
         document.getElementById('filament-price').value = filament.spool_price;
+        if (colorInput) colorInput.placeholder = 'Ex: Preto';
+    } else if (filament && isDuplicate) {
+        title.innerHTML = `<i data-lucide="copy" class="w-5 h-5 text-blue-400"></i> Cadastrar Filamento (Duplicar)`;
+        document.getElementById('filament-id').value = '';
+        document.getElementById('filament-material').value = filament.material || 'PLA';
+        document.getElementById('filament-brand').value = filament.brand || '';
+        document.getElementById('filament-color').value = '';
+        document.getElementById('filament-color-hex').value = filament.color_hex || '#10b981';
+        document.getElementById('filament-weight').value = filament.spool_weight_g;
+        document.getElementById('filament-price').value = filament.spool_price;
+        if (colorInput) {
+            colorInput.placeholder = 'Digite a nova cor...';
+            setTimeout(() => {
+                colorInput.focus();
+                colorInput.select();
+            }, 50);
+        }
     } else {
         title.innerHTML = `<i data-lucide="cylinder" class="w-5 h-5 text-blue-400"></i> Cadastrar Filamento`;
         document.getElementById('filament-id').value = '';
@@ -1427,6 +1458,7 @@ function openFilamentModal(filament = null) {
         document.getElementById('filament-color-hex').value = '#10b981';
         document.getElementById('filament-weight').value = '1000';
         document.getElementById('filament-price').value = '95.00';
+        if (colorInput) colorInput.placeholder = 'Ex: Preto';
     }
     updateFilamentNamePreview();
     refreshIcons();
@@ -1434,6 +1466,8 @@ function openFilamentModal(filament = null) {
 
 function closeFilamentModal() {
     document.getElementById('modal-filament').classList.add('hidden');
+    const colorInput = document.getElementById('filament-color');
+    if (colorInput) colorInput.placeholder = 'Ex: Preto';
 }
 
 async function handleSaveFilament(e) {
@@ -1527,6 +1561,9 @@ function renderFilamentsGrid() {
                             </div>
                         </div>
                         <div class="flex items-center gap-1">
+                            <button onclick="duplicateFilament(${f.id})" class="p-1 text-slate-400 hover:text-blue-400 transition-colors" title="Duplicar">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
                             <button onclick="editFilament(${f.id})" class="p-1 text-slate-400 hover:text-white transition-colors" title="Editar">
                                 <i data-lucide="edit-2" class="w-4 h-4"></i>
                             </button>
@@ -1571,6 +1608,8 @@ function populateSettingsForm() {
     document.getElementById('pref-failure').value = u.default_failure_rate ?? 10;
     document.getElementById('pref-cad-rate').value = u.default_cad_rate ?? 50;
     document.getElementById('pref-post-rate').value = u.default_post_rate ?? 30;
+    document.getElementById('pref-payment-terms').value = u.default_payment_terms || '';
+    document.getElementById('pref-warranty-terms').value = u.default_warranty_terms || '';
 }
 
 async function handleSavePreferences(e) {
@@ -1587,6 +1626,8 @@ async function handleSavePreferences(e) {
         default_failure_rate: parseLocaleFloat(document.getElementById('pref-failure').value, 10),
         default_cad_rate: parseLocaleFloat(document.getElementById('pref-cad-rate').value, 50),
         default_post_rate: parseLocaleFloat(document.getElementById('pref-post-rate').value, 30),
+        default_payment_terms: document.getElementById('pref-payment-terms')?.value.trim() || null,
+        default_warranty_terms: document.getElementById('pref-warranty-terms')?.value.trim() || null,
     };
 
     try {

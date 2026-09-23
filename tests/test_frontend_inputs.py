@@ -142,8 +142,10 @@ def test_app_js_safety_and_event_listeners():
     assert "paste" in content, "Must include paste event listener for clipboard support"
     assert "function editPrinter" in content, "Must define editPrinter helper"
     assert "function editFilament" in content, "Must define editFilament helper"
+    assert "function duplicateFilament" in content, "Must define duplicateFilament helper"
     assert "editPrinter(" in content, "renderPrintersGrid must use editPrinter"
     assert "editFilament(" in content, "renderFilamentsGrid must use editFilament"
+    assert "duplicateFilament(" in content, "renderFilamentsGrid must use duplicateFilament"
 
 def test_dynamic_plate_and_bom_inputs_in_app_js():
     """
@@ -488,6 +490,216 @@ def test_script_loading_order_and_file_handler_toasts():
     app_js = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
     app_js_content = app_js.read_text(encoding="utf-8")
     assert ".3mf, .gcode ou .gcode.3mf" in app_js_content, "app.js must mention .gcode.3mf in unsupported format toasts"
+
+
+def test_filament_duplication_features():
+    """
+    Verifies that:
+    1. frontend/js/app.js implements duplicateFilament(id) and passes it to openFilamentModal(filament, true)
+    2. openFilamentModal handles duplication:
+       - resets filament-id to empty string (so it saves as new)
+       - clears filament-color to empty string so user can immediately type new color
+       - sets placeholder to 'Digite a nova cor...'
+       - sets focus/selection on color input
+       - retains material, brand, weight, price, and color_hex
+    3. frontend/js/api.js provides API.filaments.duplicate method
+    4. renderFilamentsGrid includes duplicate button with copy icon
+    """
+    app_js = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    js_content = app_js.read_text(encoding="utf-8")
+
+    assert "function duplicateFilament" in js_content
+    assert "duplicateFilament(" in js_content
+    assert "openFilamentModal(filament, true)" in js_content
+    assert 'data-lucide="copy"' in js_content
+    assert "isDuplicate" in js_content
+    assert "Digite a nova cor..." in js_content
+
+    api_js = Path(__file__).parent.parent / "frontend" / "js" / "api.js"
+    api_content = api_js.read_text(encoding="utf-8")
+    assert "duplicate: (id) => API.request(`/api/filaments/${id}/duplicate`" in api_content
+
+
+def test_filament_duplication_browser_interaction():
+    """
+    Executes a real headless browser test (Chrome/Edge) to verify the filament duplication flow:
+    - Initial state with an existing filament (e.g. PETG Preto - Voolt3D)
+    - Clicking duplicate button calls duplicateFilament(id)
+    - Modal opens with:
+      * filament-id cleared to empty string
+      * filament-color cleared to empty string and focused
+      * material, brand, weight, price, color_hex preserved
+      * typing a new color updates live standard name preview
+    """
+    import subprocess
+    import shutil
+
+    chrome_candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        shutil.which("google-chrome"),
+        shutil.which("chromium"),
+        shutil.which("chrome"),
+    ]
+    browser = None
+    for c in chrome_candidates:
+        if c and Path(c).exists():
+            browser = c
+            break
+
+    if not browser:
+        return
+
+    app_js_path = (Path(__file__).parent.parent / "frontend" / "js" / "app.js").resolve().as_posix()
+
+    html_test = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+    <div id="modal-filament" class="hidden">
+        <h3 id="modal-filament-title"></h3>
+        <input type="hidden" id="filament-id">
+        <select id="filament-material">
+            <option value="PLA">PLA</option>
+            <option value="PETG">PETG</option>
+            <option value="ABS">ABS</option>
+        </select>
+        <input type="text" id="filament-brand">
+        <input type="color" id="filament-color-hex" value="#10b981">
+        <input type="text" id="filament-color">
+        <span id="filament-preview-text"></span>
+        <span id="filament-preview-dot"></span>
+        <input type="number" id="filament-weight" value="1000">
+        <input type="number" id="filament-price" value="95.00">
+    </div>
+    <div id="filaments-grid"></div>
+    <div id="test-result"></div>
+
+    <script>
+    window.lucide = {{ createIcons: () => {{}} }};
+    window.state = {{
+        filaments: [
+            {{
+                id: 10,
+                name: "PETG Preto - Voolt3D",
+                material: "PETG",
+                brand: "Voolt3D",
+                color: "Preto",
+                color_hex: "#112233",
+                spool_weight_g: 1000,
+                spool_price: 115.50,
+                cost_per_gram: 0.1155
+            }}
+        ]
+    }};
+    window.formatCurrency = (v) => "R$ " + Number(v).toFixed(2);
+    window.refreshIcons = () => {{}};
+    </script>
+    <script src="file:///{app_js_path}"></script>
+    <script>
+    // Run tests
+    try {{
+        renderFilamentsGrid();
+        const gridHtml = document.getElementById('filaments-grid').innerHTML;
+        if (!gridHtml.includes('duplicateFilament(10)')) {{
+            throw new Error("Duplicate button not rendered for filament 10");
+        }}
+
+        // Trigger duplicate
+        duplicateFilament(10);
+
+        const modalHidden = document.getElementById('modal-filament').classList.contains('hidden');
+        if (modalHidden) throw new Error("Modal should be visible");
+
+        const filId = document.getElementById('filament-id').value;
+        if (filId !== "") throw new Error("filament-id should be empty for new duplicate, got: " + filId);
+
+        const mat = document.getElementById('filament-material').value;
+        if (mat !== "PETG") throw new Error("Material should be PETG, got: " + mat);
+
+        const brand = document.getElementById('filament-brand').value;
+        if (brand !== "Voolt3D") throw new Error("Brand should be Voolt3D, got: " + brand);
+
+        const colorVal = document.getElementById('filament-color').value;
+        if (colorVal !== "") throw new Error("filament-color should be empty ready to type, got: " + colorVal);
+
+        const colorHex = document.getElementById('filament-color-hex').value;
+        if (colorHex !== "#112233") throw new Error("filament-color-hex should be #112233, got: " + colorHex);
+
+        const weight = document.getElementById('filament-weight').value;
+        if (weight !== "1000") throw new Error("Weight should be 1000, got: " + weight);
+
+        const price = document.getElementById('filament-price').value;
+        if (price !== "115.5") throw new Error("Price should be 115.5, got: " + price);
+
+        // Simulate typing new color
+        document.getElementById('filament-color').value = "Azul";
+        updateFilamentNamePreview();
+
+        const previewText = document.getElementById('filament-preview-text').innerText;
+        if (previewText !== "PETG Azul - Voolt3D") {{
+            throw new Error("Preview text mismatch: " + previewText);
+        }}
+
+        document.getElementById('test-result').innerText = "SUCCESS";
+    }} catch (e) {{
+        document.getElementById('test-result').innerText = "ERROR: " + e.message;
+    }}
+    </script>
+</body>
+</html>"""
+
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8") as f:
+        f.write(html_test)
+        temp_path = f.name
+
+    try:
+        proc = subprocess.run([
+            browser,
+            "--headless=new",
+            "--disable-gpu",
+            "--dump-dom",
+            Path(temp_path).as_uri()
+        ], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
+
+        assert "SUCCESS" in (proc.stdout or ""), f"Headless browser test failed. Output:\n{proc.stdout}"
+    finally:
+        Path(temp_path).unlink(missing_ok=True)
+
+
+def test_payment_and_warranty_inputs_in_frontend():
+    """
+    Verifies that:
+    1. frontend/index.html includes proj-payment-terms and proj-warranty-terms inputs
+    2. frontend/index.html includes pref-payment-terms and pref-warranty-terms inputs
+    3. frontend/js/app.js handles proj-payment-terms and proj-warranty-terms in:
+       - initNewProject
+       - editProject
+       - saveCurrentProject
+    4. frontend/js/app.js handles pref-payment-terms and pref-warranty-terms in:
+       - populateSettingsForm
+       - handleSavePreferences
+    """
+    html_file = Path(__file__).parent.parent / "frontend" / "index.html"
+    html_content = html_file.read_text(encoding="utf-8")
+
+    assert 'id="proj-payment-terms"' in html_content
+    assert 'id="proj-warranty-terms"' in html_content
+    assert 'id="pref-payment-terms"' in html_content
+    assert 'id="pref-warranty-terms"' in html_content
+
+    app_js_file = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    app_js = app_js_file.read_text(encoding="utf-8")
+
+    assert "proj-payment-terms" in app_js
+    assert "proj-warranty-terms" in app_js
+    assert "pref-payment-terms" in app_js
+    assert "pref-warranty-terms" in app_js
+    assert "payment_terms" in app_js
+    assert "warranty_terms" in app_js
+
+
 
 
 

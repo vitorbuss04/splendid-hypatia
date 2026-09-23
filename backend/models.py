@@ -26,6 +26,8 @@ class User(Base):
     default_tax_rate = Column(Float, default=6.0)  # %
     default_cad_rate = Column(Float, default=50.0)  # R$/h
     default_post_rate = Column(Float, default=30.0)  # R$/h
+    default_payment_terms = Column(String(500), nullable=True, default="A combinar / 50% na aprovação e 50% na entrega.")
+    default_warranty_terms = Column(String(500), nullable=True, default="Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas.")
 
     created_at = Column(DateTime, default=get_utc_now)
 
@@ -100,6 +102,8 @@ class Project(Base):
     discount_percent = Column(Float, default=0.0)  # %
     shipping_cost = Column(Float, default=0.0)  # R$
     delivery_days = Column(Integer, default=3, nullable=True)  # Prazo de entrega em dias úteis
+    payment_terms = Column(String(500), nullable=True)
+    warranty_terms = Column(String(500), nullable=True)
 
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=get_utc_now)

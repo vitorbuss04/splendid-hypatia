@@ -72,6 +72,37 @@ def update_filament(
     db.refresh(filament)
     return enrich_filament_response(filament)
 
+@router.post("/{filament_id}/duplicate", response_model=schemas.FilamentResponse, status_code=status.HTTP_201_CREATED)
+def duplicate_filament(
+    filament_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    original = db.query(models.Filament).filter(
+        models.Filament.id == filament_id,
+        models.Filament.user_id == current_user.id
+    ).first()
+    if not original:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Filamento não encontrado.")
+
+    new_filament = models.Filament(
+        user_id=current_user.id,
+        name=f"{original.name} (Cópia)",
+        brand=original.brand,
+        material=original.material,
+        color=original.color,
+        color_hex=original.color_hex,
+        spool_weight_g=original.spool_weight_g,
+        spool_price=original.spool_price,
+        density_g_cm3=original.density_g_cm3,
+        is_active=original.is_active,
+        notes=original.notes
+    )
+    db.add(new_filament)
+    db.commit()
+    db.refresh(new_filament)
+    return enrich_filament_response(new_filament)
+
 @router.delete("/{filament_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_filament(
     filament_id: int,

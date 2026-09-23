@@ -25,6 +25,8 @@ class UserPreferencesUpdate(BaseModel):
     default_tax_rate: Optional[float] = Field(None, ge=0, le=99.0)
     default_cad_rate: Optional[float] = Field(None, ge=0)
     default_post_rate: Optional[float] = Field(None, ge=0)
+    default_payment_terms: Optional[str] = None
+    default_warranty_terms: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: int
@@ -39,6 +41,8 @@ class UserResponse(BaseModel):
     default_tax_rate: float
     default_cad_rate: float
     default_post_rate: float
+    default_payment_terms: Optional[str] = None
+    default_warranty_terms: Optional[str] = None
     created_at: Optional[datetime.datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -208,6 +212,8 @@ class ProjectBase(BaseModel):
     discount_percent: float = Field(0.0, ge=0, le=100.0)
     shipping_cost: float = Field(0.0, ge=0)
     delivery_days: Optional[int] = Field(3, ge=1)
+    payment_terms: Optional[str] = None
+    warranty_terms: Optional[str] = None
     notes: Optional[str] = None
 
 class ProjectCreate(ProjectBase):
@@ -230,6 +236,8 @@ class ProjectUpdate(BaseModel):
     discount_percent: Optional[float] = Field(None, ge=0, le=100.0)
     shipping_cost: Optional[float] = Field(None, ge=0)
     delivery_days: Optional[int] = Field(None, ge=1)
+    payment_terms: Optional[str] = None
+    warranty_terms: Optional[str] = None
     notes: Optional[str] = None
     plates: Optional[List[PlateCreate]] = None
     bom_items: Optional[List[BOMItemCreate]] = None

@@ -122,6 +122,7 @@ const API = {
         create: (data) => API.request("/api/filaments", { method: "POST", body: JSON.stringify(data) }),
         update: (id, data) => API.request(`/api/filaments/${id}`, { method: "PUT", body: JSON.stringify(data) }),
         delete: (id) => API.request(`/api/filaments/${id}`, { method: "DELETE" }),
+        duplicate: (id) => API.request(`/api/filaments/${id}/duplicate`, { method: "POST" }),
     },
 
     // Projects endpoints

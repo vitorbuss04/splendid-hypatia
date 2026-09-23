@@ -11,3 +11,7 @@ Nos pdfs, a coluna do material / filamento deve aparecer apenas o nome do materi
 Adicionar campo para número de dias para entrega a partir da aprovação para ter o controle sobra a informação que aparece no rodapé do orçamento.
 
 Ao invés de fazer o download do orçamento sempre que clicar, mostrar uma página de visualização em uma nova guia com opção de download
+
+Adicionar opção de duplicar filamentos. Quando eu quero criar um filamento novo, mas que é da mesma marca e linha de um que já está cadastrado, abrir o modal de cadastrar filamento com os dados pré-preenchidos e o input de cor pronto para digitar.
+
+Os campos de condição de pagamento e garantia aparecem no orçamento, mas não tenho nenhuma forma de editar eles. Gostaria de campos que me permitissem definir isso no orçamento, e valores padrão configuráveis nas preferências da oficina para caso não defina no orçamento.

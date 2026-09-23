@@ -209,6 +209,8 @@ def duplicate_project(
         discount_percent=orig.discount_percent,
         shipping_cost=orig.shipping_cost,
         delivery_days=orig.delivery_days,
+        payment_terms=orig.payment_terms,
+        warranty_terms=orig.warranty_terms,
         notes=orig.notes,
     )
     db.add(cloned)
@@ -441,6 +443,8 @@ def export_pdf(
         "email": current_user.email,
         "phone": current_user.phone,
         "pix_key": current_user.pix_key,
+        "default_payment_terms": current_user.default_payment_terms,
+        "default_warranty_terms": current_user.default_warranty_terms,
     }
     
     pdf_buffer = build_pdf_document(

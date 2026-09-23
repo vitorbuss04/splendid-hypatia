@@ -24,6 +24,8 @@ Todas as issues abaixo foram sincronizadas diretamente com o repositório remoto
 | [#12](#issue-12-edição-de-orçamento-campo-impostos--taxas-reseta-para-6-quando-definido-como-0) | Edição de orçamento: campo Impostos / Taxas reseta para 6% quando definido como 0% | Bug / Frontend / Financeiro | **FECHADA (Resolvida)** | [GitHub #12](https://github.com/vitorbuss04/splendid-hypatia/issues/12) | `tests/test_api.py`, `tests/test_frontend_inputs.py` |
 | [#13](#issue-13-mudar-a-posição-do-botão-nova-placa-para-a-parte-de-baixo) | Mudar a posição do botão "Nova Placa" para a parte de baixo | Melhoria / UX / Frontend | **FECHADA (Resolvida)** | [GitHub #13](https://github.com/vitorbuss04/splendid-hypatia/issues/13) | `tests/test_frontend_inputs.py` |
 | [#14](#issue-14-suporte-à-leitura-e-importação-de-arquivos-gcode3mf) | Suporte à leitura e importação de arquivos .gcode.3mf | Melhoria / Parsers / Frontend | **FECHADA (Resolvida)** | [GitHub #14](https://github.com/vitorbuss04/splendid-hypatia/issues/14) | `tests/test_parsers.py`, `tests/test_frontend_inputs.py` |
+| [#15](#issue-15-adicionar-opção-de-duplicar-filamentos) | Adicionar opção de duplicar filamentos | Melhoria / Frontend / UX | **FECHADA (Resolvida)** | [GitHub #15](https://github.com/vitorbuss04/splendid-hypatia/issues/15) | `tests/test_api.py`, `tests/test_frontend_inputs.py` |
+| [#16](#issue-16-campos-editáveis-para-condições-de-pagamento-e-garantia-no-orçamento-e-preferências) | Campos editáveis para condições de pagamento e garantia no orçamento e preferências | Melhoria / Backend / Frontend / Relatórios | **FECHADA (Resolvida)** | [GitHub #16](https://github.com/vitorbuss04/splendid-hypatia/issues/16) | `tests/test_api.py`, `tests/test_frontend_inputs.py` |
 
 ---
 
@@ -235,6 +237,49 @@ Todas as issues abaixo foram sincronizadas diretamente com o repositório remoto
      - Extração automática de tempo de impressão, massa de filamento e polímero.
      - Adicionado fallback resiliente de decodificação como texto caso o arquivo seja código G-code puro sob o nome `.gcode.3mf`.
 - **Verificação:** Coberto por múltiplos testes em `tests/test_parsers.py` (`test_gcode_3mf_with_slice_info`, `test_gcode_3mf_with_embedded_gcode`, `test_gcode_3mf_plain_text_fallback`, `test_multi_plate_gcode_3mf_natural_sort_and_naming`) e `tests/test_frontend_inputs.py` (`test_gcode_3mf_file_input_and_parser_support`, `test_script_loading_order_and_file_handler_toasts`).
+
+---
+
+### Issue #15: Adicionar opção de duplicar filamentos
+- **Status:** `CLOSED` (Resolvido)
+- **Link Remoto:** https://github.com/vitorbuss04/splendid-hypatia/issues/15
+- **Labels:** `enhancement`, `frontend`, `filaments`, `ux`
+- **Origem:** Issue #15 no GitHub (*"Adicionar opção de duplicar filamentos. Quando eu quero criar um filamento novo, mas que é da mesma marca e linha de um que já está cadastrado, eu tenho que criar do zero e preencher tudo denovo. Eu gostaria de um botão de duplicar filamento. que ao ser clicado, abre um modal de cadastrar filamento, já com o input de cor pronto para digitar, pois geralmente quando eu quero um filamento duplicado ele só muda a cor. o resto posso alterar manualmente."*)
+- **Comportamento Anterior:** Não existia recurso de duplicação para filamentos. O usuário precisava cadastrar filamentos da mesma marca/linha preenchendo todos os campos repetidamente do zero.
+- **Correção Implementada:**
+  1. No frontend (`frontend/js/app.js`):
+     - Adicionada função `duplicateFilament(id)` que recupera os dados do filamento existente e aciona `openFilamentModal(filament, true)`.
+     - No modal de filamento (`openFilamentModal`), implementado o modo de duplicação: define `filament-id` como vazio (garantindo novo salvamento via POST), herda os atributos (material, marca, peso, preço, cor hex), limpa o campo textual de cor, altera o placeholder para "Digite a nova cor..." e foca automaticamente no input (`#filament-color`).
+     - Atualizada a prévia visual (`updateFilamentNamePreview`) para acompanhar dinamicamente a digitação da nova cor.
+     - No card de filamento (`renderFilamentsGrid`), adicionado o botão de ação "Duplicar" com ícone de cópia (`data-lucide="copy"`).
+  2. Na camada de API cliente (`frontend/js/api.js`):
+     - Adicionado o método `API.filaments.duplicate(id)`.
+  3. No backend (`backend/routes/filament_routes.py`):
+     - Adicionado endpoint `POST /api/filaments/{filament_id}/duplicate` com cálculo automático de custo por grama e proteção de isolamento de usuário.
+- **Verificação:** Coberto por testes unitários e de integração em `tests/test_api.py` (`test_filament_duplicate_endpoint`) e `tests/test_frontend_inputs.py` (`test_filament_duplication_features` e `test_filament_duplication_browser_interaction` em navegador headless real).
+
+---
+
+### Issue #16: Campos editáveis para condições de pagamento e garantia no orçamento e preferências
+- **Status:** `CLOSED` (Resolvido)
+- **Link Remoto:** https://github.com/vitorbuss04/splendid-hypatia/issues/16
+- **Labels:** `enhancement`, `frontend`, `backend`, `pdf`
+- **Origem:** Issue #16 no GitHub (*"Os campos de condição de pagamento e garantia aparecem no orçamento, mas não tenho nenhuma forma de editar eles. Descreva a solução que você gostaria: eu gostaria de campos que me permitissem definir isso, e valores padrão para caso eu não defina. os valores padrão também devem ser editáveis."*)
+- **Comportamento Anterior:** O rodapé das propostas comerciais em PDF gerava termos fixos e engessados de pagamento e garantia sem possibilidade de personalização por projeto ou configuração de termos padrão da oficina.
+- **Correção Implementada:**
+  1. No banco de dados e modelos (`backend/models.py` e `backend/database.py`):
+     - Adicionadas colunas `default_payment_terms` e `default_warranty_terms` na tabela `users`.
+     - Adicionadas colunas `payment_terms` e `warranty_terms` na tabela `projects`.
+     - Migração automática segura para bases SQLite existentes em `backend/database.py`.
+  2. Nos schemas da API (`backend/schemas.py`):
+     - Incluídos os novos campos em `UserPreferencesUpdate`, `UserResponse`, `ProjectBase`, `ProjectCreate` e `ProjectUpdate`.
+  3. No motor de PDF (`backend/pdf_service.py`):
+     - Implementada cadeia hierárquica de resolução: termo definido no orçamento -> termo padrão da oficina -> fallback seguro do sistema.
+  4. No frontend (`frontend/index.html` e `frontend/js/app.js`):
+     - Adicionados inputs `#proj-payment-terms` e `#proj-warranty-terms` no editor de orçamentos.
+     - Adicionados inputs `#pref-payment-terms` e `#pref-warranty-terms` no painel de configurações/preferências da oficina.
+     - Integrada persistência nas rotas de preferências e projetos (incluindo duplicação com integridade).
+- **Verificação:** Coberto por testes em `tests/test_api.py` (`test_project_payment_and_warranty_terms_and_pdf`) e `tests/test_frontend_inputs.py` (`test_payment_and_warranty_inputs_in_frontend`).
 
 ---
 
