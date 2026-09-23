@@ -162,3 +162,95 @@ def test_dynamic_plate_and_bom_inputs_in_app_js():
     assert 'placeholder="R$ Unit"' in content
     assert 'min="0" step="any"' in content
 
+def test_numeric_input_normalization_and_dynamic_typing():
+    """
+    Validates that frontend/js/app.js implements:
+    1. focusin handler switching number inputs to text + decimal inputmode
+    2. focusout handler parsing with parseLocaleFloat and restoring type to number
+    3. normalizeNumericInputs function called before saving projects, printers, filaments, preferences
+    """
+    app_js = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    content = app_js.read_text(encoding="utf-8")
+
+    assert "focusin" in content, "Must include focusin handler for dynamic inputmode/type toggle"
+    assert "focusout" in content, "Must include focusout handler for safe normalization"
+    assert "function normalizeNumericInputs" in content, "Must define normalizeNumericInputs"
+    assert "normalizeNumericInputs();" in content, "Must call normalizeNumericInputs() before saving"
+
+def test_browser_headless_comma_preservation(tmp_path):
+    """
+    Executes a real headless Chrome/Edge browser test to prove that typing
+    comma in a numeric input does NOT wipe out the entered value (preventing
+    the HTML5 valid floating-point number sanitization wipeout bug).
+    """
+    import subprocess
+    import shutil
+
+    chrome_candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        shutil.which("google-chrome"),
+        shutil.which("chromium"),
+        shutil.which("chrome"),
+    ]
+    browser = None
+    for c in chrome_candidates:
+        if c and Path(c).exists():
+            browser = c
+            break
+
+    if not browser:
+        pytest.skip("No Chrome or Edge executable available for headless browser verification")
+
+    app_js_path = (Path(__file__).parent.parent / "frontend" / "js" / "app.js").resolve().as_posix()
+    html_test = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<input type="number" id="test-num" step="any" value="56">
+<div id="test-result"></div>
+<script>
+window.lucide = {{ createIcons: () => {{}} }};
+window.API = {{ getToken: () => null }};
+</script>
+<script src="file:///{app_js_path}"></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {{
+    const el = document.getElementById('test-num');
+    // 1. Simulate focus
+    el.focus();
+    el.dispatchEvent(new FocusEvent('focusin', {{ bubbles: true }}));
+
+    // 2. Simulate typing comma followed by 50
+    el.dispatchEvent(new KeyboardEvent('keydown', {{ key: ',', bubbles: true, cancelable: true }}));
+    el.value = el.value + ',50';
+
+    const duringVal = el.value;
+    const duringType = el.type;
+
+    // 3. Simulate blur
+    el.dispatchEvent(new FocusEvent('focusout', {{ bubbles: true }}));
+
+    const afterVal = el.value;
+    const afterType = el.type;
+
+    document.getElementById('test-result').textContent =
+        `DURING:[${{duringVal}}|${{duringType}}] AFTER:[${{afterVal}}|${{afterType}}]`;
+}});
+</script>
+</body>
+</html>"""
+    test_html_file = tmp_path / "browser_test.html"
+    test_html_file.write_text(html_test, encoding="utf-8")
+
+    proc = subprocess.run(
+        [browser, "--headless=new", "--disable-gpu", "--dump-dom", f"file:///{test_html_file.resolve().as_posix()}"],
+        capture_output=True,
+        text=True,
+        timeout=15
+    )
+    dom_output = proc.stdout
+    assert "DURING:[56,50|text]" in dom_output, f"Value was wiped out during typing! Output was:\n{dom_output}"
+    assert "AFTER:[56.5|number]" in dom_output, f"Value was not properly normalized on blur! Output was:\n{dom_output}"
+
+

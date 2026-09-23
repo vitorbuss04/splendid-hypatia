@@ -48,17 +48,43 @@ function parseLocaleFloat(val, fallback = 0) {
     return isNaN(num) ? fallback : num;
 }
 
-// Global enhancement for number inputs: ensure comma key works across all browser locales and paste handles Brazilian formats
-document.addEventListener('beforeinput', (e) => {
+// Global enhancement for numeric inputs: allows seamless decimal input with comma or dot across all browser locales
+// Avoids HTML5 value sanitization wiping out trailing-dot values (e.g. '56.')
+document.addEventListener('focusin', (e) => {
     const target = e.target;
     if (target && target.tagName === 'INPUT' && target.type === 'number') {
+        target.dataset.originalType = 'number';
+        target.type = 'text';
+        target.inputMode = 'decimal';
+    }
+});
+
+document.addEventListener('focusout', (e) => {
+    const target = e.target;
+    if (target && target.tagName === 'INPUT' && target.dataset.originalType === 'number') {
+        if (target.value && target.value.trim() !== '') {
+            const parsed = parseLocaleFloat(target.value, null);
+            if (parsed !== null && !isNaN(parsed)) {
+                target.value = parsed;
+            }
+        }
+        target.type = 'number';
+        delete target.dataset.originalType;
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+});
+
+document.addEventListener('beforeinput', (e) => {
+    const target = e.target;
+    if (target && target.tagName === 'INPUT' && (target.type === 'number' || target.dataset.originalType === 'number')) {
         if (e.data === ',') {
-            e.preventDefault();
-            if (!target.value.includes('.')) {
-                if (!document.execCommand('insertText', false, '.')) {
-                    target.value += '.';
-                }
-                target.dispatchEvent(new Event('input', { bubbles: true }));
+            if (target.type === 'number') {
+                target.dataset.originalType = 'number';
+                target.type = 'text';
+                target.inputMode = 'decimal';
+            }
+            if ((target.value.includes(',') || target.value.includes('.')) && !window.getSelection()?.toString()) {
+                e.preventDefault();
             }
         }
     }
@@ -66,14 +92,15 @@ document.addEventListener('beforeinput', (e) => {
 
 document.addEventListener('keydown', (e) => {
     const target = e.target;
-    if (target && target.tagName === 'INPUT' && target.type === 'number') {
+    if (target && target.tagName === 'INPUT' && (target.type === 'number' || target.dataset.originalType === 'number')) {
         if (e.key === ',' || e.key === 'Decimal') {
-            e.preventDefault();
-            if (!target.value.includes('.')) {
-                if (!document.execCommand('insertText', false, '.')) {
-                    target.value += '.';
-                }
-                target.dispatchEvent(new Event('input', { bubbles: true }));
+            if (target.type === 'number') {
+                target.dataset.originalType = 'number';
+                target.type = 'text';
+                target.inputMode = 'decimal';
+            }
+            if ((target.value.includes(',') || target.value.includes('.')) && !window.getSelection()?.toString()) {
+                e.preventDefault();
             }
         }
     }
@@ -81,7 +108,7 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('paste', (e) => {
     const target = e.target;
-    if (target && target.tagName === 'INPUT' && target.type === 'number') {
+    if (target && target.tagName === 'INPUT' && (target.type === 'number' || target.dataset.originalType === 'number')) {
         const text = (e.clipboardData || window.clipboardData)?.getData('text');
         if (text && (text.includes(',') || text.includes('R$') || text.includes('.'))) {
             const val = parseLocaleFloat(text, null);
@@ -94,6 +121,17 @@ document.addEventListener('paste', (e) => {
         }
     }
 });
+
+function normalizeNumericInputs() {
+    document.querySelectorAll('input[data-original-type="number"]').forEach(inp => {
+        if (inp.value && inp.value.trim() !== '') {
+            const parsed = parseLocaleFloat(inp.value, null);
+            if (parsed !== null && !isNaN(parsed)) inp.value = parsed;
+        }
+        inp.type = 'number';
+        delete inp.dataset.originalType;
+    });
+}
 
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
@@ -881,6 +919,7 @@ function setText(id, text) {
 // ================= SAVING & EXPORTING =================
 
 async function saveCurrentProject() {
+    normalizeNumericInputs();
     const name = document.getElementById('proj-name').value.trim();
     if (!name) {
         showToast('Por favor, informe o título do projeto.', 'error');
@@ -1190,6 +1229,7 @@ function closePrinterModal() {
 
 async function handleSavePrinter(e) {
     e.preventDefault();
+    normalizeNumericInputs();
     const id = document.getElementById('printer-id').value;
     const payload = {
         name: document.getElementById('printer-name').value.trim(),
@@ -1341,6 +1381,7 @@ function closeFilamentModal() {
 
 async function handleSaveFilament(e) {
     e.preventDefault();
+    normalizeNumericInputs();
     const id = document.getElementById('filament-id').value;
     const payload = {
         name: document.getElementById('filament-name').value.trim(),
@@ -1462,6 +1503,7 @@ function populateSettingsForm() {
 
 async function handleSavePreferences(e) {
     e.preventDefault();
+    normalizeNumericInputs();
     const payload = {
         company_name: document.getElementById('pref-company').value.trim(),
         full_name: document.getElementById('pref-fullname').value.trim(),

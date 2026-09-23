@@ -2,15 +2,18 @@
 
 Este arquivo centraliza o rastreamento de issues do repositório **3D Print Calc Pro** conforme os feedbacks de usuários e melhorias contínuas.
 
+Todas as issues abaixo foram sincronizadas diretamente com o repositório remoto [`vitorbuss04/splendid-hypatia`](https://github.com/vitorbuss04/splendid-hypatia/issues).
+
 ---
 
 ## Índice de Issues
 
-| ID | Título | Tipo | Status | Resolução | Testes Automatizados |
+| ID | Título | Tipo | Status | Link Remoto | Testes Automatizados |
 |---|---|---|---|---|---|
-| [#1](#issue-1-validação-de-peso-do-carretel-de-filamento-rejeita-valores-pares-e-padrões-como-1000g) | Cadastrar filamento: peso do carretel só aceita ímpares (ex: 1001) e rejeita 1000g | Bug / UX | **FECHADA (Resolvida)** | `step="any"` + validação no app.js | `tests/test_frontend_inputs.py`, `tests/test_api.py` |
-| [#2](#issue-2-preço-do-carretel-de-filamento-não-aceita-centavos-ex-r-5650) | Cadastrar filamento: preço do carretel só aceita inteiros e bloqueia centavos | Bug / Financeiro | **FECHADA (Resolvida)** | `step="any"` + suporte a vírgula/moeda BR + `parseLocaleFloat` | `tests/test_frontend_inputs.py`, `tests/test_api.py` |
-| [#3](#issue-3-vida-útil-da-impressora-em-horas-rejeita-5000h-por-validação-de-step) | Cadastrar impressora: vida útil em horas rejeita valores redondos (5000h) | Bug / UX | **FECHADA (Resolvida)** | `step="any"` + validação de horas no frontend/backend | `tests/test_frontend_inputs.py`, `tests/test_api.py` |
+| [#1](#issue-1-validação-de-peso-do-carretel-de-filamento-rejeita-valores-pares-e-padrões-como-1000g) | Cadastrar filamento: peso do carretel só aceita ímpares (ex: 1001) e rejeita 1000g | Bug / UX | **FECHADA (Resolvida)** | [GitHub #1](https://github.com/vitorbuss04/splendid-hypatia/issues/1) | `tests/test_frontend_inputs.py`, `tests/test_api.py` |
+| [#2](#issue-2-preço-do-carretel-de-filamento-não-aceita-centavos-ex-r-5650) | Cadastrar filamento: preço do carretel só aceita inteiros e bloqueia centavos | Bug / Financeiro | **FECHADA (Resolvida)** | [GitHub #2](https://github.com/vitorbuss04/splendid-hypatia/issues/2) | `tests/test_frontend_inputs.py`, `tests/test_api.py` |
+| [#3](#issue-3-vida-útil-da-impressora-em-horas-rejeita-5000h-por-validação-de-step) | Cadastrar impressora: vida útil em horas rejeita valores redondos (5000h) | Bug / UX | **FECHADA (Resolvida)** | [GitHub #3](https://github.com/vitorbuss04/splendid-hypatia/issues/3) | `tests/test_frontend_inputs.py`, `tests/test_api.py` |
+| [#4](#issue-4-input-numérico-decimal-digitação-de-vírgula-limpa-o-valor-no-navegador) | Input numérico decimal: digitação de vírgula limpa o valor no navegador | Bug / UX / Frontend | **FECHADA (Resolvida)** | [GitHub #4](https://github.com/vitorbuss04/splendid-hypatia/issues/4) | `tests/test_frontend_inputs.py` |
 
 ---
 
@@ -18,6 +21,7 @@ Este arquivo centraliza o rastreamento de issues do repositório **3D Print Calc
 
 ### Issue #1: Validação de peso do carretel de filamento rejeita valores pares e padrões como 1000g
 - **Status:** `CLOSED` (Resolvido)
+- **Link Remoto:** https://github.com/vitorbuss04/splendid-hypatia/issues/1
 - **Labels:** `bug`, `frontend`, `ux`
 - **Origem:** Feedback de usuário em `anotacoes/feedbacks.md` (*"Cadastrar filamento > peso do carretel só aceita valores impares: ex: 1001, e não aceita 1000"*)
 - **Comportamento Anterior:** Ao tentar cadastrar ou salvar um filamento com carretel padrão de 1000g, o navegador disparava erro de validação nativo (`stepMismatch`), impedindo a submissão. Valores como 1001g passavam normalmente.
@@ -32,6 +36,7 @@ Este arquivo centraliza o rastreamento de issues do repositório **3D Print Calc
 
 ### Issue #2: Preço do carretel de filamento não aceita centavos (ex: R$ 56,50)
 - **Status:** `CLOSED` (Resolvido)
+- **Link Remoto:** https://github.com/vitorbuss04/splendid-hypatia/issues/2
 - **Labels:** `bug`, `financial`, `frontend`, `backend`
 - **Origem:** Feedback de usuário em `anotacoes/feedbacks.md` (*"Cadastrar filamento > Preço do carretel, só aceita valores inteiros, como é dinheiro, deveria aceitar centavos. (ex: 56,50)"*)
 - **Comportamento Anterior:** O campo de preço do filamento recusava valores com casas decimais (centavos), exigindo números inteiros. Além disso, se o usuário digitasse vírgula ou colasse `56,50` ou `R$ 56,50`, o campo ficava inválido ou zerado.
@@ -39,9 +44,8 @@ Este arquivo centraliza o rastreamento de issues do repositório **3D Print Calc
 - **Correção Implementada:**
   1. No HTML `frontend/index.html`, atualizado `filament-price` para `step="any"`.
   2. No JavaScript `frontend/js/app.js`:
-     - Adicionado listener global `beforeinput` e `keydown` para converter automaticamente tecla de vírgula (`,`) em ponto decimal (`.`) sem quebrar a validação nativa.
-     - Adicionado listener global `paste` com suporte à colagem de valores monetários brasileiros (ex: `R$ 56,50` ou `1.250,90`).
-     - Função `parseLocaleFloat` para lidar com separadores de milhar e centavos no padrão brasileiro.
+     - Implementada a função `parseLocaleFloat` para lidar com separadores de milhar e centavos no padrão brasileiro (`R$ 56,50`, `56,50`, `1.200,50`) e internacional (`56.50`).
+     - Adicionado listener global `paste` com suporte à colagem de valores monetários brasileiros.
   3. No backend, schema e banco utilizam `float` com precisão adequada para centavos e custo por grama com 3 a 4 casas decimais.
 - **Verificação:** Testes de validação de input em `tests/test_frontend_inputs.py` e cálculo de custo por grama em `tests/test_api.py`.
 
@@ -49,6 +53,7 @@ Este arquivo centraliza o rastreamento de issues do repositório **3D Print Calc
 
 ### Issue #3: Vida útil da impressora em horas rejeita 5000h por validação de step
 - **Status:** `CLOSED` (Resolvido)
+- **Link Remoto:** https://github.com/vitorbuss04/splendid-hypatia/issues/3
 - **Labels:** `bug`, `printers`, `frontend`
 - **Origem:** Feedback de usuário em `anotacoes/feedbacks.md` (*"Cadastrar impressora: mesmo problema na vida útil em horas."*)
 - **Comportamento Anterior:** Ao cadastrar uma impressora com a vida útil padrão de mercado de 5000 horas, o formulário apresentava erro de validação nativo e não permitia salvar.
@@ -61,32 +66,31 @@ Este arquivo centraliza o rastreamento de issues do repositório **3D Print Calc
 
 ---
 
-## Comandos para Sincronização com GitHub (Quando o Remote for Conectado)
+### Issue #4: Input numérico decimal: digitação de vírgula limpa o valor no navegador
+- **Status:** `CLOSED` (Resolvido)
+- **Link Remoto:** https://github.com/vitorbuss04/splendid-hypatia/issues/4
+- **Labels:** `bug`, `frontend`, `ux`
+- **Origem:** Análise de testes de navegadores reais Chrome/Edge em `frontend/js/app.js`
+- **Comportamento Anterior:** Ao digitar vírgula num campo de preço ou numérico, o listener anterior concatenava ponto ao `.value` (`target.value += '.'`). Em navegadores como Chrome e Edge, atribuir uma string como `"56."` a um `input[type="number"]` viola a validação nativa de ponto flutuante do HTML5 e o navegador resetava o campo inteiro para string vazia (`""`).
+- **Causa Raiz:** Padrão HTML5 de sanitização de `type="number"` descarta strings com ponto sem dígitos posteriores.
+- **Correção Implementada:**
+  1. Implementada alternância dinâmica de modo de edição em `frontend/js/app.js`: no foco (`focusin`), o campo transiciona para `type="text"` com `inputMode="decimal"`, permitindo digitação fluida e livre de vírgula e ponto.
+  2. Na saída (`focusout`) e no envio de formulários (`normalizeNumericInputs`), o valor é parseado com precisão via `parseLocaleFloat` e o tipo é restaurado com segurança para `number`.
+- **Verificação:** Testes automatizados em `tests/test_frontend_inputs.py` incluindo teste real em navegador headless.
 
-Caso o repositório seja associado a uma conta GitHub e o GitHub CLI (`gh`) seja autenticado, execute os comandos abaixo ou execute `.github/sync_issues.ps1` (Windows) / `.github/sync_issues.sh` (Linux/macOS):
+---
+
+## Como Sincronizar Novamente com GitHub
+
+Para ressincronizar ou rodar a qualquer momento:
 
 ```bash
-# 1. Autenticar no GitHub (se ainda não autenticado)
-gh auth login
+# Via Python (utiliza as credenciais já configuradas no Git Credential Manager ou GITHUB_TOKEN)
+python scripts/sync_github_issues.py
 
-# 2. Criar Issue #1 e fechá-la como resolvida
-gh issue create \
-  --title "Cadastrar filamento: peso do carretel só aceita valores ímpares (ex: 1001) e rejeita 1000g" \
-  --body "Corrigido step mismatch causado por min=1 e step=50 no input de peso do carretel. Atualizado para step='any' e parseLocaleFloat." \
-  --label "bug,frontend,ux"
-gh issue close 1 --comment "Resolvido no commit 86ad9aa e verificado na suíte de testes automatizados."
+# Ou via PowerShell (se o CLI gh estiver instalado)
+.\.github\sync_issues.ps1
 
-# 3. Criar Issue #2 e fechá-la como resolvida
-gh issue create \
-  --title "Cadastrar filamento: preço do carretel só aceita inteiros e bloqueia centavos (ex: 56,50)" \
-  --body "Corrigido step='1' no input de preço. Adicionado suporte a decimais com step='any', conversão de vírgula em tempo real e tratamento de moeda brasileira." \
-  --label "bug,financial,frontend"
-gh issue close 2 --comment "Resolvido no commit 86ad9aa e verificado na suíte de testes automatizados."
-
-# 4. Criar Issue #3 e fechá-la como resolvida
-gh issue create \
-  --title "Cadastrar impressora: vida útil em horas rejeita valores redondos (5000h)" \
-  --body "Corrigido step mismatch causado por min=1 e step=100 no input printer-lifespan. Atualizado para step='any' e verificado no cálculo de depreciação horária." \
-  --label "bug,printers,frontend"
-gh issue close 3 --comment "Resolvido no commit 86ad9aa e verificado na suíte de testes automatizados."
+# Ou via Bash / Shell Linux
+./.github/sync_issues.sh
 ```
