@@ -40,8 +40,8 @@ def _start_dual_port_forwarder():
     import socket
     import threading
 
-    main_port = int(os.getenv("PORT", 8000))
-    alt_port = 80 if main_port != 80 else 8000
+    main_port = int(os.getenv("PORT", 80))
+    alt_port = 8000 if main_port == 80 else 80
 
     def forward(src, dst):
         try:

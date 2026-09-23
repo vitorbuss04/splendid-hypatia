@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     APP_ENV=production \
     DATABASE_URL=sqlite:////app/data/prod.db \
-    PORT=8000
+    PORT=80
 
 # Install curl for container healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -37,4 +37,4 @@ EXPOSE 80 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/api/health || curl -f http://localhost:80/api/health || exit 1
 
-CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-80}"]
