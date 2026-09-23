@@ -275,11 +275,13 @@ Todas as issues abaixo foram sincronizadas diretamente com o repositório remoto
      - Incluídos os novos campos em `UserPreferencesUpdate`, `UserResponse`, `ProjectBase`, `ProjectCreate` e `ProjectUpdate`.
   3. No motor de PDF (`backend/pdf_service.py`):
      - Implementada cadeia hierárquica de resolução: termo definido no orçamento -> termo padrão da oficina -> fallback seguro do sistema.
+     - Sanitização e escape seguro de caracteres especiais XML/HTML (`html.escape`) para evitar que caracteres como `<`, `>`, `&` causem falhas 500 no ReportLab.
   4. No frontend (`frontend/index.html` e `frontend/js/app.js`):
      - Adicionados inputs `#proj-payment-terms` e `#proj-warranty-terms` no editor de orçamentos.
+     - Placeholders dinâmicos exibindo os termos padrão configurados na oficina quando deixados em branco, salvando `null` para permitir herança reativa caso as preferências mudem.
      - Adicionados inputs `#pref-payment-terms` e `#pref-warranty-terms` no painel de configurações/preferências da oficina.
      - Integrada persistência nas rotas de preferências e projetos (incluindo duplicação com integridade).
-- **Verificação:** Coberto por testes em `tests/test_api.py` (`test_project_payment_and_warranty_terms_and_pdf`) e `tests/test_frontend_inputs.py` (`test_payment_and_warranty_inputs_in_frontend`).
+- **Verificação:** Coberto por testes profundos em `tests/test_api.py` (inspeção do stream binário descomprimido do PDF e teste de caracteres especiais XML) e `tests/test_frontend_inputs.py` (teste automatizado de ciclo de vida e interação em navegador headless Chrome/Edge).
 
 ---
 

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -75,6 +75,7 @@ def update_filament(
 @router.post("/{filament_id}/duplicate", response_model=schemas.FilamentResponse, status_code=status.HTTP_201_CREATED)
 def duplicate_filament(
     filament_id: int,
+    dup_in: Optional[schemas.FilamentDuplicate] = None,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -85,13 +86,22 @@ def duplicate_filament(
     if not original:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Filamento não encontrado.")
 
+    if dup_in and dup_in.color and dup_in.color.strip():
+        new_color = dup_in.color.strip()
+        new_hex = dup_in.color_hex if dup_in.color_hex else (original.color_hex or "#10b981")
+        new_name = f"{original.material} {new_color} - {original.brand}"
+    else:
+        new_color = original.color
+        new_hex = original.color_hex
+        new_name = f"{original.name} (Cópia)"
+
     new_filament = models.Filament(
         user_id=current_user.id,
-        name=f"{original.name} (Cópia)",
+        name=new_name,
         brand=original.brand,
         material=original.material,
-        color=original.color,
-        color_hex=original.color_hex,
+        color=new_color,
+        color_hex=new_hex,
         spool_weight_g=original.spool_weight_g,
         spool_price=original.spool_price,
         density_g_cm3=original.density_g_cm3,

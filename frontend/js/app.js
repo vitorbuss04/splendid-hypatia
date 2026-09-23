@@ -510,8 +510,16 @@ function openNewProject() {
     document.getElementById('proj-discount').value = '0';
     document.getElementById('proj-shipping').value = '0';
     document.getElementById('proj-delivery-days').value = '3';
-    document.getElementById('proj-payment-terms').value = u.default_payment_terms || '';
-    document.getElementById('proj-warranty-terms').value = u.default_warranty_terms || '';
+    document.getElementById('proj-payment-terms').value = '';
+    document.getElementById('proj-warranty-terms').value = '';
+    const defPay = (u.default_payment_terms || '').trim();
+    const defWar = (u.default_warranty_terms || '').trim();
+    document.getElementById('proj-payment-terms').placeholder = defPay 
+        ? `Padrão da oficina: ${defPay}` 
+        : 'Deixe em branco para usar o padrão da oficina';
+    document.getElementById('proj-warranty-terms').placeholder = defWar 
+        ? `Padrão da oficina: ${defWar}` 
+        : 'Deixe em branco para usar o padrão da oficina';
     document.getElementById('proj-notes').value = '';
 
     renderPlates();
@@ -523,6 +531,7 @@ function openNewProject() {
 async function editProject(id) {
     try {
         const proj = await API.projects.get(id);
+        const u = state.user || {};
         state.currentProject = proj;
         state.currentPlates = (proj.plates && proj.plates.length > 0) ? proj.plates : [createDefaultPlate(1)];
         state.currentBOM = proj.bom_items || [];
@@ -544,6 +553,14 @@ async function editProject(id) {
         document.getElementById('proj-discount').value = proj.discount_percent ?? 0;
         document.getElementById('proj-shipping').value = proj.shipping_cost ?? 0;
         document.getElementById('proj-delivery-days').value = proj.delivery_days ?? 3;
+        const defPay = (u.default_payment_terms || '').trim();
+        const defWar = (u.default_warranty_terms || '').trim();
+        document.getElementById('proj-payment-terms').placeholder = defPay 
+            ? `Padrão da oficina: ${defPay}` 
+            : 'Deixe em branco para usar o padrão da oficina';
+        document.getElementById('proj-warranty-terms').placeholder = defWar 
+            ? `Padrão da oficina: ${defWar}` 
+            : 'Deixe em branco para usar o padrão da oficina';
         document.getElementById('proj-payment-terms').value = proj.payment_terms || '';
         document.getElementById('proj-warranty-terms').value = proj.warranty_terms || '';
         document.getElementById('proj-notes').value = proj.notes || '';
@@ -1444,9 +1461,15 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-price').value = filament.spool_price;
         if (colorInput) {
             colorInput.placeholder = 'Digite a nova cor...';
-            setTimeout(() => {
+            try {
                 colorInput.focus();
                 colorInput.select();
+            } catch (_) {}
+            setTimeout(() => {
+                try {
+                    colorInput.focus();
+                    colorInput.select();
+                } catch (_) {}
             }, 50);
         }
     } else {
@@ -1466,6 +1489,7 @@ function openFilamentModal(filament = null, isDuplicate = false) {
 
 function closeFilamentModal() {
     document.getElementById('modal-filament').classList.add('hidden');
+    document.getElementById('filament-id').value = '';
     const colorInput = document.getElementById('filament-color');
     if (colorInput) colorInput.placeholder = 'Ex: Preto';
 }
@@ -1475,8 +1499,18 @@ async function handleSaveFilament(e) {
     normalizeNumericInputs();
     const id = document.getElementById('filament-id').value;
     const mat = document.getElementById('filament-material').value;
-    const brand = document.getElementById('filament-brand').value.trim() || 'Genérico';
-    const color = document.getElementById('filament-color').value.trim() || 'Padrão';
+    const brand = document.getElementById('filament-brand').value.trim();
+    if (!brand) {
+        showToast('Informe a marca do filamento.', 'error');
+        document.getElementById('filament-brand')?.focus();
+        return;
+    }
+    const color = document.getElementById('filament-color').value.trim();
+    if (!color) {
+        showToast('Informe a cor do filamento.', 'error');
+        document.getElementById('filament-color')?.focus();
+        return;
+    }
     const colorHex = document.getElementById('filament-color-hex').value || '#10b981';
     const standardName = `${mat} ${color} - ${brand}`;
 

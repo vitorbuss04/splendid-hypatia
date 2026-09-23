@@ -1,5 +1,6 @@
 import io
 import re
+import html
 import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -387,10 +388,14 @@ def build_pdf_document(
             or "Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas."
         )
 
-        terms_text = f"""<b>Condições de Pagamento:</b> {payment_terms}<br/>
-{f'<b>Chave PIX:</b> {pix_info}<br/>' if pix_info else ''}
+        safe_payment_terms = html.escape(payment_terms)
+        safe_warranty_terms = html.escape(warranty_terms)
+        safe_pix_info = html.escape(str(pix_info)) if pix_info else None
+
+        terms_text = f"""<b>Condições de Pagamento:</b> {safe_payment_terms}<br/>
+{f'<b>Chave PIX:</b> {safe_pix_info}<br/>' if safe_pix_info else ''}
 <b>Prazo de Produção:</b> Estimado em até {delivery_days} {unit_days} após aprovação.<br/>
-<b>Garantia:</b> {warranty_terms}"""
+<b>Garantia:</b> {safe_warranty_terms}"""
         
         terms_p = Paragraph(terms_text, ParagraphStyle("Terms", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=PRIMARY))
         terms_table = Table([[terms_p]], colWidths=[182 * mm])

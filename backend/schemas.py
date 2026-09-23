@@ -119,6 +119,10 @@ class FilamentUpdate(BaseModel):
     is_active: Optional[bool] = None
     notes: Optional[str] = None
 
+class FilamentDuplicate(BaseModel):
+    color: Optional[str] = None
+    color_hex: Optional[str] = None
+
 class FilamentResponse(FilamentBase):
     id: int
     user_id: int

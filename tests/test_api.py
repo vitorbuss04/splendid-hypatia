@@ -717,6 +717,20 @@ def test_project_zero_tax_rate_and_preservation(client, make_user):
     assert dup_data["summary"]["tax_amount"] == 0.0
 
 
+def extract_pdf_stream_text(pdf_bytes: bytes) -> str:
+    import base64
+    import zlib
+    start = pdf_bytes.find(b'stream\n')
+    if start == -1:
+        start = pdf_bytes.find(b'stream\r\n')
+        start += 9
+    else:
+        start += 7
+    end = pdf_bytes.find(b'endstream', start)
+    raw = pdf_bytes[start:end].strip()
+    return zlib.decompress(base64.a85decode(raw, adobe=True)).decode('latin1', errors='replace')
+
+
 def test_filament_duplicate_endpoint(client, make_user):
     user1 = make_user(email="dup_fil1@example.com")
     user2 = make_user(email="dup_fil2@example.com")
@@ -735,7 +749,7 @@ def test_filament_duplicate_endpoint(client, make_user):
     fil_orig = create_resp.json()
     fil_id = fil_orig["id"]
 
-    # 2. Duplicate filament
+    # 2. Duplicate filament without body (default clone)
     dup_resp = client.post(f"/api/filaments/{fil_id}/duplicate", headers=user1["headers"])
     assert dup_resp.status_code == 201
     fil_dup = dup_resp.json()
@@ -750,11 +764,25 @@ def test_filament_duplicate_endpoint(client, make_user):
     assert fil_dup["spool_price"] == 109.90
     assert fil_dup["cost_per_gram"] == round(109.90 / 1000.0, 4)
 
-    # 3. User isolation: user2 cannot duplicate user1's filament
+    # 3. Duplicate filament with custom new color payload
+    dup_resp2 = client.post(f"/api/filaments/{fil_id}/duplicate", json={
+        "color": "Azul Celeste",
+        "color_hex": "#00b4d8"
+    }, headers=user1["headers"])
+    assert dup_resp2.status_code == 201
+    fil_dup2 = dup_resp2.json()
+    assert fil_dup2["id"] != fil_id
+    assert fil_dup2["name"] == "PETG Azul Celeste - Voolt3D"
+    assert fil_dup2["color"] == "Azul Celeste"
+    assert fil_dup2["color_hex"] == "#00b4d8"
+    assert fil_dup2["brand"] == "Voolt3D"
+    assert fil_dup2["material"] == "PETG"
+
+    # 4. User isolation: user2 cannot duplicate user1's filament
     unauth_resp = client.post(f"/api/filaments/{fil_id}/duplicate", headers=user2["headers"])
     assert unauth_resp.status_code == 404
 
-    # 4. Non-existent filament returns 404
+    # 5. Non-existent filament returns 404
     nonexist_resp = client.post("/api/filaments/99999/duplicate", headers=user1["headers"])
     assert nonexist_resp.status_code == 404
 
@@ -793,6 +821,10 @@ def test_project_payment_and_warranty_terms_and_pdf(client, make_user):
     assert pdf_res1.status_code == 200
     assert pdf_res1.headers["content-type"] == "application/pdf"
     assert pdf_res1.content.startswith(b"%PDF")
+    # Deep verification: assert workshop defaults exist in decompressed PDF text
+    pdf_text1 = extract_pdf_stream_text(pdf_res1.content)
+    assert "40% entrada, 60% entrega" in pdf_text1
+    assert "30 dias de garantia contra" in pdf_text1
 
     # 3. Update project with project-specific custom terms
     upd_res = client.put(f"/api/projects/{proj_id}", json={
@@ -810,11 +842,49 @@ def test_project_payment_and_warranty_terms_and_pdf(client, make_user):
     assert dup_data["payment_terms"] == "100% antecipado via PIX com 5% de desconto"
     assert dup_data["warranty_terms"] == "Garantia estendida de 90 dias com reposição imediata"
 
-    # 5. Export PDF reflects project-specific terms
+    # 5. Export PDF reflects project-specific terms (deep verification)
     pdf_res2 = client.get(f"/api/projects/{proj_id}/pdf?type=client", headers=headers)
     assert pdf_res2.status_code == 200
     assert pdf_res2.headers["content-type"] == "application/pdf"
     assert pdf_res2.content.startswith(b"%PDF")
+    pdf_text2 = extract_pdf_stream_text(pdf_res2.content)
+    assert "100% antecipado via PIX" in pdf_text2
+    assert "Garantia estendida de 90 dias" in pdf_text2
+
+
+def test_project_pdf_terms_with_xml_special_characters(client, make_user):
+    """
+    Verifies that terms with special XML/HTML characters (<, >, &, unclosed tags)
+    do not crash ReportLab PDF generation and are safely rendered.
+    """
+    user = make_user(email="xml_terms@example.com")
+    headers = user["headers"]
+
+    proj_res = client.post("/api/projects", json={
+        "name": "Projeto com Caracteres Especiais",
+        "payment_terms": "Sinal 50% & 50% na entrega <aprovado>",
+        "warranty_terms": "Peças < 100mm: 30 dias; Peças > 100mm: 60 dias & suporte",
+        "plates": [
+            {
+                "name": "Placa 1",
+                "custom_printer_hourly_rate": 5.0,
+                "custom_filament_cost_per_g": 0.15,
+                "print_time_hours": 1.0,
+                "part_weight_g": 50.0,
+            }
+        ]
+    }, headers=headers)
+    assert proj_res.status_code == 201
+    proj_id = proj_res.json()["id"]
+
+    pdf_res = client.get(f"/api/projects/{proj_id}/pdf?type=client", headers=headers)
+    assert pdf_res.status_code == 200
+    assert pdf_res.headers["content-type"] == "application/pdf"
+    assert pdf_res.content.startswith(b"%PDF")
+
+    pdf_text = extract_pdf_stream_text(pdf_res.content)
+    assert "Sinal 50%" in pdf_text
+    assert "30 dias" in pdf_text
 
 
 

@@ -517,7 +517,7 @@ def test_filament_duplication_features():
 
     api_js = Path(__file__).parent.parent / "frontend" / "js" / "api.js"
     api_content = api_js.read_text(encoding="utf-8")
-    assert "duplicate: (id) => API.request(`/api/filaments/${id}/duplicate`" in api_content
+    assert "duplicate:" in api_content and "`/api/filaments/${id}/duplicate`" in api_content
 
 
 def test_filament_duplication_browser_interaction():
@@ -698,6 +698,184 @@ def test_payment_and_warranty_inputs_in_frontend():
     assert "pref-warranty-terms" in app_js
     assert "payment_terms" in app_js
     assert "warranty_terms" in app_js
+
+
+def test_payment_terms_and_warranty_browser_flow():
+    """
+    Executes a real headless browser test (Chrome/Edge) to verify the terms resolution flow:
+    - openNewProject() leaves proj-payment-terms and proj-warranty-terms empty ("")
+      with dynamic placeholders reflecting workshop defaults ("Padrão da oficina: ...")
+    - Saving without typing custom terms sends null for payment_terms & warranty_terms
+    - Typing custom terms sends the custom string
+    - editProject(proj) loads existing terms or leaves empty with dynamic placeholder if null
+    """
+    import subprocess
+    import shutil
+    import tempfile
+
+    chrome_candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        shutil.which("google-chrome"),
+        shutil.which("chromium"),
+        shutil.which("chrome"),
+    ]
+    browser = None
+    for c in chrome_candidates:
+        if c and Path(c).exists():
+            browser = c
+            break
+
+    if not browser:
+        return
+
+    app_js_path = (Path(__file__).parent.parent / "frontend" / "js" / "app.js").resolve().as_posix()
+
+    html_test = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+    <div id="modal-filament" class="hidden">
+        <h3 id="modal-filament-title"></h3>
+        <input type="hidden" id="filament-id">
+        <select id="filament-material"><option value="PLA">PLA</option></select>
+        <input type="text" id="filament-brand" value="3D Prime">
+        <input type="color" id="filament-color-hex" value="#10b981">
+        <input type="text" id="filament-color" value="">
+        <span id="filament-preview-text"></span>
+        <span id="filament-preview-dot"></span>
+        <input type="number" id="filament-weight" value="1000">
+        <input type="number" id="filament-price" value="95.00">
+    </div>
+    <div id="editor-project-title"></div>
+    <div id="editor-project-subtitle"></div>
+    <input type="text" id="proj-name">
+    <input type="text" id="proj-client-name">
+    <input type="email" id="proj-client-email">
+    <input type="tel" id="proj-client-phone">
+    <select id="proj-status"><option value="draft">Rascunho</option></select>
+    <input type="number" id="proj-cad-hours">
+    <input type="number" id="proj-cad-rate">
+    <input type="number" id="proj-post-hours">
+    <input type="number" id="proj-post-rate">
+    <input type="number" id="proj-overhead">
+    <input type="number" id="proj-margin">
+    <input type="number" id="proj-tax">
+    <input type="number" id="proj-discount">
+    <input type="number" id="proj-shipping">
+    <input type="number" id="proj-delivery-days">
+    <input type="text" id="proj-payment-terms" placeholder="Deixe em branco para usar o padrão da oficina">
+    <input type="text" id="proj-warranty-terms" placeholder="Deixe em branco para usar o padrão da oficina">
+    <textarea id="proj-notes"></textarea>
+    <div id="plates-container"></div>
+    <div id="bom-items-container"></div>
+    <div id="test-result"></div>
+
+    <script>
+    window.lucide = {{ createIcons: () => {{}} }};
+    window.state = {{
+        user: {{
+            default_tax_rate: 6,
+            default_profit_margin: 30,
+            default_cad_rate: 50,
+            default_post_rate: 30,
+            default_payment_terms: "Entrada 40% e 60% na entrega",
+            default_warranty_terms: "30 dias contra delaminação"
+        }},
+        filaments: [],
+        printers: [],
+        currentPlates: [],
+        currentBOM: []
+    }};
+    window.formatCurrency = (v) => "R$ " + Number(v).toFixed(2);
+    window.refreshIcons = () => {{}};
+    window.navigateTo = () => {{}};
+    window.recalcLiveSummary = () => {{}};
+    window.renderPlates = () => {{}};
+    window.renderBOM = () => {{}};
+    window.showToast = () => {{}};
+    let lastSavedPayload = null;
+    window.API = {{
+        projects: {{
+            get: async (id) => ({{
+                id: 1,
+                name: "Projeto Existente",
+                payment_terms: null,
+                warranty_terms: "Garantia Especial 60d",
+                plates: [],
+                bom_items: []
+            }}),
+            create: async (data) => {{ lastSavedPayload = data; return {{ id: 99, ...data }}; }},
+            update: async (id, data) => {{ lastSavedPayload = data; return {{ id, ...data }}; }}
+        }}
+    }};
+    </script>
+    <script src="file:///{app_js_path}"></script>
+    <script>
+    try {{
+        // Test 1: openNewProject() must leave inputs empty and set placeholders with defaults
+        openNewProject();
+        const payInput = document.getElementById('proj-payment-terms');
+        const warInput = document.getElementById('proj-warranty-terms');
+
+        if (payInput.value !== "") throw new Error("proj-payment-terms should be empty string on new project, got: " + payInput.value);
+        if (warInput.value !== "") throw new Error("proj-warranty-terms should be empty string on new project, got: " + warInput.value);
+        if (!payInput.placeholder.includes("Entrada 40%")) throw new Error("proj-payment-terms placeholder should include workshop default, got: " + payInput.placeholder);
+        if (!warInput.placeholder.includes("30 dias")) throw new Error("proj-warranty-terms placeholder should include workshop default, got: " + warInput.placeholder);
+
+        // Test 2: Saving without typing should produce null terms
+        saveCurrentProject(false).then(() => {{
+            if (!lastSavedPayload) throw new Error("saveCurrentProject did not call API");
+            if (lastSavedPayload.payment_terms !== null) throw new Error("payment_terms should be null when left blank, got: " + lastSavedPayload.payment_terms);
+            if (lastSavedPayload.warranty_terms !== null) throw new Error("warranty_terms should be null when left blank, got: " + lastSavedPayload.warranty_terms);
+
+            // Test 3: Typing custom terms sends custom string
+            payInput.value = "100% à vista via PIX";
+            warInput.value = "90 dias de garantia total";
+            return saveCurrentProject(false);
+        }}).then(() => {{
+            if (lastSavedPayload.payment_terms !== "100% à vista via PIX") throw new Error("payment_terms not captured, got: " + lastSavedPayload.payment_terms);
+            if (lastSavedPayload.warranty_terms !== "90 dias de garantia total") throw new Error("warranty_terms not captured, got: " + lastSavedPayload.warranty_terms);
+
+            // Test 4: editProject loads null as empty string with placeholder
+            return editProject(1);
+        }}).then(() => {{
+            if (payInput.value !== "") throw new Error("editProject should keep payment_terms as empty string when null, got: " + payInput.value);
+            if (warInput.value !== "Garantia Especial 60d") throw new Error("editProject should load custom warranty_terms, got: " + warInput.value);
+            if (!payInput.placeholder.includes("Entrada 40%")) throw new Error("editProject placeholder should reflect default");
+
+            // Test 5: Modal close cleans up filament-id
+            openFilamentModal({{ id: 7, material: "PLA", brand: "Voolt", color: "Preto", color_hex: "#000", spool_weight_g: 1000, spool_price: 90 }}, true);
+            closeFilamentModal();
+            if (document.getElementById('filament-id').value !== "") throw new Error("closeFilamentModal did not clear filament-id");
+
+            document.getElementById('test-result').innerText = "SUCCESS";
+        }}).catch(e => {{
+            document.getElementById('test-result').innerText = "ERROR: " + e.message;
+        }});
+    }} catch (e) {{
+        document.getElementById('test-result').innerText = "ERROR: " + e.message;
+    }}
+    </script>
+</body>
+</html>"""
+
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8") as f:
+        f.write(html_test)
+        temp_path = f.name
+
+    try:
+        proc = subprocess.run([
+            browser,
+            "--headless=new",
+            "--disable-gpu",
+            "--dump-dom",
+            Path(temp_path).as_uri()
+        ], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
+
+        assert "SUCCESS" in (proc.stdout or ""), f"Headless browser test failed. Output:\n{proc.stdout}"
+    finally:
+        Path(temp_path).unlink(missing_ok=True)
 
 
 

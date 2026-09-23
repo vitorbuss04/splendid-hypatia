@@ -39,6 +39,8 @@ def init_db():
                     conn.execute(text("ALTER TABLE users ADD COLUMN default_payment_terms VARCHAR(500)"))
                 if "default_warranty_terms" not in user_cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN default_warranty_terms VARCHAR(500)"))
+                conn.execute(text("UPDATE users SET default_payment_terms = 'A combinar / 50% na aprovação e 50% na entrega.' WHERE default_payment_terms IS NULL"))
+                conn.execute(text("UPDATE users SET default_warranty_terms = 'Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas.' WHERE default_warranty_terms IS NULL"))
             if "filaments" in tables:
                 fil_cols = [c["name"] for c in inspector.get_columns("filaments")]
                 if "color_hex" not in fil_cols:
