@@ -69,7 +69,7 @@ async function parse3mfMetadata(file) {
                     const key = (meta.getAttribute("key") || "").toLowerCase();
                     const val = meta.getAttribute("value");
                     if (key === "index") index = parseInt(val, 10) || index;
-                    if (key === "prediction" || key === "print_time") predictionSeconds = parseFloat(val) || 0;
+                    if (key === "prediction" || key === "print_time" || key === "prediction_time" || key === "time") predictionSeconds = parseFloat(val) || 0;
                     if (key === "weight" || key === "plate_weight") weightGrams = parseFloat(val) || 0;
                     if (key === "flush_weight" || key === "purge_weight" || key === "waste_weight") {
                         purgeGrams = parseFloat(val) || 0;
@@ -126,7 +126,7 @@ async function parse3mfMetadata(file) {
 
     // 2. Search for embedded G-code inside the .3mf/.gcode.3mf ZIP archive (e.g. Metadata/plate_1.gcode or plate_*.gcode)
     if (plates.length === 0 || plates.every(p => p.print_time_hours === 0 && p.part_weight_g === 0)) {
-        const gcodeFiles = zip.file(/(?:Metadata\/)?.*\.gcode$/i);
+        const gcodeFiles = zip.file(/(?:Metadata\/)?.*\.gcode$/i).filter(f => !f.dir);
         if (gcodeFiles && gcodeFiles.length > 0) {
             gcodeFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
             const gcodePlates = [];

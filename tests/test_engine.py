@@ -194,3 +194,37 @@ def test_project_summary_zero_base_cost_and_high_tax_edge_case():
     assert summary["suggested_price"] == 0.0
     assert summary["final_price_to_client"] == 0.0
     assert summary["net_profit"] == 0.0
+
+
+def test_plate_cost_with_zero_machine_hourly_rate_and_zero_filament_cost():
+    """
+    Verifies that 0.0 machine hourly rate (e.g. fully depreciated machine, free solar energy)
+    and 0.0 filament cost per gram (e.g. client provided material) are preserved and produce
+    0.0 unit costs without defaulting to non-zero values.
+    """
+    printer = {
+        "acquisition_cost": 0.0,
+        "lifespan_hours": 5000.0,
+        "avg_power_watts": 0.0,
+        "energy_rate_kwh": 0.0,
+        "maintenance_cost_per_hour": 0.0,
+    }
+    filament = {
+        "spool_price": 0.0,
+        "spool_weight_g": 1000.0,
+    }
+    plate = {
+        "name": "Peça Gratuita",
+        "print_time_hours": 5.0,
+        "part_weight_g": 100.0,
+        "purge_weight_g": 0.0,
+        "failure_margin_percent": 10.0,
+        "quantity": 2,
+    }
+    cost = calculate_plate_cost(plate, printer=printer, filament=filament)
+    assert cost["machine_hourly_rate"] == 0.0
+    assert cost["total_machine_cost"] == 0.0
+    assert cost["cost_per_gram"] == 0.0
+    assert cost["total_material_cost"] == 0.0
+    assert cost["total_cost"] == 0.0
+

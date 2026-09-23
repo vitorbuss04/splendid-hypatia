@@ -439,6 +439,58 @@ def test_gcode_3mf_file_input_and_parser_support():
     assert ".gcode" in parser_content, "threemf.js must handle embedded .gcode in .gcode.3mf"
 
 
+def test_zero_rates_and_nullish_coalescing_in_plate_updates_and_summary(tmp_path):
+    """
+    Verifies that setting machine hourly rate or custom filament cost to 0
+    is preserved across updatePlatePrinter, updatePlateFilament, and recalcLiveSummary.
+    """
+    app_js = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    js_content = app_js.read_text(encoding="utf-8")
+
+    # updatePlatePrinter nullish check
+    assert "state.currentPlates[idx].custom_printer_hourly_rate == null" in js_content, \
+        "updatePlatePrinter must check == null to preserve 0 custom rate"
+    assert "!state.currentPlates[idx].custom_printer_hourly_rate" not in js_content, \
+        "updatePlatePrinter must not use ! negation check"
+
+    # updatePlateFilament nullish check
+    assert "state.currentPlates[idx].custom_filament_cost_per_g == null" in js_content, \
+        "updatePlateFilament must check == null to preserve 0 custom cost"
+    assert "!state.currentPlates[idx].custom_filament_cost_per_g" not in js_content, \
+        "updatePlateFilament must not use ! negation check"
+
+    # recalcLiveSummary machine hourly rate nullish coalescing
+    assert "printer.machine_hourly_rate ?? 2.0" in js_content, \
+        "recalcLiveSummary must use ?? 2.0 for printer.machine_hourly_rate"
+    assert "printer.machine_hourly_rate || 2.0" not in js_content, \
+        "recalcLiveSummary must not use || 2.0 for printer.machine_hourly_rate"
+
+
+def test_script_loading_order_and_file_handler_toasts():
+    """
+    Verifies:
+    1. index.html loads gcode.js BEFORE threemf.js (dependency order)
+    2. threemf.js filters out directory entries
+    3. Both handleSlicerFile and handleSinglePlateFile notify unsupported file types (.gcode.3mf included)
+    """
+    html_file = Path(__file__).parent.parent / "frontend" / "index.html"
+    html_content = html_file.read_text(encoding="utf-8")
+
+    gcode_idx = html_content.find("parsers/gcode.js")
+    threemf_idx = html_content.find("parsers/threemf.js")
+    assert gcode_idx != -1 and threemf_idx != -1
+    assert gcode_idx < threemf_idx, "gcode.js must be loaded BEFORE threemf.js"
+
+    threemf_js = Path(__file__).parent.parent / "frontend" / "js" / "parsers" / "threemf.js"
+    threemf_content = threemf_js.read_text(encoding="utf-8")
+    assert "!f.dir" in threemf_content, "threemf.js must filter directory entries when searching for gcode"
+
+    app_js = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    app_js_content = app_js.read_text(encoding="utf-8")
+    assert ".3mf, .gcode ou .gcode.3mf" in app_js_content, "app.js must mention .gcode.3mf in unsupported format toasts"
+
+
+
 
 
 

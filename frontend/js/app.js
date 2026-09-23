@@ -733,7 +733,7 @@ function updatePlatePrinter(idx, val) {
     if (state.currentPlates[idx].printer_id) {
         state.currentPlates[idx].custom_printer_hourly_rate = null;
     } else {
-        if (!state.currentPlates[idx].custom_printer_hourly_rate) {
+        if (state.currentPlates[idx].custom_printer_hourly_rate == null) {
             state.currentPlates[idx].custom_printer_hourly_rate = 2.50;
         }
     }
@@ -746,7 +746,7 @@ function updatePlateFilament(idx, val) {
     if (state.currentPlates[idx].filament_id) {
         state.currentPlates[idx].custom_filament_cost_per_g = null;
     } else {
-        if (!state.currentPlates[idx].custom_filament_cost_per_g) {
+        if (state.currentPlates[idx].custom_filament_cost_per_g == null) {
             state.currentPlates[idx].custom_filament_cost_per_g = 0.10;
         }
     }
@@ -856,7 +856,7 @@ function recalcLiveSummary() {
         // Machine rate
         let machineHourlyRate = 0;
         if (printer) {
-            machineHourlyRate = printer.machine_hourly_rate || 2.0;
+            machineHourlyRate = printer.machine_hourly_rate ?? 2.0;
         } else if (plate.custom_printer_hourly_rate != null) {
             machineHourlyRate = parseLocaleFloat(plate.custom_printer_hourly_rate, 0);
         } else {
@@ -989,8 +989,8 @@ async function saveCurrentProject(navigateBack = true) {
             name: p.name,
             printer_id: p.printer_id,
             filament_id: p.filament_id,
-            custom_printer_hourly_rate: p.custom_printer_hourly_rate !== undefined ? parseLocaleFloat(p.custom_printer_hourly_rate, 0) : undefined,
-            custom_filament_cost_per_g: p.custom_filament_cost_per_g !== undefined ? parseLocaleFloat(p.custom_filament_cost_per_g, 0) : undefined,
+            custom_printer_hourly_rate: p.printer_id ? null : (p.custom_printer_hourly_rate != null ? parseLocaleFloat(p.custom_printer_hourly_rate, 2.50) : 2.50),
+            custom_filament_cost_per_g: p.filament_id ? null : (p.custom_filament_cost_per_g != null ? parseLocaleFloat(p.custom_filament_cost_per_g, 0.10) : 0.10),
             print_time_hours: parseLocaleFloat(p.print_time_hours, 0),
             part_weight_g: parseLocaleFloat(p.part_weight_g, 0),
             purge_weight_g: parseLocaleFloat(p.purge_weight_g, 0),
@@ -1172,7 +1172,7 @@ async function handleSlicerFile(file) {
             }
             showToast(`G-Code lido com sucesso (${meta.print_time_hours}h, ${meta.part_weight_g}g)!`, 'success');
         } else {
-            showToast('Formato não suportado. Utilize arquivos .3mf ou .gcode.', 'error');
+            showToast('Formato não suportado. Utilize arquivos .3mf, .gcode ou .gcode.3mf.', 'error');
             return;
         }
 
@@ -1223,6 +1223,9 @@ async function handleSinglePlateFile(e, plateIdx) {
             }
 
             showToast(`Placa atualizada com dados do G-Code!`, 'success');
+        } else {
+            showToast('Formato não suportado. Utilize arquivos .3mf, .gcode ou .gcode.3mf.', 'error');
+            return;
         }
         renderPlates();
         recalcLiveSummary();

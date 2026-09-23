@@ -198,12 +198,12 @@ Todas as issues abaixo foram sincronizadas diretamente com o repositório remoto
   1. No frontend (`frontend/js/app.js`):
      - Substituído `||` pelo operador de coalescência nula (`??`) na leitura de todas as propriedades numéricas em `editProject`:
        `proj.tax_rate_percent ?? 6`, `proj.profit_margin_percent ?? 30`, `proj.cad_hourly_rate ?? 50`, `proj.post_process_hourly_rate ?? 30`, `proj.overhead_cost ?? 0`, `proj.discount_percent ?? 0`, `proj.shipping_cost ?? 0`.
-     - Atualizadas funções `initNewProject`, `populateSettingsForm`, `openPrinterModal` e `createDefaultPlate` para preservar valores `0` (ex: `u.default_tax_rate ?? 6`).
-     - Atualizado fallback de `proj-tax` em `recalcLiveSummary()` para `0%`.
+     - Atualizadas funções `initNewProject`, `populateSettingsForm`, `openPrinterModal`, `createDefaultPlate`, `updatePlatePrinter` e `updatePlateFilament` para preservar valores `0` (ex: `u.default_tax_rate ?? 6`, taxa de máquina e custo de filamento zero).
+     - Atualizado fallback de `proj-tax` e taxa de máquina da impressora (`printer.machine_hourly_rate ?? 2.0`) em `recalcLiveSummary()` para preservar `0.0`.
   2. No backend (`backend/engine.py` e `backend/routes/project_routes.py`):
      - Implementado helper `_get_val` em `calculate_project_summary` distinguindo de forma estrita `None` (retorna padrão) de `0.0` (preserva alíquota zero).
      - Adicionada preservação de `delivery_days` na rota `duplicate_project`.
-- **Verificação:** Coberto com testes de integração de API em `tests/test_api.py` (`test_project_zero_tax_rate_and_preservation`) e teste com navegador headless Chrome em `tests/test_frontend_inputs.py` (`test_edit_project_preserves_zero_tax_rate_and_nullish_coalescing`), somando 45 testes passando na suíte pytest.
+- **Verificação:** Coberto com testes de integração de API em `tests/test_api.py` (`test_project_zero_tax_rate_and_preservation`), motor de cálculo em `tests/test_engine.py` (`test_plate_cost_with_zero_machine_hourly_rate_and_zero_filament_cost`) e testes no navegador em `tests/test_frontend_inputs.py` (`test_edit_project_preserves_zero_tax_rate_and_nullish_coalescing` e `test_zero_rates_and_nullish_coalescing_in_plate_updates_and_summary`).
 
 ---
 
@@ -231,9 +231,10 @@ Todas as issues abaixo foram sincronizadas diretamente com o repositório remoto
      - Atualizados os atributos de upload para `accept=".3mf,.gcode,.gcode.3mf"` no dropzone híbrido e nas placas individuais.
      - Atualizados os manipuladores `handleSlicerFile` e `handleSinglePlateFile` para reconhecer e processar arquivos `.gcode.3mf`.
   2. No extrator de metadados (`frontend/js/parsers/threemf.js`):
-     - Adicionado suporte completo à extração de arquivos G-code embutidos no pacote ZIP (`Metadata/plate_*.gcode`), extraindo automaticamente tempo de impressão, massa de filamento e polímero.
+     - Adicionado suporte completo à extração de arquivos G-code embutidos no pacote ZIP (`Metadata/plate_*.gcode`), com ordenação natural por índice de placa e filtragem de diretórios.
+     - Extração automática de tempo de impressão, massa de filamento e polímero.
      - Adicionado fallback resiliente de decodificação como texto caso o arquivo seja código G-code puro sob o nome `.gcode.3mf`.
-- **Verificação:** Coberto por múltiplos testes em `tests/test_parsers.py` (`test_gcode_3mf_with_slice_info`, `test_gcode_3mf_with_embedded_gcode`, `test_gcode_3mf_plain_text_fallback`) e `tests/test_frontend_inputs.py` (`test_gcode_3mf_file_input_and_parser_support`).
+- **Verificação:** Coberto por múltiplos testes em `tests/test_parsers.py` (`test_gcode_3mf_with_slice_info`, `test_gcode_3mf_with_embedded_gcode`, `test_gcode_3mf_plain_text_fallback`, `test_multi_plate_gcode_3mf_natural_sort_and_naming`) e `tests/test_frontend_inputs.py` (`test_gcode_3mf_file_input_and_parser_support`, `test_script_loading_order_and_file_handler_toasts`).
 
 ---
 
