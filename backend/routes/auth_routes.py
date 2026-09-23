@@ -9,8 +9,9 @@ router = APIRouter(prefix="/api/auth", tags=["Autenticação"])
 
 @router.post("/register", response_model=schemas.TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(user_in: schemas.UserRegister, db: Session = Depends(get_db)):
+    clean_email = user_in.email.strip().lower()
     # Verify if email already registered
-    existing_user = db.query(models.User).filter(models.User.email == user_in.email).first()
+    existing_user = db.query(models.User).filter(models.User.email == clean_email).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -19,7 +20,7 @@ def register(user_in: schemas.UserRegister, db: Session = Depends(get_db)):
 
     # Create user with clean slate (0 printers, 0 filaments, 0 projects)
     new_user = models.User(
-        email=user_in.email,
+        email=clean_email,
         password_hash=hash_password(user_in.password),
         full_name=user_in.full_name,
         company_name=user_in.company_name,
@@ -38,7 +39,8 @@ def register(user_in: schemas.UserRegister, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=schemas.TokenResponse)
 def login(login_in: schemas.UserLogin, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == login_in.email).first()
+    clean_email = login_in.email.strip().lower()
+    user = db.query(models.User).filter(models.User.email == clean_email).first()
     if not user or not verify_password(login_in.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

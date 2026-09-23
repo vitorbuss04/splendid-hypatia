@@ -389,7 +389,7 @@ def build_pdf_document(
                 Paragraph(p.get("printer_name", "Padrão"), style_cell),
                 Paragraph(p.get("filament_name", "Padrão"), style_cell),
                 Paragraph(f"{p.get('unit_print_time_hours', 0.0):.1f} h", style_cell_right),
-                Paragraph(f"{p.get('unit_raw_weight_g', 0.0):.1f} g", style_cell_right),
+                Paragraph(f"{p.get('part_weight_g', p.get('unit_raw_weight_g', 0.0)):.1f} g", style_cell_right),
                 Paragraph(f"{p.get('purge_weight_g', 0.0):.1f} g", style_cell_right),
                 Paragraph(str(p.get("quantity", 1)), style_cell_right),
                 Paragraph(f"{p.get('total_time_hours', 0.0):.1f} h", style_cell_right),
@@ -439,8 +439,11 @@ def build_pdf_document(
 
         # Internal Cost breakdown for Owner/Operator
         story.append(Paragraph("3. DEMONSTRATIVO DE CUSTOS INTERNOS E MARGENS", style_section_title))
+        raw_w = summary.get('total_filament_weight_g', 0.0)
+        eff_w = summary.get('total_effective_filament_weight_g', raw_w)
+        weight_label = f"{raw_w:.1f} g ({eff_w:.1f} g c/ falha)" if eff_w != raw_w else f"{raw_w:.1f} g"
         cost_breakdown_data = [
-            [Paragraph("Consumo Total de Filamento:", style_cell), Paragraph(f"{summary.get('total_filament_weight_g', 0.0):.1f} g (R$ {summary.get('total_material_cost', 0.0):.2f})", style_cell_right)],
+            [Paragraph("Consumo Total de Filamento:", style_cell), Paragraph(f"{weight_label} (R$ {summary.get('total_material_cost', 0.0):.2f})", style_cell_right)],
             [Paragraph("Tempo Total de Máquina:", style_cell), Paragraph(f"{summary.get('total_print_time_hours', 0.0):.1f} h (R$ {summary.get('total_machine_cost', 0.0):.2f})", style_cell_right)],
             [Paragraph("Energia Elétrica Estimada:", style_cell), Paragraph(f"R$ {summary.get('total_energy_cost', 0.0):.2f}", style_cell_right)],
             [Paragraph("Depreciação de Máquina:", style_cell), Paragraph(f"R$ {summary.get('total_depreciation_cost', 0.0):.2f}", style_cell_right)],

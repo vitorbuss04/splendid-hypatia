@@ -17,27 +17,20 @@ TEST_DB_URL = "sqlite:///data/test.db"
 test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(autouse=True)
 def setup_test_database():
-    # Create all tables once for session
     Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
     yield
-    # Cleanup after session
     Base.metadata.drop_all(bind=test_engine)
 
 @pytest.fixture
 def db():
-    # Fresh connection / transaction per test function
-    connection = test_engine.connect()
-    transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
-
-    yield session
-
-    session.close()
-    transaction.rollback()
-    connection.close()
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
 
 @pytest.fixture
 def client(db):

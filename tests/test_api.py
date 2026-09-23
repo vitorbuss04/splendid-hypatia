@@ -275,3 +275,119 @@ def test_multitenant_data_isolation(client, make_user):
     # User B attempting to download Alice's PDF must receive 404
     pdf_resp = client.get(f"/api/projects/{alice_project_id}/pdf", headers=user_b["headers"])
     assert pdf_resp.status_code == 404
+
+def test_project_put_updates_plates_and_bom(client, make_user):
+    user = make_user(email="updater@example.com")
+    headers = user["headers"]
+
+    # 1. Create initial project with 1 plate and 1 BOM item
+    create_resp = client.post("/api/projects", json={
+        "name": "Projeto Versao 1",
+        "plates": [
+            {
+                "name": "Placa 1 Original",
+                "print_time_hours": 2.0,
+                "part_weight_g": 50.0,
+                "purge_weight_g": 0.0,
+                "quantity": 1,
+            }
+        ],
+        "bom_items": [
+            {
+                "name": "Parafuso Original",
+                "quantity": 2,
+                "unit_cost": 1.0,
+            }
+        ]
+    }, headers=headers)
+    assert create_resp.status_code == 201
+    proj_id = create_resp.json()["id"]
+    assert len(create_resp.json()["plates"]) == 1
+    assert len(create_resp.json()["bom_items"]) == 1
+
+    # 2. Update project via PUT including modified plates and BOM items (simulate web UI save)
+    update_payload = {
+        "name": "Projeto Versao 2 (Atualizado)",
+        "plates": [
+            {
+                "name": "Placa 1 Modificada",
+                "print_time_hours": 4.0,
+                "part_weight_g": 120.0,
+                "purge_weight_g": 15.0,
+                "quantity": 2,
+            },
+            {
+                "name": "Placa 2 Nova",
+                "print_time_hours": 1.5,
+                "part_weight_g": 30.0,
+                "purge_weight_g": 5.0,
+                "quantity": 1,
+            }
+        ],
+        "bom_items": [
+            {
+                "name": "Parafuso M3",
+                "quantity": 8,
+                "unit_cost": 0.25,
+            },
+            {
+                "name": "Inserto M3",
+                "quantity": 4,
+                "unit_cost": 1.50,
+            }
+        ]
+    }
+    put_resp = client.put(f"/api/projects/{proj_id}", json=update_payload, headers=headers)
+    assert put_resp.status_code == 200
+    updated_data = put_resp.json()
+    assert updated_data["name"] == "Projeto Versao 2 (Atualizado)"
+    assert len(updated_data["plates"]) == 2
+    assert updated_data["plates"][0]["name"] == "Placa 1 Modificada"
+    assert updated_data["plates"][0]["purge_weight_g"] == 15.0
+    assert updated_data["plates"][1]["name"] == "Placa 2 Nova"
+    assert len(updated_data["bom_items"]) == 2
+
+    # 3. GET project to verify persistence
+    get_resp = client.get(f"/api/projects/{proj_id}", headers=headers)
+    assert get_resp.status_code == 200
+    persisted = get_resp.json()
+    assert len(persisted["plates"]) == 2
+    assert len(persisted["bom_items"]) == 2
+
+    # 4. Verify Technical PDF with purge weight works
+    tech_pdf = client.get(f"/api/projects/{proj_id}/pdf?type=technical", headers=headers)
+    assert tech_pdf.status_code == 200
+    assert tech_pdf.headers["content-type"] == "application/pdf"
+    assert len(tech_pdf.content) > 1000
+
+def test_api_unknown_route_returns_404_json(client):
+    r = client.get("/api/nonexistent_endpoint")
+    assert r.status_code == 404
+    assert "application/json" in r.headers["content-type"]
+    assert "detail" in r.json()
+
+def test_auth_case_insensitive_email(client):
+    # Register with mixed case
+    reg_resp = client.post("/api/auth/register", json={
+        "email": "MixedCaseUser@Example.COM",
+        "password": "secretpassword123",
+        "full_name": "Mixed Case"
+    })
+    assert reg_resp.status_code == 201
+
+    # Duplicate registration in all lowercase must fail
+    dupe_resp = client.post("/api/auth/register", json={
+        "email": "mixedcaseuser@example.com",
+        "password": "secretpassword123",
+        "full_name": "Duplicate"
+    })
+    assert dupe_resp.status_code == 400
+
+    # Login in lowercase must succeed
+    login_resp = client.post("/api/auth/login", json={
+        "email": "mixedcaseuser@example.com",
+        "password": "secretpassword123"
+    })
+    assert login_resp.status_code == 200
+    assert "access_token" in login_resp.json()
+

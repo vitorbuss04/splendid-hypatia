@@ -125,6 +125,9 @@ def calculate_plate_cost(
         "cost_per_gram": round(cost_per_gram, 4),
         "machine_hourly_rate": round(machine_hourly_rate, 4),
         "unit_print_time_hours": round(print_time_hours, 2),
+        "part_weight_g": round(part_weight_g, 2),
+        "purge_weight_g": round(purge_weight_g, 2),
+        "failure_margin_percent": round(failure_margin_percent, 2),
         "unit_raw_weight_g": round(unit_raw_weight, 2),
         "unit_material_cost": round(unit_material_cost, 2),
         "unit_machine_cost": round(unit_machine_cost, 2),
@@ -178,6 +181,7 @@ def calculate_project_summary(
     total_maintenance_cost = 0.0
     total_print_time_hours = 0.0
     total_filament_weight_g = 0.0
+    total_effective_filament_weight_g = 0.0
 
     for pl in plates:
         p_id = get_attr(pl, "printer_id", None)
@@ -196,6 +200,7 @@ def calculate_project_summary(
         total_maintenance_cost += c["total_maintenance_cost"]
         total_print_time_hours += c["total_time_hours"]
         total_filament_weight_g += c["total_weight_g"]
+        total_effective_filament_weight_g += c["total_effective_weight_g"]
 
     # 2. BOM Items calculation
     bom_details = []
@@ -266,6 +271,7 @@ def calculate_project_summary(
         "total_bom_items_count": total_bom_items_count,
         "total_print_time_hours": round(total_print_time_hours, 2),
         "total_filament_weight_g": round(total_filament_weight_g, 2),
+        "total_effective_filament_weight_g": round(total_effective_filament_weight_g, 2),
         # Costs breakdown
         "total_material_cost": round(total_material_cost, 2),
         "total_machine_cost": round(total_machine_cost, 2),

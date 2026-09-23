@@ -511,6 +511,14 @@ function renderPlates() {
                             </option>
                         `).join('')}
                     </select>
+                    ${!plate.printer_id ? `
+                        <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded border border-slate-700/60">
+                            <span class="text-[10px] text-amber-400 font-medium">Taxa manual:</span>
+                            <span class="text-[10px] text-slate-400">R$</span>
+                            <input type="number" step="0.1" min="0" value="${plate.custom_printer_hourly_rate ?? 2.50}" oninput="state.currentPlates[${idx}].custom_printer_hourly_rate = parseFloat(this.value)||0; recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400" placeholder="2.50">
+                            <span class="text-[10px] text-slate-400">/h</span>
+                        </div>
+                    ` : ''}
                 </div>
 
                 <div>
@@ -523,6 +531,14 @@ function renderPlates() {
                             </option>
                         `).join('')}
                     </select>
+                    ${!plate.filament_id ? `
+                        <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded border border-slate-700/60">
+                            <span class="text-[10px] text-amber-400 font-medium">Custo manual:</span>
+                            <span class="text-[10px] text-slate-400">R$</span>
+                            <input type="number" step="0.01" min="0" value="${plate.custom_filament_cost_per_g ?? 0.10}" oninput="state.currentPlates[${idx}].custom_filament_cost_per_g = parseFloat(this.value)||0; recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400" placeholder="0.10">
+                            <span class="text-[10px] text-slate-400">/g</span>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
 
@@ -563,11 +579,27 @@ function renderPlates() {
 
 function updatePlatePrinter(idx, val) {
     state.currentPlates[idx].printer_id = val ? parseInt(val, 10) : null;
+    if (state.currentPlates[idx].printer_id) {
+        state.currentPlates[idx].custom_printer_hourly_rate = null;
+    } else {
+        if (!state.currentPlates[idx].custom_printer_hourly_rate) {
+            state.currentPlates[idx].custom_printer_hourly_rate = 2.50;
+        }
+    }
+    renderPlates();
     recalcLiveSummary();
 }
 
 function updatePlateFilament(idx, val) {
     state.currentPlates[idx].filament_id = val ? parseInt(val, 10) : null;
+    if (state.currentPlates[idx].filament_id) {
+        state.currentPlates[idx].custom_filament_cost_per_g = null;
+    } else {
+        if (!state.currentPlates[idx].custom_filament_cost_per_g) {
+            state.currentPlates[idx].custom_filament_cost_per_g = 0.10;
+        }
+    }
+    renderPlates();
     recalcLiveSummary();
 }
 
@@ -626,7 +658,7 @@ function renderBOM() {
                 <input type="number" min="1" step="1" value="${item.quantity}" oninput="state.currentBOM[${idx}].quantity = parseInt(this.value,10)||1; recalcLiveSummary();" placeholder="Qtd" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white text-center font-bold">
             </div>
             <div class="w-24">
-                <input type="number" min="0" step="0.05" value="${item.unit_cost}" oninput="state.currentBOM[${idx}].unit_cost = parseFloat(this.value)||0; recalcLiveSummary();" placeholder="R$ Unit" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white">
+                <input type="number" min="0" step="0.01" value="${item.unit_cost}" oninput="state.currentBOM[${idx}].unit_cost = parseFloat(this.value)||0; recalcLiveSummary();" placeholder="R$ Unit" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white">
             </div>
             <div class="w-24 text-right font-bold text-white" id="bom-subtotal-${idx}">
                 ${formatCurrency((item.quantity || 1) * (item.unit_cost || 0))}
@@ -664,8 +696,8 @@ function recalcLiveSummary() {
         let costPerGram = 0;
         if (filament && filament.spool_weight_g > 0) {
             costPerGram = filament.spool_price / filament.spool_weight_g;
-        } else if (plate.custom_filament_cost_per_g) {
-            costPerGram = plate.custom_filament_cost_per_g;
+        } else if (plate.custom_filament_cost_per_g != null) {
+            costPerGram = parseFloat(plate.custom_filament_cost_per_g) || 0;
         } else {
             costPerGram = 0.09; // fallback standard PLA
         }
@@ -674,8 +706,8 @@ function recalcLiveSummary() {
         let machineHourlyRate = 0;
         if (printer) {
             machineHourlyRate = printer.machine_hourly_rate || 2.0;
-        } else if (plate.custom_printer_hourly_rate) {
-            machineHourlyRate = plate.custom_printer_hourly_rate;
+        } else if (plate.custom_printer_hourly_rate != null) {
+            machineHourlyRate = parseFloat(plate.custom_printer_hourly_rate) || 0;
         } else {
             machineHourlyRate = 2.0; // fallback standard rate
         }
@@ -921,6 +953,39 @@ async function handleSlicerFile(file) {
         if (name.endsWith('.3mf')) {
             const extractedPlates = await parse3mfMetadata(file);
             if (extractedPlates && extractedPlates.length > 0) {
+                const defaultPrinter = state.printers[0] || null;
+
+                extractedPlates.forEach(p => {
+                    if (defaultPrinter) {
+                        p.printer_id = defaultPrinter.id;
+                        p.custom_printer_hourly_rate = null;
+                    } else {
+                        p.printer_id = null;
+                        p.custom_printer_hourly_rate = 2.50;
+                    }
+
+                    let matchedFilament = null;
+                    if (p.filament_type && state.filaments.length > 0) {
+                        const types = p.filament_type.toLowerCase().split(',').map(s => s.trim());
+                        matchedFilament = state.filaments.find(f => types.includes(f.material.toLowerCase()));
+                    }
+                    if (!matchedFilament && state.filaments.length > 0) {
+                        matchedFilament = state.filaments[0];
+                    }
+
+                    if (matchedFilament) {
+                        p.filament_id = matchedFilament.id;
+                        p.custom_filament_cost_per_g = null;
+                    } else {
+                        p.filament_id = null;
+                        p.custom_filament_cost_per_g = 0.10;
+                    }
+
+                    p.failure_margin_percent = (state.user && state.user.default_failure_rate) || 10;
+                    p.quantity = p.quantity || 1;
+                    p.notes = p.notes || '';
+                });
+
                 // If only 1 empty plate exists, replace it, else append
                 if (state.currentPlates.length === 1 && state.currentPlates[0].print_time_hours === 0 && state.currentPlates[0].part_weight_g === 0) {
                     state.currentPlates = extractedPlates;
@@ -936,6 +1001,14 @@ async function handleSlicerFile(file) {
             newPlate.name = file.name.replace(/\.gcode$/i, '');
             newPlate.print_time_hours = meta.print_time_hours;
             newPlate.part_weight_g = meta.part_weight_g;
+
+            if (meta.filament_type && state.filaments.length > 0) {
+                const matched = state.filaments.find(f => f.material.toLowerCase() === meta.filament_type.toLowerCase());
+                if (matched) {
+                    newPlate.filament_id = matched.id;
+                    newPlate.custom_filament_cost_per_g = null;
+                }
+            }
 
             if (state.currentPlates.length === 1 && state.currentPlates[0].print_time_hours === 0 && state.currentPlates[0].part_weight_g === 0) {
                 state.currentPlates = [newPlate];
@@ -967,6 +1040,16 @@ async function handleSinglePlateFile(e, plateIdx) {
                 state.currentPlates[plateIdx].print_time_hours = plates[0].print_time_hours;
                 state.currentPlates[plateIdx].part_weight_g = plates[0].part_weight_g;
                 state.currentPlates[plateIdx].purge_weight_g = plates[0].purge_weight_g;
+
+                if (plates[0].filament_type && state.filaments.length > 0) {
+                    const types = plates[0].filament_type.toLowerCase().split(',').map(s => s.trim());
+                    const matched = state.filaments.find(f => types.includes(f.material.toLowerCase()));
+                    if (matched) {
+                        state.currentPlates[plateIdx].filament_id = matched.id;
+                        state.currentPlates[plateIdx].custom_filament_cost_per_g = null;
+                    }
+                }
+
                 showToast(`Placa atualizada com dados do 3MF!`, 'success');
             }
         } else if (name.endsWith('.gcode')) {
@@ -974,6 +1057,15 @@ async function handleSinglePlateFile(e, plateIdx) {
             const meta = parseGcodeMetadata(text);
             state.currentPlates[plateIdx].print_time_hours = meta.print_time_hours;
             state.currentPlates[plateIdx].part_weight_g = meta.part_weight_g;
+
+            if (meta.filament_type && state.filaments.length > 0) {
+                const matched = state.filaments.find(f => f.material.toLowerCase() === meta.filament_type.toLowerCase());
+                if (matched) {
+                    state.currentPlates[plateIdx].filament_id = matched.id;
+                    state.currentPlates[plateIdx].custom_filament_cost_per_g = null;
+                }
+            }
+
             showToast(`Placa atualizada com dados do G-Code!`, 'success');
         }
         renderPlates();

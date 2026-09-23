@@ -147,8 +147,27 @@ def update_project(
     db: Session = Depends(get_db)
 ):
     project = get_user_project(project_id, current_user.id, db)
-    for field, value in proj_update.model_dump(exclude_unset=True).items():
+    update_data = proj_update.model_dump(exclude_unset=True, exclude={"plates", "bom_items"})
+    for field, value in update_data.items():
         setattr(project, field, value)
+
+    if proj_update.plates is not None:
+        project.plates.clear()
+        for p_data in proj_update.plates:
+            plate = models.Plate(
+                project_id=project.id,
+                **p_data.model_dump()
+            )
+            db.add(plate)
+
+    if proj_update.bom_items is not None:
+        project.bom_items.clear()
+        for b_data in proj_update.bom_items:
+            bom = models.BOMItem(
+                project_id=project.id,
+                **b_data.model_dump()
+            )
+            db.add(bom)
 
     db.commit()
     db.refresh(project)

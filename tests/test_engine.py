@@ -72,6 +72,9 @@ def test_plate_cost_with_printer_and_filament():
     res = calculate_plate_cost(plate, printer=printer, filament=filament)
     assert res["cost_per_gram"] == 0.10
     assert res["machine_hourly_rate"] == 2.00
+    assert res["part_weight_g"] == 80.0
+    assert res["purge_weight_g"] == 20.0
+    assert res["failure_margin_percent"] == 10.0
     assert res["unit_material_cost"] == 11.00
     assert res["unit_machine_cost"] == 6.00
     assert res["unit_total_cost"] == 17.00
@@ -143,6 +146,8 @@ def test_project_summary_complete_calculation():
 
     # Plates cost: 20.00 + 30.00 = 50.00
     assert summary["total_plates_cost"] == 50.00
+    assert summary["total_filament_weight_g"] == 200.0
+    assert summary["total_effective_filament_weight_g"] == 200.0
     # BOM cost: 5.00 + 5.00 = 10.00
     assert summary["total_bom_cost"] == 10.00
     # Labor: 100.00 + 30.00 = 130.00

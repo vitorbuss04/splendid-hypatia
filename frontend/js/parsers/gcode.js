@@ -16,23 +16,29 @@ function parseGcodeMetadata(gcodeText) {
 
     for (const rawLine of candidateLines) {
         const line = rawLine.trim();
+        if (!line.startsWith(';')) continue;
 
         // 1. Match Print Time
         // Prusa / SuperSlicer / Orca: ; estimated printing time (normal mode) = 1h 25m 30s
-        if (line.includes('estimated printing time') || line.includes('print time')) {
-            const timeMatch = line.match(/(?:(?:(\d+)d\s*)?(?:(\d+)h\s*)?(?:(\d+)m\s*)?(?:(\d+)s)?)|(?:(\d+):(\d+):(\d+))/i);
-            if (timeMatch) {
-                if (timeMatch[5] !== undefined) {
-                    // HH:MM:SS format
-                    const h = parseInt(timeMatch[5], 10) || 0;
-                    const m = parseInt(timeMatch[6], 10) || 0;
-                    const s = parseInt(timeMatch[7], 10) || 0;
-                    printTimeSeconds = (h * 3600) + (m * 60) + s;
-                } else {
-                    const days = parseInt(timeMatch[1], 10) || 0;
-                    const hours = parseInt(timeMatch[2], 10) || 0;
-                    const mins = parseInt(timeMatch[3], 10) || 0;
-                    const secs = parseInt(timeMatch[4], 10) || 0;
+        if (line.includes('estimated printing time') || line.includes('print time') || line.includes('build time') || line.includes('total time')) {
+            // Check HH:MM:SS format first
+            const hhmmss = line.match(/(?:=|\:)\s*(\d+):(\d+):(\d+)/);
+            if (hhmmss) {
+                const h = parseInt(hhmmss[1], 10) || 0;
+                const m = parseInt(hhmmss[2], 10) || 0;
+                const s = parseInt(hhmmss[3], 10) || 0;
+                const calculated = (h * 3600) + (m * 60) + s;
+                if (calculated > 0) printTimeSeconds = calculated;
+            } else {
+                const dMatch = line.match(/(\d+)\s*d(?:ays?)?/i);
+                const hMatch = line.match(/(\d+)\s*h(?:ours?|r)?/i);
+                const mMatch = line.match(/(\d+)\s*m(?:in(?:ute)?s?)?/i);
+                const sMatch = line.match(/(\d+)\s*s(?:ec(?:ond)?s?)?/i);
+                if (dMatch || hMatch || mMatch || sMatch) {
+                    const days = dMatch ? parseInt(dMatch[1], 10) : 0;
+                    const hours = hMatch ? parseInt(hMatch[1], 10) : 0;
+                    const mins = mMatch ? parseInt(mMatch[1], 10) : 0;
+                    const secs = sMatch ? parseInt(sMatch[1], 10) : 0;
                     const calculated = (days * 86400) + (hours * 3600) + (mins * 60) + secs;
                     if (calculated > 0) printTimeSeconds = calculated;
                 }
@@ -46,23 +52,31 @@ function parseGcodeMetadata(gcodeText) {
         }
 
         // 2. Match Filament Weight
-        // Prusa / SuperSlicer: ; filament used [g] = 45.2
-        const prusaWeightMatch = line.match(/^;(?:\s*filament used \[g\]\s*=\s*)([0-9.]+)/i);
-        if (prusaWeightMatch) {
-            filamentGrams = parseFloat(prusaWeightMatch[1]);
+        // Prusa / SuperSlicer: ; filament used [g] = 45.2 or multi-material = 12.5, 4.3
+        if (line.match(/filament used\s*\[g\]/i)) {
+            const numbers = line.match(/[0-9]+(?:\.[0-9]+)?/g);
+            if (numbers && numbers.length > 0) {
+                const totalG = numbers.reduce((acc, n) => acc + (parseFloat(n) || 0), 0);
+                if (totalG > 0) filamentGrams = totalG;
+            }
         }
 
         // Cura / Orca: ;Filament weight = 45.2g or ; filament used [g] : 45.2
-        const curaWeightMatch = line.match(/filament (?:weight|used)\s*[:=]\s*([0-9.]+)\s*g/i);
-        if (curaWeightMatch && !filamentGrams) {
-            filamentGrams = parseFloat(curaWeightMatch[1]);
+        const curaWeightMatch = line.match(/filament (?:weight|used)\s*[:=]\s*([0-9.]+)\s*g?/i);
+        if (curaWeightMatch && !filamentGrams && !line.includes('[mm]') && !line.includes('[m]')) {
+            filamentGrams = parseFloat(curaWeightMatch[1]) || 0;
         }
 
         // 3. Match Filament Length if weight not directly found
-        // ; filament used [mm] = 15200.5
-        const lengthMatch = line.match(/filament used\s*\[?(?:mm|m)\]?\s*[:=]\s*([0-9.]+)/i);
-        if (lengthMatch && !filamentMillimeters) {
-            filamentMillimeters = parseFloat(lengthMatch[1]);
+        // ; filament used [mm] = 15200.5 or ;Filament used: 3.45m
+        if (line.match(/filament used\s*\[?(?:mm|m)\]?/i) && !filamentGrams) {
+            const mMatch = line.match(/[:=]\s*([0-9.]+)\s*m(?:$|\s)/i);
+            const mmMatch = line.match(/[:=]\s*([0-9.]+)\s*(?:mm)?(?:$|\s)/i);
+            if (mMatch) {
+                filamentMillimeters = (parseFloat(mMatch[1]) || 0) * 1000;
+            } else if (mmMatch) {
+                filamentMillimeters = parseFloat(mmMatch[1]) || 0;
+            }
         }
 
         // 4. Filament Material (PLA, PETG, ABS)

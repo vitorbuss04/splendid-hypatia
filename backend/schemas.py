@@ -227,6 +227,8 @@ class ProjectUpdate(BaseModel):
     discount_percent: Optional[float] = Field(None, ge=0, le=100.0)
     shipping_cost: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
+    plates: Optional[List[PlateCreate]] = None
+    bom_items: Optional[List[BOMItemCreate]] = None
 
 class ProjectListItem(BaseModel):
     id: int

@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -55,9 +55,12 @@ if FRONTEND_DIR.exists():
 
     @app.get("/{catchall:path}")
     def serve_spa(catchall: str):
-        # If file exists in frontend, serve it
-        target_path = FRONTEND_DIR / catchall
-        if target_path.is_file():
+        # Do not catch API routes
+        if catchall == "api" or catchall.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Endpoint não encontrado.")
+        # If file exists in frontend, serve it safely
+        target_path = (FRONTEND_DIR / catchall).resolve()
+        if target_path.is_file() and target_path.is_relative_to(FRONTEND_DIR.resolve()):
             return FileResponse(str(target_path))
         # Otherwise fallback to index.html for SPA routing
         return FileResponse(str(FRONTEND_DIR / "index.html"))
