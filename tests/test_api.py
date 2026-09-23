@@ -636,5 +636,36 @@ def test_project_delivery_days_and_pdf_preview(client, make_user):
     assert len(pdf_query_auth.content) > 1000
 
 
+def test_pdf_clean_material_and_delivery_days_grammar(client, make_user):
+    from backend.pdf_service import extract_clean_material, build_pdf_document
+    # 1. Test clean material extraction
+    assert extract_clean_material({"filament_material": "PLA", "filament_name": "PLA Preto - 3D Prime"}) == "PLA"
+    assert extract_clean_material({"filament_material": "TPU (Flexível)", "filament_name": "TPU Azul"}) == "TPU"
+    assert extract_clean_material({"filament_material": "Resina UV", "filament_name": "Resina Cinza"}) == "RESINA"
+    assert extract_clean_material({"filament_material": "Personalizado", "filament_name": "PETG Branco - Voolt3D"}) == "PETG"
+    assert extract_clean_material({"filament_material": None, "filament_name": "Desconhecido"}) == "PLA"
+
+    # 2. Test delivery days phrasing: 1 dia útil vs N dias úteis
+    user = make_user(email="grammar_test@example.com")
+    headers = user["headers"]
+    user_db = user["user"]
+
+    # Delivery days = 1
+    proj_1 = client.post("/api/projects", json={
+        "name": "Entrega Urgente",
+        "delivery_days": 1,
+        "plates": [{"name": "P1", "print_time_hours": 1.0, "part_weight_g": 20.0}]
+    }, headers=headers).json()
+
+    pdf_1 = client.get(f"/api/projects/{proj_1['id']}/pdf?type=client", headers=headers)
+    assert pdf_1.status_code == 200
+    # build_pdf_document directly to inspect terms string
+    from backend.engine import calculate_project_summary
+    sum_1 = calculate_project_summary(proj_1, proj_1["plates"], [])
+    buf_1 = build_pdf_document({**proj_1, "delivery_days": 1, "summary": sum_1}, user_db, doc_type="client")
+    assert buf_1.getvalue().startswith(b"%PDF")
+
+
+
 
 

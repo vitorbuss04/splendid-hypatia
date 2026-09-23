@@ -8,6 +8,7 @@ def python_parse_gcode(gcode_text: str):
     and strict parity for slicer metadata extraction.
     """
     print_time_seconds = 0
+    print_time_priority = 0
     filament_grams = 0
     filament_millimeters = 0
     filament_type = None
@@ -18,63 +19,70 @@ def python_parse_gcode(gcode_text: str):
     candidate_lines = header_lines + footer_lines
 
     def extract_from_line(raw_line: str):
-        nonlocal print_time_seconds, filament_grams, filament_millimeters, filament_type
+        nonlocal print_time_seconds, print_time_priority, filament_grams, filament_millimeters, filament_type
         line = raw_line.strip()
         if not line.startswith(";"):
             return
         lower = line.lower()
 
-        # 1. Cura / Creality time
-        cura_time = re.search(r"^;\s*time(?:_elapsed)?:\s*(\d+)", lower)
-        if cura_time and not print_time_seconds:
-            print_time_seconds = int(cura_time.group(1))
+        # Skip silent/stealth mode to ensure normal mode is never clobbered
+        if "(silent mode)" in lower or "(stealth mode)" in lower:
+            return
 
-        sec_tag = re.search(r"^;\s*(?:total_time|print_time|estimated_time|job_time|total_print_time)\s*[:=]\s*(\d+)(?:\s|$)", lower)
-        if sec_tag and not print_time_seconds:
+        # 1. Cura / Creality time
+        cura_time = re.search(r"^;\s*time(?:_elapsed)?:\s*(\d+)(?:\s*(?:s|sec|seconds)?\s*$|\s*$)", lower)
+        if cura_time and print_time_priority < 2:
+            print_time_seconds = int(cura_time.group(1))
+            print_time_priority = 2
+
+        sec_tag = re.search(r"^;\s*(?:total_time|print_time|estimated_time|job_time|total_print_time)\s*[:=]\s*(\d+)(?:\s*(?:s|sec|seconds)?\s*$|\s*$)", lower)
+        if sec_tag and print_time_priority < 2:
             print_time_seconds = int(sec_tag.group(1))
+            print_time_priority = 1
 
         time_keywords = [
-            "estimated printing time", "total estimated time", "model printing time",
-            "estimated print time", "printing time", "print time", "build time",
-            "total time", "total print time", "estimated time", "job time", "print duration"
+            "estimated printing time (normal mode)", "total estimated time", "estimated printing time",
+            "model printing time", "estimated print time", "printing time", "print time", "build time",
+            "total time", "total print time", "estimated time", "job time", "print duration", "time:"
         ]
-        if any(k in lower for k in time_keywords):
-            target_segment = line
-            if "total estimated time:" in lower:
-                parts = re.split(r"total estimated time:", line, flags=re.I)
-                if len(parts) > 1:
-                    target_segment = parts[1]
-            elif "estimated printing time (normal mode) =" in lower:
-                parts = re.split(r"estimated printing time \(normal mode\) =", line, flags=re.I)
-                if len(parts) > 1:
-                    target_segment = parts[1]
+        matched_kw = next((k for k in time_keywords if k in lower), None)
+        if matched_kw:
+            is_high_pri = "normal mode" in matched_kw or "total estimated time" in matched_kw
+            if is_high_pri or print_time_priority < 2:
+                target_segment = line
+                kw_idx = lower.find(matched_kw)
+                if kw_idx != -1:
+                    target_segment = line[kw_idx + len(matched_kw):]
 
-            hhmmss = re.search(r"(?:=|\:|\s)\s*(\d{1,3}):(\d{2}):(\d{2})(?!\d)", target_segment)
-            if hhmmss:
-                h, m, s = int(hhmmss.group(1)), int(hhmmss.group(2)), int(hhmmss.group(3))
-                calculated = (h * 3600) + (m * 60) + s
-                if calculated > 0:
-                    print_time_seconds = calculated
-            else:
-                hhmm = re.search(r"(?:=|\:)\s*(\d{1,3}):(\d{2})(?!\d)", target_segment)
-                if hhmm:
-                    h, m = int(hhmm.group(1)), int(hhmm.group(2))
-                    calculated = (h * 3600) + (m * 60)
+                hhmmss = re.search(r"(?:=|\:|\s)\s*(\d{1,3}):(\d{2}):(\d{2})(?!\d)", target_segment)
+                if hhmmss:
+                    h, m, s = int(hhmmss.group(1)), int(hhmmss.group(2)), int(hhmmss.group(3))
+                    calculated = (h * 3600) + (m * 60) + s
                     if calculated > 0:
                         print_time_seconds = calculated
+                        print_time_priority = 2 if is_high_pri else 1
                 else:
-                    d_match = re.search(r"(\d+)\s*d(?:ays?)?", target_segment, re.I)
-                    h_match = re.search(r"(\d+(?:\.\d+)?)\s*h(?:ours?|r|oras?)?", target_segment, re.I)
-                    m_match = re.search(r"(\d+(?:\.\d+)?)\s*m(?:in(?:ute)?s?)?", target_segment, re.I)
-                    s_match = re.search(r"(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?", target_segment, re.I)
-                    if d_match or h_match or m_match or s_match:
-                        days = float(d_match.group(1)) if d_match else 0
-                        hours = float(h_match.group(1)) if h_match else 0
-                        mins = float(m_match.group(1)) if m_match else 0
-                        secs = float(s_match.group(1)) if s_match else 0
-                        calculated = round((days * 86400) + (hours * 3600) + (mins * 60) + secs)
+                    hhmm = re.search(r"(?:=|\:|\s)\s*(\d{1,3}):(\d{2})(?!\d)", target_segment)
+                    if hhmm:
+                        h, m = int(hhmm.group(1)), int(hhmm.group(2))
+                        calculated = (h * 3600) + (m * 60)
                         if calculated > 0:
                             print_time_seconds = calculated
+                            print_time_priority = 2 if is_high_pri else 1
+                    else:
+                        d_match = re.search(r"(\d+)\s*d(?:ays?)?\b", target_segment, re.I)
+                        h_match = re.search(r"(\d+(?:\.\d+)?)\s*h(?:ours?|r|oras?)?\b", target_segment, re.I)
+                        m_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:m(?!m)(?:in(?:ute)?s?)?)\b", target_segment, re.I)
+                        s_match = re.search(r"(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?\b", target_segment, re.I)
+                        if d_match or h_match or m_match or s_match:
+                            days = float(d_match.group(1)) if d_match else 0
+                            hours = float(h_match.group(1)) if h_match else 0
+                            mins = float(m_match.group(1)) if m_match else 0
+                            secs = float(s_match.group(1)) if s_match else 0
+                            calculated = round((days * 86400) + (hours * 3600) + (mins * 60) + secs)
+                            if calculated > 0:
+                                print_time_seconds = calculated
+                                print_time_priority = 2 if is_high_pri else 1
 
         # 2. Filament Weight
         if "filament used [g]" in lower or "filament used [grams]" in lower:
@@ -98,9 +106,13 @@ def python_parse_gcode(gcode_text: str):
                 filament_millimeters = float(mm_match.group(1))
 
         # 4. Filament Material
-        mat_match = re.search(r"filament_type\s*=\s*([A-Za-z0-9_-]+)", line, re.I)
-        if mat_match:
+        mat_match = re.search(r"filament_type(?:\s*\[\d+\])?\s*=\s*([A-Za-z0-9_-]+)", line, re.I)
+        if mat_match and not filament_type:
             filament_type = mat_match.group(1).strip()
+
+        cura_mat = re.search(r"^;\s*material(?:_\d+)?:\s*([A-Za-z0-9_-]+)", line, re.I)
+        if cura_mat and not filament_type:
+            filament_type = cura_mat.group(1).strip()
 
     for raw_line in candidate_lines:
         extract_from_line(raw_line)
@@ -235,3 +247,53 @@ def test_footer_deep_in_gcode():
     res = python_parse_gcode(sample)
     assert res["print_time_hours"] == 2.0
     assert res["part_weight_g"] == 60.0
+
+
+def test_prusa_normal_mode_not_clobbered_by_silent_mode():
+    sample = """
+; generated by PrusaSlicer 2.7.4 on 2026-04-12
+; estimated printing time (normal mode) = 1h 20m 00s
+; estimated printing time (silent mode) = 2h 00m 00s
+; filament used [g] = 30.0
+; filament_type = PLA
+    """
+    res = python_parse_gcode(sample)
+    assert res["print_time_hours"] == 1.33
+    assert res["part_weight_g"] == 30.0
+    assert res["filament_type"] == "PLA"
+
+
+def test_time_colon_format_gcode_parsing():
+    sample = """
+; generated by Custom Slicer
+; TIME: 01:30:00
+; filament used [g] = 45.0
+    """
+    res = python_parse_gcode(sample)
+    assert res["print_time_hours"] == 1.50
+    assert res["part_weight_g"] == 45.0
+
+
+def test_nozzle_mm_does_not_interfere_with_minutes():
+    sample = """
+; layer: 0.2mm, nozzle: 0.4mm, print time: 1h 30m
+; filament used [g] = 22.0
+    """
+    res = python_parse_gcode(sample)
+    assert res["print_time_hours"] == 1.50
+    assert res["part_weight_g"] == 22.0
+
+
+def test_cura_material_extraction():
+    sample = """
+;FLAVOR:Marlin
+;TIME:3600
+;Filament used: 25.0g
+;MATERIAL:PETG
+;Generated with Cura_SteamEngine 5.4.0
+    """
+    res = python_parse_gcode(sample)
+    assert res["print_time_hours"] == 1.00
+    assert res["part_weight_g"] == 25.0
+    assert res["filament_type"] == "PETG"
+

@@ -4,6 +4,7 @@
  */
 function parseGcodeMetadata(gcodeText) {
     let printTimeSeconds = 0;
+    let printTimePriority = 0; // 0 = none, 1 = generic, 2 = authoritative (normal mode, total estimated time, cura TIME)
     let filamentGrams = 0;
     let filamentMillimeters = 0;
     let filamentType = null;
@@ -19,66 +20,85 @@ function parseGcodeMetadata(gcodeText) {
         if (!line.startsWith(';')) return;
         const lower = line.toLowerCase();
 
+        // Skip silent/stealth mode to ensure normal mode is never clobbered
+        if (lower.includes('(silent mode)') || lower.includes('(stealth mode)')) {
+            return;
+        }
+
         // 1. Match Print Time
-        // Cura / Creality: ;TIME:8130 or ; TIME: 8130 or ;TIME_ELAPSED:8130
-        const curaTimeMatch = lower.match(/^;\s*time(?:_elapsed)?:\s*(\d+)/);
-        if (curaTimeMatch && !printTimeSeconds) {
+        // Cura / Creality: ;TIME:8130 or ; TIME: 8130 or ;TIME_ELAPSED:8130 (seconds only)
+        const curaTimeMatch = lower.match(/^;\s*time(?:_elapsed)?:\s*(\d+)(?:\s*(?:s|sec|seconds)?\s*$|\s*$)/);
+        if (curaTimeMatch && printTimePriority < 2) {
             printTimeSeconds = parseInt(curaTimeMatch[1], 10);
+            printTimePriority = 2;
         }
 
         // Generic seconds tag: ;total_time: 5400, ;print_time = 5400, ;estimated_time: 5400
-        const secTagMatch = lower.match(/^;\s*(?:total_time|print_time|estimated_time|job_time|total_print_time)\s*[:=]\s*(\d+)(?:\s|$)/);
-        if (secTagMatch && !printTimeSeconds) {
+        const secTagMatch = lower.match(/^;\s*(?:total_time|print_time|estimated_time|job_time|total_print_time)\s*[:=]\s*(\d+)(?:\s*(?:s|sec|seconds)?\s*$|\s*$)/);
+        if (secTagMatch && printTimePriority < 2) {
             printTimeSeconds = parseInt(secTagMatch[1], 10);
+            printTimePriority = 1;
         }
 
         // Descriptive time strings:
         // Prusa / SuperSlicer / Orca / Bambu: ; estimated printing time (normal mode) = 1h 25m 30s
         // Bambu / Orca: ; model printing time: 1h 23m 45s; total estimated time: 1h 25m 10s
         const timeKeywords = [
-            'estimated printing time', 'total estimated time', 'model printing time',
-            'estimated print time', 'printing time', 'print time', 'build time',
-            'total time', 'total print time', 'estimated time', 'job time', 'print duration'
+            'estimated printing time (normal mode)', 'total estimated time', 'estimated printing time',
+            'model printing time', 'estimated print time', 'printing time', 'print time', 'build time',
+            'total time', 'total print time', 'estimated time', 'job time', 'print duration', 'time:'
         ];
-        if (timeKeywords.some(k => lower.includes(k))) {
-            // Check if there is total estimated time specifically on the line (Bambu / Orca)
-            let targetSegment = line;
-            if (lower.includes('total estimated time:')) {
-                const sub = line.split(/total estimated time:/i)[1];
-                if (sub) targetSegment = sub;
-            } else if (lower.includes('estimated printing time (normal mode) =')) {
-                const sub = line.split(/estimated printing time \(normal mode\) =/i)[1];
-                if (sub) targetSegment = sub;
-            }
+        
+        const matchedKw = timeKeywords.find(k => lower.includes(k));
+        if (matchedKw) {
+            const isHighPriority = matchedKw.includes('normal mode') || matchedKw.includes('total estimated time');
+            if (isHighPriority || printTimePriority < 2) {
+                // Extract segment specifically after keyword
+                let targetSegment = line;
+                const kwIdx = lower.indexOf(matchedKw);
+                if (kwIdx !== -1) {
+                    targetSegment = line.slice(kwIdx + matchedKw.length);
+                }
 
-            // Check HH:MM:SS format
-            const hhmmss = targetSegment.match(/(?:=|\:|\s)\s*(\d{1,3}):(\d{2}):(\d{2})(?!\d)/);
-            if (hhmmss) {
-                const h = parseInt(hhmmss[1], 10) || 0;
-                const m = parseInt(hhmmss[2], 10) || 0;
-                const s = parseInt(hhmmss[3], 10) || 0;
-                const calculated = (h * 3600) + (m * 60) + s;
-                if (calculated > 0) printTimeSeconds = calculated;
-            } else {
-                // Check HH:MM format (e.g. 1:30, 01:45)
-                const hhmm = targetSegment.match(/(?:=|\:)\s*(\d{1,3}):(\d{2})(?!\d)/);
-                if (hhmm) {
-                    const h = parseInt(hhmm[1], 10) || 0;
-                    const m = parseInt(hhmm[2], 10) || 0;
-                    const calculated = (h * 3600) + (m * 60);
-                    if (calculated > 0) printTimeSeconds = calculated;
+                // Check HH:MM:SS format
+                const hhmmss = targetSegment.match(/(?:=|\:|\s)\s*(\d{1,3}):(\d{2}):(\d{2})(?!\d)/);
+                if (hhmmss) {
+                    const h = parseInt(hhmmss[1], 10) || 0;
+                    const m = parseInt(hhmmss[2], 10) || 0;
+                    const s = parseInt(hhmmss[3], 10) || 0;
+                    const calculated = (h * 3600) + (m * 60) + s;
+                    if (calculated > 0) {
+                        printTimeSeconds = calculated;
+                        printTimePriority = isHighPriority ? 2 : 1;
+                    }
                 } else {
-                    const dMatch = targetSegment.match(/(\d+)\s*d(?:ays?)?/i);
-                    const hMatch = targetSegment.match(/(\d+(?:\.\d+)?)\s*h(?:ours?|r|oras?)?/i);
-                    const mMatch = targetSegment.match(/(\d+(?:\.\d+)?)\s*m(?:in(?:ute)?s?)?/i);
-                    const sMatch = targetSegment.match(/(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?/i);
-                    if (dMatch || hMatch || mMatch || sMatch) {
-                        const days = dMatch ? parseFloat(dMatch[1]) : 0;
-                        const hours = hMatch ? parseFloat(hMatch[1]) : 0;
-                        const mins = mMatch ? parseFloat(mMatch[1]) : 0;
-                        const secs = sMatch ? parseFloat(sMatch[1]) : 0;
-                        const calculated = Math.round((days * 86400) + (hours * 3600) + (mins * 60) + secs);
-                        if (calculated > 0) printTimeSeconds = calculated;
+                    // Check HH:MM format (e.g. 1:30, 01:45)
+                    const hhmm = targetSegment.match(/(?:=|\:|\s)\s*(\d{1,3}):(\d{2})(?!\d)/);
+                    if (hhmm) {
+                        const h = parseInt(hhmm[1], 10) || 0;
+                        const m = parseInt(hhmm[2], 10) || 0;
+                        const calculated = (h * 3600) + (m * 60);
+                        if (calculated > 0) {
+                            printTimeSeconds = calculated;
+                            printTimePriority = isHighPriority ? 2 : 1;
+                        }
+                    } else {
+                        // Check descriptive: 1d 2h 30m 15s or 1h 30m or 45m
+                        const dMatch = targetSegment.match(/(\d+)\s*d(?:ays?)?\b/i);
+                        const hMatch = targetSegment.match(/(\d+(?:\.\d+)?)\s*h(?:ours?|r|oras?)?\b/i);
+                        const mMatch = targetSegment.match(/(\d+(?:\.\d+)?)\s*(?:m(?!m)(?:in(?:ute)?s?)?)\b/i);
+                        const sMatch = targetSegment.match(/(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?\b/i);
+                        if (dMatch || hMatch || mMatch || sMatch) {
+                            const days = dMatch ? parseFloat(dMatch[1]) : 0;
+                            const hours = hMatch ? parseFloat(hMatch[1]) : 0;
+                            const mins = mMatch ? parseFloat(mMatch[1]) : 0;
+                            const secs = sMatch ? parseFloat(sMatch[1]) : 0;
+                            const calculated = Math.round((days * 86400) + (hours * 3600) + (mins * 60) + secs);
+                            if (calculated > 0) {
+                                printTimeSeconds = calculated;
+                                printTimePriority = isHighPriority ? 2 : 1;
+                            }
+                        }
                     }
                 }
             }
@@ -112,9 +132,16 @@ function parseGcodeMetadata(gcodeText) {
         }
 
         // 4. Filament Material (PLA, PETG, ABS, etc.)
-        const matMatch = line.match(/filament_type\s*=\s*([A-Za-z0-9_-]+)/i);
-        if (matMatch) {
+        // Prusa / Bambu / Orca: ; filament_type = PLA
+        const matMatch = line.match(/filament_type(?:\s*\[\d+\])?\s*=\s*([A-Za-z0-9_-]+)/i);
+        if (matMatch && !filamentType) {
             filamentType = matMatch[1].trim();
+        }
+
+        // Cura: ;MATERIAL:PLA or ;MATERIAL_1:PLA
+        const curaMatMatch = line.match(/^;\s*material(?:_\d+)?:\s*([A-Za-z0-9_-]+)/i);
+        if (curaMatMatch && !filamentType) {
+            filamentType = curaMatMatch[1].trim();
         }
     }
 

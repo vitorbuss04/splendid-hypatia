@@ -185,7 +185,9 @@ const API = {
         },
 
         preview(projectId, type = "client") {
-            window.open(`/preview.html?project_id=${projectId}&type=${type}`, '_blank');
+            const token = API.getToken();
+            const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+            window.open(`/preview.html?project_id=${projectId}&type=${type}${tokenParam}`, '_blank');
         }
     }
 };

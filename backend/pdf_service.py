@@ -1,4 +1,5 @@
 import io
+import re
 import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -7,6 +8,21 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
+
+def extract_clean_material(p: dict) -> str:
+    """Extracts pure material name (e.g. PLA, PETG, TPU, ABS, Resina) without extra descriptions."""
+    mat = p.get("filament_material") or p.get("material") or ""
+    mat = str(mat).strip()
+    if mat and mat.lower() not in ("personalizado", "padrao", "padrão", "outro", "custom", "none", ""):
+        first = mat.split()[0].split('(')[0].strip()
+        if first.upper() in ("PLA", "PETG", "ABS", "TPU", "ASA", "PC", "NYLON", "PA", "HIPS", "PVA", "RESINA"):
+            return first.upper()
+        return first.upper() if len(first) <= 6 else mat
+    fname = str(p.get("filament_name", "")).upper()
+    for known in ("PLA", "PETG", "ABS", "TPU", "ASA", "PC", "NYLON", "PA", "HIPS", "PVA", "RESINA"):
+        if re.search(rf"\b{known}\b", fname):
+            return known
+    return "PLA"
 
 def build_pdf_document(
     project_data: dict,
@@ -225,7 +241,7 @@ def build_pdf_document(
             ])
         else:
             for p in plates_details:
-                mat_name = p.get("filament_material") or p.get("material") or "PLA"
+                mat_name = extract_clean_material(p)
                 plate_table_data.append([
                     Paragraph(f"<b>{p.get('name', 'Placa')}</b>", style_cell),
                     Paragraph(mat_name, style_cell),
@@ -353,11 +369,16 @@ def build_pdf_document(
         # 5. Terms & Payment Info Box
         pix_info = user_data.get("pix_key")
         delivery_days = project_data.get("delivery_days")
-        if not delivery_days or int(delivery_days) <= 0:
+        try:
+            delivery_days = int(delivery_days) if delivery_days is not None else 0
+        except (ValueError, TypeError):
+            delivery_days = 0
+        if delivery_days <= 0:
             delivery_days = max(1, int(summary.get('total_print_time_hours', 1) / 8) + 1)
+        unit_days = "dia útil" if delivery_days == 1 else "dias úteis"
         terms_text = f"""<b>Condições de Pagamento:</b> A combinar / 50% na aprovação e 50% na entrega.<br/>
 {f'<b>Chave PIX:</b> {pix_info}<br/>' if pix_info else ''}
-<b>Prazo de Produção:</b> Estimado em até {delivery_days} dias úteis após aprovação.<br/>
+<b>Prazo de Produção:</b> Estimado em até {delivery_days} {unit_days} após aprovação.<br/>
 <b>Garantia:</b> Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas."""
         
         terms_p = Paragraph(terms_text, ParagraphStyle("Terms", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=PRIMARY))
@@ -388,7 +409,7 @@ def build_pdf_document(
         ]]
 
         for p in plates_details:
-            mat_name = p.get("filament_material") or p.get("material") or "PLA"
+            mat_name = extract_clean_material(p)
             tech_table_data.append([
                 Paragraph(f"<b>{p.get('name', 'Placa')}</b>", style_cell),
                 Paragraph(p.get("printer_name", "Padrão"), style_cell),

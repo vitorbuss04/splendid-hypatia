@@ -661,8 +661,8 @@ function renderPlates() {
                         <select onchange="updatePlateFilament(${idx}, this.value)" class="w-full pl-8 pr-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-blue-500">
                             <option value="">Personalizado (Definir R$/g manual)</option>
                             ${state.filaments.map(f => `
-                                <option value="${f.id}" ${plate.filament_id === f.id ? 'selected' : ''}>
-                                    ${f.name} [${f.material}] (R$ ${f.cost_per_gram.toFixed(2)}/g)
+                                <option value="${f.id}" style="color: ${f.color_hex || '#10b981'}" ${plate.filament_id === f.id ? 'selected' : ''}>
+                                    ● ${f.name} (R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g)
                                 </option>
                             `).join('')}
                         </select>
@@ -952,13 +952,16 @@ function setText(id, text) {
 
 // ================= SAVING & EXPORTING =================
 
-async function saveCurrentProject() {
+async function saveCurrentProject(navigateBack = true) {
     normalizeNumericInputs();
+    if (state.currentPlates) {
+        state.currentPlates.forEach((_, idx) => updatePlateTime(idx));
+    }
     const name = document.getElementById('proj-name').value.trim();
     if (!name) {
         showToast('Por favor, informe o título do projeto.', 'error');
         document.getElementById('proj-name').focus();
-        return;
+        return false;
     }
 
     const payload = {
@@ -1014,15 +1017,19 @@ async function saveCurrentProject() {
         }
 
         await loadAllData();
-        navigateTo('projects');
+        if (navigateBack) {
+            navigateTo('projects');
+        }
+        return true;
     } catch (err) {
         showToast(err.message, 'error');
+        return false;
     }
 }
 
-function exportCurrentPdf(type = 'client') {
-    if (!state.currentProject || !state.currentProject.id) {
-        showToast('Salve o projeto antes de visualizar o PDF.', 'info');
+async function exportCurrentPdf(type = 'client') {
+    const saved = await saveCurrentProject(false);
+    if (!saved || !state.currentProject || !state.currentProject.id) {
         return;
     }
     API.pdf.preview(state.currentProject.id, type);
