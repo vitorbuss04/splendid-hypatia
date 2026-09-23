@@ -83,6 +83,109 @@ No padrão HTML5, `input[type="number"].value` não aceita `.` sem dígitos subs
 3. Adicionada função `normalizeNumericInputs()` chamada antes do salvamento de projetos, filamentos, impressoras e preferências.
 4. Coberto por testes unitários e de navegador real em `tests/test_frontend_inputs.py`.""",
         "comment": "Resolvido e verificado com testes automatizados em headless Chrome e pytest."
+    },
+    {
+        "number": 5,
+        "title": "Card de filamento: exibir custo por grama com 2 casas decimais",
+        "labels": ["enhancement", "frontend", "ui"],
+        "body": """### Descrição da Solicitação
+No elemento de destaque do card de filamento (`mt-4 p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-center`), o custo por grama do filamento deve ser exibido com duas casas decimais em vez de quatro casas decimais.
+
+### Solução Implementada
+1. Atualizada a interpolação do card em `frontend/js/app.js` de `f.cost_per_gram.toFixed(4)` para `f.cost_per_gram.toFixed(2)`.
+2. Adicionado teste automatizado em `tests/test_frontend_inputs.py` para assegurar conformidade do componente visual.""",
+        "comment": "Resolvido e verificado com testes automatizados na suíte pytest."
+    },
+    {
+        "number": 6,
+        "title": "Importação de G-Code: extrair tempo estimado de impressão além do peso do filamento",
+        "labels": ["bug", "parsers", "frontend"],
+        "body": """### Descrição do Problema
+Ao importar arquivos `.gcode`, o leitor puxava apenas os gramas do filamento, deixando o tempo estimado de impressão zerado ou falhando na extração de cabeçalhos de diversos fatiadores.
+
+### Causa Raiz
+1. A checagem de palavras-chave de tempo em `frontend/js/parsers/gcode.js` era estritamente sensível a maiúsculas/minúsculas (`line.includes('print time')` falhava em `;Print time:` ou `;Estimated printing time:`).
+2. Regexes de Cura falhavam quando havia espaços após o ponto-e-vírgula (ex: `; TIME:`).
+3. Padrões sem segundos (como `1:30` ou `01:45`) e linhas combinadas de Bambu/OrcaSlicer não eram casados.
+4. O leitor analisava apenas 500 linhas finais, perdendo metadados em fatiadores com rodapés de configuração extensos (+800 linhas).
+
+### Solução Implementada
+1. Reformulado o extrator em `frontend/js/parsers/gcode.js` para busca normalizada em minúsculas, ampliação de janela para 3000 linhas e fallback dinâmico.
+2. Adicionado suporte completo para Cura, PrusaSlicer, SuperSlicer, Bambu Studio, OrcaSlicer, IdeaMaker e Creality Print.
+3. Atualizado o espelho de testes `tests/test_parsers.py` com cobertura completa de casos de borda.""",
+        "comment": "Resolvido e verificado com 9 testes automatizados em tests/test_parsers.py."
+    },
+    {
+        "number": 7,
+        "title": "Inputs das placas: adicionar campos separados para horas e minutos (ex: 1:30)",
+        "labels": ["enhancement", "frontend", "ux"],
+        "body": """### Descrição da Solicitação
+Nos inputs quantitativos das placas na calculadora, adicionar um campo específico para minutos além de apenas horas, viabilizando preenchimento intuitivo como `1:30` em vez de apenas `1` ou decimais complexos.
+
+### Solução Implementada
+1. Decomposto o input de tempo em `frontend/js/app.js` em dois campos numéricos agrupados: Horas (`plate-time-h-${idx}`) e Minutos (`plate-time-m-${idx}`).
+2. Implementada função reativa `updatePlateTime(idx)` que converte `h + m/60` para horas decimais em tempo real.
+3. Importações de 3MF e G-Code decompõem automaticamente o tempo lido em horas e minutos no formulário.
+4. Adicionado teste de validação em `tests/test_frontend_inputs.py`.""",
+        "comment": "Resolvido e validado com testes automatizados."
+    },
+    {
+        "number": 8,
+        "title": "Cadastro de filamento: gerar nome padronizado (Material + Cor + - + Marca) e seletor visual de cor",
+        "labels": ["enhancement", "frontend", "database"],
+        "body": """### Descrição da Solicitação
+Ao cadastrar um novo filamento:
+1. Remover o campo manual de nome do filamento.
+2. O nome do filamento deve seguir automaticamente o padrão: `Material + Cor + - + Marca` (ex: `PLA Preto - 3D Prime`).
+3. Adicionar seletor visual de cor (`<input type="color">`), exibindo a cor escolhida tanto no card de filamento quanto no seletor de filamentos da calculadora.
+
+### Solução Implementada
+1. No banco de dados e schemas (`backend/models.py`, `backend/schemas.py`), adicionada a coluna `color_hex` com migração automática no SQLite.
+2. No modal `frontend/index.html`, removido o input de nome livre, adicionado `<input type="color" id="filament-color-hex">` e preview dinâmico do nome gerado.
+3. Em `frontend/js/app.js`, geração automática do nome padronizado no salvamento e inclusão de badges/swatches coloridos no card de filamento e no dropdown de placas da calculadora.
+4. Coberto por testes em `tests/test_api.py` e `tests/test_frontend_inputs.py`.""",
+        "comment": "Resolvido e verificado com testes automatizados na API e no frontend."
+    },
+    {
+        "number": 9,
+        "title": "Exportação de PDF: exibir apenas o nome do material na coluna de filamento (ex: PLA, TPU)",
+        "labels": ["enhancement", "pdf", "reporting"],
+        "body": """### Descrição da Solicitação
+Nas propostas e orçamentos em PDF (tanto para o cliente quanto na ficha técnica de produção), a coluna de insumo/filamento deve exibir exclusivamente o nome do material (ex: `PLA`, `TPU`, `PETG`), em vez da descrição completa do carretel.
+
+### Solução Implementada
+1. No motor de cálculo (`backend/engine.py`), incluído o atributo `filament_material` na estrutura resumida das placas.
+2. No gerador de relatórios (`backend/pdf_service.py`), alterado o cabeçalho da coluna para `Material` e exibição exclusiva da nomenclatura técnica do polímero.
+3. Coberto por testes unitários e de integração em `tests/test_api.py`.""",
+        "comment": "Resolvido e testado na geração dos PDFs via ReportLab."
+    },
+    {
+        "number": 10,
+        "title": "Orçamento: campo para prazo de entrega em dias úteis após aprovação no rodapé",
+        "labels": ["enhancement", "pdf", "financial"],
+        "body": """### Descrição da Solicitação
+Adicionar um campo para número de dias úteis para entrega a partir da data de aprovação, conferindo ao usuário controle direto sobre a informação de prazo exibida no rodapé do orçamento em PDF.
+
+### Solução Implementada
+1. Adicionada coluna `delivery_days` ao modelo `Project` em `backend/models.py`, schemas Pydantic e migração do banco SQLite.
+2. Adicionado campo `proj-delivery-days` no formulário do projeto em `frontend/index.html` e controle no `frontend/js/app.js`.
+3. Atualizada a seção de condições comerciais em `backend/pdf_service.py` para injetar o prazo informado (ou cálculo automático de segurança).
+4. Coberto por testes em `tests/test_api.py` e `tests/test_frontend_inputs.py`.""",
+        "comment": "Resolvido e validado com testes automatizados."
+    },
+    {
+        "number": 11,
+        "title": "Exportação de Orçamento: visualização em nova guia com opção de download",
+        "labels": ["enhancement", "frontend", "pdf", "ux"],
+        "body": """### Descrição da Solicitação
+Ao invés de efetuar o download forçado e imediato do orçamento ao clicar, o sistema deve apresentar uma página de visualização em uma nova guia do navegador, acompanhada de opção de download e impressão.
+
+### Solução Implementada
+1. Criada a página dedicada `frontend/preview.html` com visualizador PDF em tela cheia, barra de ferramentas escura, e botões de `Baixar PDF` e `Imprimir`.
+2. Adicionada rota dedicada `/preview` em `app.py` e suporte a `disposition=inline` e autenticação via query param `token` no endpoint `backend/routes/project_routes.py`.
+3. Atualizados os métodos `API.pdf.preview()` e `exportCurrentPdf()` em `frontend/js/app.js` e botões da interface em `frontend/index.html`.
+4. Coberto por testes em `tests/test_api.py` e `tests/test_frontend_inputs.py`.""",
+        "comment": "Resolvido e testado com suíte de testes."
     }
 ]
 
@@ -127,21 +230,24 @@ def sync():
 
     print(f"Sincronizando issues com o repositório {REPO}...")
 
-    # Fetch existing issues
+    # Fetch existing issues (up to 100)
     try:
-        existing_issues = api_request(f"{API_BASE}/issues?state=all", token=token)
+        existing_issues = api_request(f"{API_BASE}/issues?state=all&per_page=100", token=token)
     except urllib.error.HTTPError as e:
         print(f"Erro ao listar issues: {e.code} {e.reason}")
         print(e.read().decode("utf-8"))
         sys.exit(1)
 
     existing_by_num = {i["number"]: i for i in existing_issues}
+    existing_by_title = {i["title"].strip(): i for i in existing_issues}
 
     for item in ISSUES_DEF:
-        num = item["number"]
-        if num in existing_by_num:
+        num = item.get("number")
+        existing = existing_by_num.get(num) or existing_by_title.get(item["title"].strip())
+        if existing:
+            target_num = existing["number"]
             # Update issue
-            print(f"Atualizando Issue #{num}: {item['title']}...")
+            print(f"Atualizando Issue #{target_num}: {item['title']}...")
             patch_data = {
                 "title": item["title"],
                 "body": item["body"],
@@ -149,8 +255,8 @@ def sync():
                 "state": "closed",
                 "state_reason": "completed"
             }
-            updated = api_request(f"{API_BASE}/issues/{num}", method="PATCH", data=patch_data, token=token)
-            print(f"  -> Issue #{num} atualizada e fechada como resolvida: {updated['html_url']}")
+            updated = api_request(f"{API_BASE}/issues/{target_num}", method="PATCH", data=patch_data, token=token)
+            print(f"  -> Issue #{target_num} atualizada e fechada como resolvida: {updated['html_url']}")
         else:
             # Create issue
             print(f"Criando Issue: {item['title']}...")
@@ -177,7 +283,7 @@ def sync():
             api_request(f"{API_BASE}/issues/{created_num}/comments", method="POST", data=comment_data, token=token)
             print(f"  -> Issue #{created_num} fechada como resolvida com sucesso!")
 
-    print("\nTodas as 4 issues foram sincronizadas e marcadas como resolvidas no GitHub!")
+    print(f"\nTodas as {len(ISSUES_DEF)} issues foram sincronizadas e marcadas como resolvidas no GitHub!")
 
 if __name__ == "__main__":
     sync()

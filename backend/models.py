@@ -64,6 +64,7 @@ class Filament(Base):
     brand = Column(String(255), nullable=True)
     material = Column(String(100), default="PLA")  # PLA, PETG, ABS, TPU, ASA, Resin, etc.
     color = Column(String(100), nullable=True)
+    color_hex = Column(String(20), default="#10b981", nullable=True)
     spool_weight_g = Column(Float, default=1000.0)  # grams
     spool_price = Column(Float, default=90.0)  # R$
     density_g_cm3 = Column(Float, default=1.24)
@@ -98,6 +99,7 @@ class Project(Base):
     tax_rate_percent = Column(Float, default=6.0)  # %
     discount_percent = Column(Float, default=0.0)  # %
     shipping_cost = Column(Float, default=0.0)  # R$
+    delivery_days = Column(Integer, default=3, nullable=True)  # Prazo de entrega em dias úteis
 
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=get_utc_now)

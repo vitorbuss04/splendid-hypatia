@@ -566,4 +566,75 @@ def test_filament_and_printer_updates_with_feedback_values(client, make_user):
     assert len(pdf_resp.content) > 1000
 
 
+def test_filament_color_hex_and_standard_name(client, make_user):
+    user = make_user(email="filament_color@example.com")
+    headers = user["headers"]
+
+    # 1. Create filament with color_hex
+    payload = {
+        "name": "PLA Preto - 3D Prime",
+        "brand": "3D Prime",
+        "material": "PLA",
+        "color": "Preto",
+        "color_hex": "#1a1a1a",
+        "spool_weight_g": 1000.0,
+        "spool_price": 89.90,
+    }
+    resp = client.post("/api/filaments", json=payload, headers=headers)
+    assert resp.status_code == 201
+    f_data = resp.json()
+    assert f_data["name"] == "PLA Preto - 3D Prime"
+    assert f_data["color_hex"] == "#1a1a1a"
+    assert f_data["cost_per_gram"] == round(89.90 / 1000.0, 4)
+
+    # 2. Update filament color_hex
+    f_id = f_data["id"]
+    up_resp = client.put(f"/api/filaments/{f_id}", json={"color_hex": "#000000"}, headers=headers)
+    assert up_resp.status_code == 200
+    assert up_resp.json()["color_hex"] == "#000000"
+
+
+def test_project_delivery_days_and_pdf_preview(client, make_user):
+    user = make_user(email="delivery_proj@example.com")
+    headers = user["headers"]
+    token = user["token"]
+
+    # 1. Create project with custom delivery_days
+    proj_res = client.post("/api/projects", json={
+        "name": "Projeto com Prazo Especifico",
+        "client_name": "Cliente Prazo",
+        "delivery_days": 5,
+        "plates": [
+            {
+                "name": "Peca Especial",
+                "print_time_hours": 3.5,
+                "part_weight_g": 50.0,
+                "quantity": 1,
+            }
+        ]
+    }, headers=headers)
+    assert proj_res.status_code == 201
+    proj = proj_res.json()
+    assert proj["delivery_days"] == 5
+    proj_id = proj["id"]
+
+    # 2. Summary details should include filament_material
+    plates_details = proj["summary"]["plates_details"]
+    assert len(plates_details) == 1
+    assert "filament_material" in plates_details[0]
+
+    # 3. PDF with disposition=inline
+    pdf_inline = client.get(f"/api/projects/{proj_id}/pdf?type=client&disposition=inline", headers=headers)
+    assert pdf_inline.status_code == 200
+    assert "inline;" in pdf_inline.headers["content-disposition"]
+    assert pdf_inline.headers["content-type"] == "application/pdf"
+
+    # 4. PDF with token query param authentication (without Authorization header)
+    pdf_query_auth = client.get(f"/api/projects/{proj_id}/pdf?type=client&token={token}")
+    assert pdf_query_auth.status_code == 200
+    assert pdf_query_auth.headers["content-type"] == "application/pdf"
+    assert len(pdf_query_auth.content) > 1000
+
+
+
 

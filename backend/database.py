@@ -25,4 +25,22 @@ def get_db():
 
 def init_db():
     from backend import models  # Ensure all models are registered with Base
+    from sqlalchemy import inspect, text
     Base.metadata.create_all(bind=engine)
+
+    # Safe column migrations for SQLite
+    try:
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        with engine.connect() as conn:
+            if "filaments" in tables:
+                fil_cols = [c["name"] for c in inspector.get_columns("filaments")]
+                if "color_hex" not in fil_cols:
+                    conn.execute(text("ALTER TABLE filaments ADD COLUMN color_hex VARCHAR(20) DEFAULT '#10b981'"))
+            if "projects" in tables:
+                proj_cols = [c["name"] for c in inspector.get_columns("projects")]
+                if "delivery_days" not in proj_cols:
+                    conn.execute(text("ALTER TABLE projects ADD COLUMN delivery_days INTEGER DEFAULT 3"))
+            conn.commit()
+    except Exception as e:
+        pass

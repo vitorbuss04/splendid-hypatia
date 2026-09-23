@@ -58,16 +58,19 @@ def calculate_plate_cost(
     # Calculate filament cost per gram
     cost_per_gram = 0.0
     filament_name = "Filamento padrão"
+    filament_material = "PLA"
     if filament is not None:
         spool_price = max(0.0, float(get_attr(filament, "spool_price", 0.0) or 0.0))
         spool_weight_g = float(get_attr(filament, "spool_weight_g", 1000.0) or 1000.0)
         cost_per_gram = (spool_price / spool_weight_g) if spool_weight_g > 0 else 0.0
         filament_name = str(get_attr(filament, "name", "Filamento"))
+        filament_material = str(get_attr(filament, "material", "PLA"))
     else:
         custom_g = get_attr(plate, "custom_filament_cost_per_g", None)
         if custom_g is not None:
             cost_per_gram = max(0.0, float(custom_g or 0.0))
             filament_name = "Personalizado"
+            filament_material = "Personalizado"
 
     # Total filament weight per unit and failure multiplier
     unit_raw_weight = part_weight_g + purge_weight_g
@@ -122,6 +125,7 @@ def calculate_plate_cost(
         "quantity": quantity,
         "printer_name": printer_name,
         "filament_name": filament_name,
+        "filament_material": filament_material,
         "cost_per_gram": round(cost_per_gram, 4),
         "machine_hourly_rate": round(machine_hourly_rate, 4),
         "unit_print_time_hours": round(print_time_hours, 2),

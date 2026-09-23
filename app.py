@@ -53,6 +53,10 @@ if FRONTEND_DIR.exists():
     def serve_index():
         return FileResponse(str(FRONTEND_DIR / "index.html"))
 
+    @app.get("/preview")
+    def serve_preview():
+        return FileResponse(str(FRONTEND_DIR / "preview.html"))
+
     @app.get("/{catchall:path}")
     def serve_spa(catchall: str):
         # Do not catch API routes

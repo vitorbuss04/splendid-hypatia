@@ -182,6 +182,10 @@ const API = {
             a.click();
             window.URL.revokeObjectURL(downloadUrl);
             a.remove();
+        },
+
+        preview(projectId, type = "client") {
+            window.open(`/preview.html?project_id=${projectId}&type=${type}`, '_blank');
         }
     }
 };

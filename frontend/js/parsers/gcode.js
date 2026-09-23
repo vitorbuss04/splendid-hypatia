@@ -1,6 +1,6 @@
 /**
  * G-Code Metadata Extractor
- * Parses Cura, PrusaSlicer, SuperSlicer, Bambu Studio and OrcaSlicer G-code headers and comments.
+ * Parses Cura, PrusaSlicer, SuperSlicer, Bambu Studio, OrcaSlicer, IdeaMaker, Creality Print, Klipper G-code headers and comments.
  */
 function parseGcodeMetadata(gcodeText) {
     let printTimeSeconds = 0;
@@ -8,21 +8,51 @@ function parseGcodeMetadata(gcodeText) {
     let filamentMillimeters = 0;
     let filamentType = null;
 
-    // Read top 500 and bottom 500 lines as slicers write metadata either at start or at end
     const lines = gcodeText.split('\n');
-    const headerLines = lines.slice(0, 500);
-    const footerLines = lines.slice(-500);
-    const candidateLines = [...headerLines, ...footerLines];
+    // Top 3000 and bottom 3000 lines
+    const headerLines = lines.slice(0, 3000);
+    const footerLines = lines.slice(-3000);
+    let candidateLines = [...headerLines, ...footerLines];
 
-    for (const rawLine of candidateLines) {
+    function extractFromLine(rawLine) {
         const line = rawLine.trim();
-        if (!line.startsWith(';')) continue;
+        if (!line.startsWith(';')) return;
+        const lower = line.toLowerCase();
 
         // 1. Match Print Time
-        // Prusa / SuperSlicer / Orca: ; estimated printing time (normal mode) = 1h 25m 30s
-        if (line.includes('estimated printing time') || line.includes('print time') || line.includes('build time') || line.includes('total time')) {
-            // Check HH:MM:SS format first
-            const hhmmss = line.match(/(?:=|\:)\s*(\d+):(\d+):(\d+)/);
+        // Cura / Creality: ;TIME:8130 or ; TIME: 8130 or ;TIME_ELAPSED:8130
+        const curaTimeMatch = lower.match(/^;\s*time(?:_elapsed)?:\s*(\d+)/);
+        if (curaTimeMatch && !printTimeSeconds) {
+            printTimeSeconds = parseInt(curaTimeMatch[1], 10);
+        }
+
+        // Generic seconds tag: ;total_time: 5400, ;print_time = 5400, ;estimated_time: 5400
+        const secTagMatch = lower.match(/^;\s*(?:total_time|print_time|estimated_time|job_time|total_print_time)\s*[:=]\s*(\d+)(?:\s|$)/);
+        if (secTagMatch && !printTimeSeconds) {
+            printTimeSeconds = parseInt(secTagMatch[1], 10);
+        }
+
+        // Descriptive time strings:
+        // Prusa / SuperSlicer / Orca / Bambu: ; estimated printing time (normal mode) = 1h 25m 30s
+        // Bambu / Orca: ; model printing time: 1h 23m 45s; total estimated time: 1h 25m 10s
+        const timeKeywords = [
+            'estimated printing time', 'total estimated time', 'model printing time',
+            'estimated print time', 'printing time', 'print time', 'build time',
+            'total time', 'total print time', 'estimated time', 'job time', 'print duration'
+        ];
+        if (timeKeywords.some(k => lower.includes(k))) {
+            // Check if there is total estimated time specifically on the line (Bambu / Orca)
+            let targetSegment = line;
+            if (lower.includes('total estimated time:')) {
+                const sub = line.split(/total estimated time:/i)[1];
+                if (sub) targetSegment = sub;
+            } else if (lower.includes('estimated printing time (normal mode) =')) {
+                const sub = line.split(/estimated printing time \(normal mode\) =/i)[1];
+                if (sub) targetSegment = sub;
+            }
+
+            // Check HH:MM:SS format
+            const hhmmss = targetSegment.match(/(?:=|\:|\s)\s*(\d{1,3}):(\d{2}):(\d{2})(?!\d)/);
             if (hhmmss) {
                 const h = parseInt(hhmmss[1], 10) || 0;
                 const m = parseInt(hhmmss[2], 10) || 0;
@@ -30,30 +60,33 @@ function parseGcodeMetadata(gcodeText) {
                 const calculated = (h * 3600) + (m * 60) + s;
                 if (calculated > 0) printTimeSeconds = calculated;
             } else {
-                const dMatch = line.match(/(\d+)\s*d(?:ays?)?/i);
-                const hMatch = line.match(/(\d+)\s*h(?:ours?|r)?/i);
-                const mMatch = line.match(/(\d+)\s*m(?:in(?:ute)?s?)?/i);
-                const sMatch = line.match(/(\d+)\s*s(?:ec(?:ond)?s?)?/i);
-                if (dMatch || hMatch || mMatch || sMatch) {
-                    const days = dMatch ? parseInt(dMatch[1], 10) : 0;
-                    const hours = hMatch ? parseInt(hMatch[1], 10) : 0;
-                    const mins = mMatch ? parseInt(mMatch[1], 10) : 0;
-                    const secs = sMatch ? parseInt(sMatch[1], 10) : 0;
-                    const calculated = (days * 86400) + (hours * 3600) + (mins * 60) + secs;
+                // Check HH:MM format (e.g. 1:30, 01:45)
+                const hhmm = targetSegment.match(/(?:=|\:)\s*(\d{1,3}):(\d{2})(?!\d)/);
+                if (hhmm) {
+                    const h = parseInt(hhmm[1], 10) || 0;
+                    const m = parseInt(hhmm[2], 10) || 0;
+                    const calculated = (h * 3600) + (m * 60);
                     if (calculated > 0) printTimeSeconds = calculated;
+                } else {
+                    const dMatch = targetSegment.match(/(\d+)\s*d(?:ays?)?/i);
+                    const hMatch = targetSegment.match(/(\d+(?:\.\d+)?)\s*h(?:ours?|r|oras?)?/i);
+                    const mMatch = targetSegment.match(/(\d+(?:\.\d+)?)\s*m(?:in(?:ute)?s?)?/i);
+                    const sMatch = targetSegment.match(/(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?/i);
+                    if (dMatch || hMatch || mMatch || sMatch) {
+                        const days = dMatch ? parseFloat(dMatch[1]) : 0;
+                        const hours = hMatch ? parseFloat(hMatch[1]) : 0;
+                        const mins = mMatch ? parseFloat(mMatch[1]) : 0;
+                        const secs = sMatch ? parseFloat(sMatch[1]) : 0;
+                        const calculated = Math.round((days * 86400) + (hours * 3600) + (mins * 60) + secs);
+                        if (calculated > 0) printTimeSeconds = calculated;
+                    }
                 }
             }
         }
 
-        // Cura: ;TIME:8130
-        const curaTimeMatch = line.match(/^;TIME:\s*(\d+)/i);
-        if (curaTimeMatch && !printTimeSeconds) {
-            printTimeSeconds = parseInt(curaTimeMatch[1], 10);
-        }
-
         // 2. Match Filament Weight
-        // Prusa / SuperSlicer: ; filament used [g] = 45.2 or multi-material = 12.5, 4.3
-        if (line.match(/filament used\s*\[g\]/i)) {
+        // Prusa / SuperSlicer / Bambu: ; filament used [g] = 45.2 or ; total filament used [g] = 45.2
+        if (lower.includes('filament used [g]') || lower.includes('filament used [grams]')) {
             const numbers = line.match(/[0-9]+(?:\.[0-9]+)?/g);
             if (numbers && numbers.length > 0) {
                 const totalG = numbers.reduce((acc, n) => acc + (parseFloat(n) || 0), 0);
@@ -61,15 +94,14 @@ function parseGcodeMetadata(gcodeText) {
             }
         }
 
-        // Cura / Orca: ;Filament weight = 45.2g or ; filament used [g] : 45.2
-        const curaWeightMatch = line.match(/filament (?:weight|used)\s*[:=]\s*([0-9.]+)\s*g?/i);
-        if (curaWeightMatch && !filamentGrams && !line.includes('[mm]') && !line.includes('[m]')) {
+        // Cura / Orca: ;Filament weight = 45.2g or ; filament used [g] : 45.2 or ;Filament used: 42.1g
+        const curaWeightMatch = line.match(/filament\s+(?:weight|used)\s*[:=]\s*([0-9.]+)\s*g?/i);
+        if (curaWeightMatch && !filamentGrams && !lower.includes('[mm]') && !lower.includes('[m]')) {
             filamentGrams = parseFloat(curaWeightMatch[1]) || 0;
         }
 
         // 3. Match Filament Length if weight not directly found
-        // ; filament used [mm] = 15200.5 or ;Filament used: 3.45m
-        if (line.match(/filament used\s*\[?(?:mm|m)\]?/i) && !filamentGrams) {
+        if (lower.match(/filament used\s*\[?(?:mm|m)\]?/) && !filamentGrams) {
             const mMatch = line.match(/[:=]\s*([0-9.]+)\s*m(?:$|\s)/i);
             const mmMatch = line.match(/[:=]\s*([0-9.]+)\s*(?:mm)?(?:$|\s)/i);
             if (mMatch) {
@@ -79,16 +111,29 @@ function parseGcodeMetadata(gcodeText) {
             }
         }
 
-        // 4. Filament Material (PLA, PETG, ABS)
+        // 4. Filament Material (PLA, PETG, ABS, etc.)
         const matMatch = line.match(/filament_type\s*=\s*([A-Za-z0-9_-]+)/i);
         if (matMatch) {
             filamentType = matMatch[1].trim();
         }
     }
 
-    // If weight wasn't found but length was, approximate with standard 1.75mm PLA (1.24 g/cm3)
+    for (const rawLine of candidateLines) {
+        extractFromLine(rawLine);
+    }
+
+    // Fallback: if either print time or filament weight not found, scan any comment line in full file
+    if ((!printTimeSeconds || !filamentGrams) && lines.length > 6000) {
+        for (let i = 3000; i < lines.length - 3000; i++) {
+            if (lines[i].charCodeAt(0) === 59) { // starts with ';'
+                extractFromLine(lines[i]);
+                if (printTimeSeconds && filamentGrams) break;
+            }
+        }
+    }
+
+    // Approximate weight from length if needed (1.75mm PLA ~ 1.24 g/cm3)
     if (!filamentGrams && filamentMillimeters > 0) {
-        // Volume = pi * r^2 * h -> pi * (0.875 mm)^2 * h mm
         const radiusMm = 1.75 / 2;
         const volumeMm3 = Math.PI * (radiusMm * radiusMm) * filamentMillimeters;
         const volumeCm3 = volumeMm3 / 1000;

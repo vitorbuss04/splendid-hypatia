@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização do Orçamento - 3D Print Calc Pro</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+    <!-- Top Bar -->
+    <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 sm:px-6 shrink-0 z-10 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+            </div>
+            <div>
+                <h1 class="text-xs sm:text-sm font-bold text-white flex items-center gap-2" id="doc-title">
+                    Visualização do Orçamento
+                </h1>
+                <p class="text-[10px] text-slate-400" id="doc-subtitle">Carregando documento...</p>
+            </div>
+            <span id="doc-badge" class="hidden sm:inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium border bg-blue-900/40 text-blue-300 border-blue-700/50">
+                Orçamento Cliente
+            </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="btn-download" onclick="triggerDownload()" disabled class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5">
+                <i data-lucide="download" class="w-4 h-4"></i> Baixar PDF
+            </button>
+            <button id="btn-print" onclick="triggerPrint()" disabled class="hidden sm:flex px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-200 border border-slate-700 text-xs font-semibold rounded-lg transition-all items-center gap-1.5">
+                <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
+            </button>
+            <button onclick="window.close()" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors ml-1" title="Fechar guia">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Viewer Area -->
+    <main class="flex-1 relative bg-slate-900 flex items-center justify-center">
+        <!-- Loading State -->
+        <div id="loading-state" class="flex flex-col items-center gap-3 text-slate-400">
+            <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-xs font-medium">Renderizando proposta comercial...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="hidden flex flex-col items-center gap-3 p-6 text-center max-w-md">
+            <div class="w-12 h-12 rounded-full bg-red-950/60 border border-red-800/80 flex items-center justify-center text-red-400">
+                <i data-lucide="alert-circle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white" id="error-title">Erro ao carregar documento</h3>
+            <p class="text-xs text-slate-400" id="error-msg">Não foi possível carregar a visualização do PDF.</p>
+            <div class="flex gap-2 mt-2">
+                <button onclick="loadPdf()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-medium">Tentar Novamente</button>
+            </div>
+        </div>
+
+        <!-- PDF Frame -->
+        <iframe id="pdf-frame" class="w-full h-full border-none hidden" title="Documento PDF"></iframe>
+    </main>
+
+    <script>
+        let currentBlob = null;
+        let currentFilename = 'orcamento.pdf';
+
+        function getParams() {
+            const sp = new URLSearchParams(window.location.search);
+            return {
+                projectId: sp.get('project_id') || sp.get('id'),
+                type: sp.get('type') || 'client'
+            };
+        }
+
+        async function loadPdf() {
+            const { projectId, type } = getParams();
+            const loading = document.getElementById('loading-state');
+            const errorState = document.getElementById('error-state');
+            const frame = document.getElementById('pdf-frame');
+            const docTitle = document.getElementById('doc-title');
+            const docSubtitle = document.getElementById('doc-subtitle');
+            const docBadge = document.getElementById('doc-badge');
+            const btnDownload = document.getElementById('btn-download');
+            const btnPrint = document.getElementById('btn-print');
+
+            if (!projectId) {
+                loading.classList.add('hidden');
+                errorState.classList.remove('hidden');
+                document.getElementById('error-msg').innerText = 'ID do projeto não fornecido na URL.';
+                return;
+            }
+
+            loading.classList.remove('hidden');
+            errorState.classList.add('hidden');
+            frame.classList.add('hidden');
+
+            const isTechnical = type === 'technical';
+            docBadge.innerText = isTechnical ? 'Ficha Técnica de Produção' : 'Orçamento Cliente';
+            docBadge.className = isTechnical 
+                ? 'hidden sm:inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium border bg-purple-900/40 text-purple-300 border-purple-700/50'
+                : 'hidden sm:inline-flex text-[10px] px-2 py-0.5 rounded-full font-medium border bg-blue-900/40 text-blue-300 border-blue-700/50';
+
+            const token = localStorage.getItem('auth_token');
+            const url = `/api/projects/${projectId}/pdf?type=${type}&disposition=inline${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+
+            try {
+                const res = await fetch(url, {
+                    headers: {
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    }
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Servidor respondeu com status ${res.status}: ${res.statusText}`);
+                }
+
+                const disposition = res.headers.get('Content-Disposition');
+                if (disposition && disposition.includes('filename=')) {
+                    currentFilename = disposition.split('filename=')[1].replace(/["']/g, '');
+                } else {
+                    currentFilename = `${isTechnical ? 'ficha' : 'orcamento'}_${projectId}.pdf`;
+                }
+
+                currentBlob = await res.blob();
+                const blobUrl = URL.createObjectURL(currentBlob);
+                frame.src = blobUrl;
+
+                docTitle.innerText = isTechnical ? 'Ficha Técnica de Produção' : 'Orçamento Comercial';
+                docSubtitle.innerText = `Arquivo: ${currentFilename}`;
+                document.title = `${currentFilename} - Visualização`;
+
+                loading.classList.add('hidden');
+                frame.classList.remove('hidden');
+                btnDownload.disabled = false;
+                btnPrint.disabled = false;
+            } catch (err) {
+                loading.classList.add('hidden');
+                errorState.classList.remove('hidden');
+                document.getElementById('error-msg').innerText = err.message || 'Erro de conexão.';
+            }
+        }
+
+        function triggerDownload() {
+            if (!currentBlob) return;
+            const a = document.createElement('a');
+            const u = URL.createObjectURL(currentBlob);
+            a.href = u;
+            a.download = currentFilename;
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(u);
+            a.remove();
+        }
+
+        function triggerPrint() {
+            const frame = document.getElementById('pdf-frame');
+            if (frame && frame.contentWindow) {
+                try {
+                    frame.contentWindow.print();
+                } catch (e) {
+                    triggerDownload();
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+            loadPdf();
+        });
+    </script>
+</body>
+</html>

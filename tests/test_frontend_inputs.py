@@ -254,3 +254,37 @@ window.addEventListener('DOMContentLoaded', () => {{
     assert "AFTER:[56.5|number]" in dom_output, f"Value was not properly normalized on blur! Output was:\n{dom_output}"
 
 
+def test_new_feedback_frontend_elements():
+    html_file = Path(__file__).parent.parent / "frontend" / "index.html"
+    html_content = html_file.read_text(encoding="utf-8")
+    parser = InputParser()
+    parser.feed(html_content)
+    inputs_by_id = {inp.get("id"): inp for inp in parser.inputs if inp.get("id")}
+
+    # Feedback 4: filament-name removed from form inputs; filament-color-hex present
+    assert "filament-name" not in inputs_by_id, "filament-name text input must be removed from modal"
+    assert "filament-color-hex" in inputs_by_id, "filament-color-hex input must be present"
+    assert inputs_by_id["filament-color-hex"].get("type") == "color"
+
+    # Feedback 6: proj-delivery-days present in project form
+    assert "proj-delivery-days" in inputs_by_id, "proj-delivery-days input must be present in project form"
+
+    # Feedback 7: preview.html exists with iframe and download button
+    preview_file = Path(__file__).parent.parent / "frontend" / "preview.html"
+    assert preview_file.exists(), "frontend/preview.html must exist"
+    preview_content = preview_file.read_text(encoding="utf-8")
+    assert 'id="pdf-frame"' in preview_content
+    assert 'id="btn-download"' in preview_content
+
+    # Feedback 1: check toFixed(2) on cost per gram in app.js
+    app_js = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    js_content = app_js.read_text(encoding="utf-8")
+    assert "f.cost_per_gram.toFixed(2)" in js_content, "Cost per gram in filament card must use 2 decimal places"
+
+    # Feedback 3: updatePlateTime helper defined
+    assert "function updatePlateTime" in js_content, "updatePlateTime must be defined in app.js"
+    assert "plate-time-h-" in js_content, "Hours input ID prefix must be present"
+    assert "plate-time-m-" in js_content, "Minutes input ID prefix must be present"
+
+
+

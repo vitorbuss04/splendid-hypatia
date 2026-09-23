@@ -2,9 +2,10 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.orm import Session
 
+from fastapi.security import HTTPAuthorizationCredentials
 from backend.database import get_db
 from backend import models, schemas
-from backend.auth import get_current_user
+from backend.auth import get_current_user, get_user_from_token, security
 from backend.engine import calculate_project_summary, calculate_plate_cost
 from backend.pdf_service import build_pdf_document
 
@@ -412,10 +413,24 @@ def get_summary(
 def export_pdf(
     project_id: int,
     type: str = Query("client", pattern="^(client|technical)$"),
-    current_user: models.User = Depends(get_current_user),
+    disposition: str = Query("inline", pattern="^(inline|attachment)$"),
+    token: Optional[str] = Query(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ):
     import unicodedata
+    current_user = None
+    if credentials and credentials.credentials:
+        current_user = get_user_from_token(credentials.credentials, db)
+    if not current_user and token:
+        current_user = get_user_from_token(token, db)
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais inválidas ou token expirado",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
     project = get_user_project(project_id, current_user.id, db)
     proj_resp = build_project_response(project, db)
     
@@ -442,6 +457,6 @@ def export_pdf(
         content=pdf_buffer.getvalue(),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f"attachment; filename=\"{filename}\""
+            "Content-Disposition": f"{disposition}; filename=\"{filename}\""
         }
     )

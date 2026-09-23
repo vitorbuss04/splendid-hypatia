@@ -93,6 +93,7 @@ class FilamentBase(BaseModel):
     brand: Optional[str] = None
     material: str = "PLA"
     color: Optional[str] = None
+    color_hex: Optional[str] = "#10b981"
     spool_weight_g: float = Field(1000.0, gt=0)
     spool_price: float = Field(90.0, ge=0)
     density_g_cm3: float = Field(1.24, gt=0)
@@ -107,6 +108,7 @@ class FilamentUpdate(BaseModel):
     brand: Optional[str] = None
     material: Optional[str] = None
     color: Optional[str] = None
+    color_hex: Optional[str] = None
     spool_weight_g: Optional[float] = Field(None, gt=0)
     spool_price: Optional[float] = Field(None, ge=0)
     density_g_cm3: Optional[float] = Field(None, gt=0)
@@ -205,6 +207,7 @@ class ProjectBase(BaseModel):
     tax_rate_percent: float = Field(6.0, ge=0, le=99.0)
     discount_percent: float = Field(0.0, ge=0, le=100.0)
     shipping_cost: float = Field(0.0, ge=0)
+    delivery_days: Optional[int] = Field(3, ge=1)
     notes: Optional[str] = None
 
 class ProjectCreate(ProjectBase):
@@ -226,6 +229,7 @@ class ProjectUpdate(BaseModel):
     tax_rate_percent: Optional[float] = Field(None, ge=0, le=99.0)
     discount_percent: Optional[float] = Field(None, ge=0, le=100.0)
     shipping_cost: Optional[float] = Field(None, ge=0)
+    delivery_days: Optional[int] = Field(None, ge=1)
     notes: Optional[str] = None
     plates: Optional[List[PlateCreate]] = None
     bom_items: Optional[List[BOMItemCreate]] = None

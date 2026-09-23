@@ -211,7 +211,7 @@ def build_pdf_document(
 
         plate_table_data = [[
             Paragraph("Item / Descrição", style_cell_header),
-            Paragraph("Material / Acabamento", style_cell_header),
+            Paragraph("Material", style_cell_header),
             Paragraph("Qtd", style_cell_header_right),
             Paragraph("Tempo Estimado", style_cell_header_right),
         ]]
@@ -225,9 +225,10 @@ def build_pdf_document(
             ])
         else:
             for p in plates_details:
+                mat_name = p.get("filament_material") or p.get("material") or "PLA"
                 plate_table_data.append([
                     Paragraph(f"<b>{p.get('name', 'Placa')}</b>", style_cell),
-                    Paragraph(p.get("filament_name", "Filamento Técnico"), style_cell),
+                    Paragraph(mat_name, style_cell),
                     Paragraph(str(p.get("quantity", 1)), style_cell_right),
                     Paragraph(f"{p.get('total_time_hours', 0.0):.1f} h", style_cell_right),
                 ])
@@ -351,9 +352,12 @@ def build_pdf_document(
 
         # 5. Terms & Payment Info Box
         pix_info = user_data.get("pix_key")
+        delivery_days = project_data.get("delivery_days")
+        if not delivery_days or int(delivery_days) <= 0:
+            delivery_days = max(1, int(summary.get('total_print_time_hours', 1) / 8) + 1)
         terms_text = f"""<b>Condições de Pagamento:</b> A combinar / 50% na aprovação e 50% na entrega.<br/>
 {f'<b>Chave PIX:</b> {pix_info}<br/>' if pix_info else ''}
-<b>Prazo de Produção:</b> Estimado em até {max(1, int(summary.get('total_print_time_hours', 1) / 8) + 1)} dias úteis após confirmação.<br/>
+<b>Prazo de Produção:</b> Estimado em até {delivery_days} dias úteis após aprovação.<br/>
 <b>Garantia:</b> Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas."""
         
         terms_p = Paragraph(terms_text, ParagraphStyle("Terms", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=PRIMARY))
@@ -375,7 +379,7 @@ def build_pdf_document(
         tech_table_data = [[
             Paragraph("Placa", style_cell_header),
             Paragraph("Impressora", style_cell_header),
-            Paragraph("Filamento", style_cell_header),
+            Paragraph("Material", style_cell_header),
             Paragraph("Tempo Unit.", style_cell_header_right),
             Paragraph("Peso Peça", style_cell_header_right),
             Paragraph("Purga", style_cell_header_right),
@@ -384,10 +388,11 @@ def build_pdf_document(
         ]]
 
         for p in plates_details:
+            mat_name = p.get("filament_material") or p.get("material") or "PLA"
             tech_table_data.append([
                 Paragraph(f"<b>{p.get('name', 'Placa')}</b>", style_cell),
                 Paragraph(p.get("printer_name", "Padrão"), style_cell),
-                Paragraph(p.get("filament_name", "Padrão"), style_cell),
+                Paragraph(mat_name, style_cell),
                 Paragraph(f"{p.get('unit_print_time_hours', 0.0):.1f} h", style_cell_right),
                 Paragraph(f"{p.get('part_weight_g', p.get('unit_raw_weight_g', 0.0)):.1f} g", style_cell_right),
                 Paragraph(f"{p.get('purge_weight_g', 0.0):.1f} g", style_cell_right),

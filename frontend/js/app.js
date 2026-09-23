@@ -371,8 +371,8 @@ async function loadDashboard() {
                             <button onclick="editProject(${p.id})" class="p-1 hover:text-blue-400 transition-colors" title="Editar">
                                 <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </button>
-                            <button onclick="API.pdf.download(${p.id}, 'client')" class="p-1 hover:text-emerald-400 transition-colors ml-1" title="PDF Cliente">
-                                <i data-lucide="file-down" class="w-4 h-4"></i>
+                            <button onclick="API.pdf.preview(${p.id}, 'client')" class="p-1 hover:text-emerald-400 transition-colors ml-1" title="Visualizar PDF">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
                             </button>
                         </td>
                     </tr>
@@ -460,10 +460,10 @@ function renderProjectsTable(filterText = '') {
                                 <button onclick="duplicateProject(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded transition-colors" title="Duplicar">
                                     <i data-lucide="copy" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="API.pdf.download(${p.id}, 'client')" class="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors" title="PDF Orçamento">
-                                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                                <button onclick="API.pdf.preview(${p.id}, 'client')" class="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors" title="Visualizar Orçamento PDF">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="API.pdf.download(${p.id}, 'technical')" class="p-1.5 text-slate-400 hover:text-purple-400 hover:bg-slate-800 rounded transition-colors" title="Ficha Técnica">
+                                <button onclick="API.pdf.preview(${p.id}, 'technical')" class="p-1.5 text-slate-400 hover:text-purple-400 hover:bg-slate-800 rounded transition-colors" title="Visualizar Ficha Técnica">
                                     <i data-lucide="clipboard-list" class="w-4 h-4"></i>
                                 </button>
                                 <button onclick="deleteProject(${p.id})" class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition-colors" title="Excluir">
@@ -509,6 +509,7 @@ function openNewProject() {
     document.getElementById('proj-tax').value = u.default_tax_rate || '6';
     document.getElementById('proj-discount').value = '0';
     document.getElementById('proj-shipping').value = '0';
+    document.getElementById('proj-delivery-days').value = '3';
     document.getElementById('proj-notes').value = '';
 
     renderPlates();
@@ -540,6 +541,7 @@ async function editProject(id) {
         document.getElementById('proj-tax').value = proj.tax_rate_percent || 6;
         document.getElementById('proj-discount').value = proj.discount_percent || 0;
         document.getElementById('proj-shipping').value = proj.shipping_cost || 0;
+        document.getElementById('proj-delivery-days').value = proj.delivery_days ?? 3;
         document.getElementById('proj-notes').value = proj.notes || '';
 
         renderPlates();
@@ -587,11 +589,26 @@ function removePlateRow(index) {
     recalcLiveSummary();
 }
 
+function updatePlateTime(idx) {
+    const hElem = document.getElementById(`plate-time-h-${idx}`);
+    const mElem = document.getElementById(`plate-time-m-${idx}`);
+    const h = Math.max(0, parseInt(hElem?.value, 10) || 0);
+    const m = Math.max(0, parseInt(mElem?.value, 10) || 0);
+    state.currentPlates[idx].print_time_hours = Number((h + (m / 60)).toFixed(4));
+    recalcLiveSummary();
+}
+
 function renderPlates() {
     const container = document.getElementById('plates-container');
     if (!container) return;
 
-    container.innerHTML = state.currentPlates.map((plate, idx) => `
+    container.innerHTML = state.currentPlates.map((plate, idx) => {
+        const selFil = state.filaments.find(f => f.id === plate.filament_id);
+        const totalMin = Math.round((plate.print_time_hours || 0) * 60);
+        const timeH = Math.floor(totalMin / 60);
+        const timeM = totalMin % 60;
+
+        return `
         <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 relative group">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -635,15 +652,21 @@ function renderPlates() {
                 </div>
 
                 <div>
-                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Filamento</label>
-                    <select onchange="updatePlateFilament(${idx}, this.value)" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-blue-500">
-                        <option value="">Personalizado (Definir R$/g manual)</option>
-                        ${state.filaments.map(f => `
-                            <option value="${f.id}" ${plate.filament_id === f.id ? 'selected' : ''}>
-                                ${f.name} [${f.material}] (R$ ${f.cost_per_gram.toFixed(3)}/g)
-                            </option>
-                        `).join('')}
-                    </select>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1 flex items-center justify-between">
+                        <span>Filamento</span>
+                        ${selFil ? `<span class="flex items-center gap-1 text-[10px] text-slate-300 font-normal"><span class="w-2.5 h-2.5 rounded-full inline-block border border-slate-600 shadow-sm" style="background-color: ${selFil.color_hex || '#10b981'};"></span> ${selFil.color || ''}</span>` : ''}
+                    </label>
+                    <div class="relative flex items-center">
+                        <span class="absolute left-2.5 w-3 h-3 rounded-full border border-white/20 pointer-events-none shadow-sm" style="background-color: ${selFil ? (selFil.color_hex || '#10b981') : '#64748b'};"></span>
+                        <select onchange="updatePlateFilament(${idx}, this.value)" class="w-full pl-8 pr-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-blue-500">
+                            <option value="">Personalizado (Definir R$/g manual)</option>
+                            ${state.filaments.map(f => `
+                                <option value="${f.id}" ${plate.filament_id === f.id ? 'selected' : ''}>
+                                    ${f.name} [${f.material}] (R$ ${f.cost_per_gram.toFixed(2)}/g)
+                                </option>
+                            `).join('')}
+                        </select>
+                    </div>
                     ${!plate.filament_id ? `
                         <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded border border-slate-700/60">
                             <span class="text-[10px] text-amber-400 font-medium">Custo manual:</span>
@@ -658,8 +681,18 @@ function renderPlates() {
             <!-- Quantitative Inputs -->
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2 border-t border-slate-800/80">
                 <div>
-                    <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Tempo (Horas)</label>
-                    <input type="number" step="any" min="0" value="${plate.print_time_hours}" oninput="state.currentPlates[${idx}].print_time_hours = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
+                    <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Tempo (h : min)</label>
+                    <div class="flex items-center gap-1">
+                        <div class="relative flex-1">
+                            <input type="number" min="0" step="1" id="plate-time-h-${idx}" value="${timeH}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full px-2 py-1 pr-3 bg-slate-800 border border-slate-700 rounded text-xs text-white text-center" title="Horas">
+                            <span class="absolute right-1 top-1 text-[10px] text-slate-400 pointer-events-none">h</span>
+                        </div>
+                        <span class="text-slate-500 font-bold">:</span>
+                        <div class="relative flex-1">
+                            <input type="number" min="0" max="59" step="1" id="plate-time-m-${idx}" value="${timeM}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full px-2 py-1 pr-3 bg-slate-800 border border-slate-700 rounded text-xs text-white text-center" title="Minutos">
+                            <span class="absolute right-1 top-1 text-[10px] text-slate-400 pointer-events-none">m</span>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Peso Peça (g)</label>
@@ -685,7 +718,8 @@ function renderPlates() {
                 <span class="font-bold text-white" id="plate-cost-${idx}">R$ 0,00</span>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 
     refreshIcons();
 }
@@ -942,6 +976,7 @@ async function saveCurrentProject() {
         tax_rate_percent: parseLocaleFloat(document.getElementById('proj-tax').value, 0),
         discount_percent: parseLocaleFloat(document.getElementById('proj-discount').value, 0),
         shipping_cost: parseLocaleFloat(document.getElementById('proj-shipping').value, 0),
+        delivery_days: parseInt(document.getElementById('proj-delivery-days')?.value, 10) || 3,
         notes: document.getElementById('proj-notes').value.trim(),
         plates: state.currentPlates.map(p => ({
             name: p.name,
@@ -985,18 +1020,12 @@ async function saveCurrentProject() {
     }
 }
 
-async function exportCurrentPdf(type = 'client') {
+function exportCurrentPdf(type = 'client') {
     if (!state.currentProject || !state.currentProject.id) {
-        showToast('Salve o projeto antes de exportar o PDF.', 'info');
+        showToast('Salve o projeto antes de visualizar o PDF.', 'info');
         return;
     }
-    try {
-        showToast('Gerando documento PDF profissional...', 'info');
-        await API.pdf.download(state.currentProject.id, type);
-        showToast('Download do PDF concluído!', 'success');
-    } catch (err) {
-        showToast(err.message, 'error');
-    }
+    API.pdf.preview(state.currentProject.id, type);
 }
 
 async function duplicateProject(id) {
@@ -1348,6 +1377,17 @@ function editFilament(id) {
     if (filament) openFilamentModal(filament);
 }
 
+function updateFilamentNamePreview() {
+    const mat = document.getElementById('filament-material')?.value.trim() || 'PLA';
+    const col = document.getElementById('filament-color')?.value.trim() || 'Preto';
+    const brd = document.getElementById('filament-brand')?.value.trim() || 'Marca';
+    const hex = document.getElementById('filament-color-hex')?.value || '#10b981';
+    const textElem = document.getElementById('filament-preview-text');
+    const dotElem = document.getElementById('filament-preview-dot');
+    if (textElem) textElem.innerText = `${mat} ${col} - ${brd}`;
+    if (dotElem) dotElem.style.backgroundColor = hex;
+}
+
 function openFilamentModal(filament = null) {
     const modal = document.getElementById('modal-filament');
     const title = document.getElementById('modal-filament-title');
@@ -1356,22 +1396,23 @@ function openFilamentModal(filament = null) {
     if (filament) {
         title.innerHTML = `<i data-lucide="cylinder" class="w-5 h-5 text-blue-400"></i> Editar Filamento`;
         document.getElementById('filament-id').value = filament.id;
-        document.getElementById('filament-name').value = filament.name;
-        document.getElementById('filament-brand').value = filament.brand || '';
         document.getElementById('filament-material').value = filament.material || 'PLA';
+        document.getElementById('filament-brand').value = filament.brand || '';
         document.getElementById('filament-color').value = filament.color || '';
+        document.getElementById('filament-color-hex').value = filament.color_hex || '#10b981';
         document.getElementById('filament-weight').value = filament.spool_weight_g;
         document.getElementById('filament-price').value = filament.spool_price;
     } else {
         title.innerHTML = `<i data-lucide="cylinder" class="w-5 h-5 text-blue-400"></i> Cadastrar Filamento`;
         document.getElementById('filament-id').value = '';
-        document.getElementById('filament-name').value = '';
-        document.getElementById('filament-brand').value = '';
         document.getElementById('filament-material').value = 'PLA';
+        document.getElementById('filament-brand').value = '';
         document.getElementById('filament-color').value = '';
+        document.getElementById('filament-color-hex').value = '#10b981';
         document.getElementById('filament-weight').value = '1000';
         document.getElementById('filament-price').value = '95.00';
     }
+    updateFilamentNamePreview();
     refreshIcons();
 }
 
@@ -1383,11 +1424,18 @@ async function handleSaveFilament(e) {
     e.preventDefault();
     normalizeNumericInputs();
     const id = document.getElementById('filament-id').value;
+    const mat = document.getElementById('filament-material').value;
+    const brand = document.getElementById('filament-brand').value.trim() || 'Genérico';
+    const color = document.getElementById('filament-color').value.trim() || 'Padrão';
+    const colorHex = document.getElementById('filament-color-hex').value || '#10b981';
+    const standardName = `${mat} ${color} - ${brand}`;
+
     const payload = {
-        name: document.getElementById('filament-name').value.trim(),
-        brand: document.getElementById('filament-brand').value.trim(),
-        material: document.getElementById('filament-material').value,
-        color: document.getElementById('filament-color').value.trim(),
+        name: standardName,
+        brand: brand,
+        material: mat,
+        color: color,
+        color_hex: colorHex,
         spool_weight_g: parseLocaleFloat(document.getElementById('filament-weight').value, 1000),
         spool_price: parseLocaleFloat(document.getElementById('filament-price').value, 90),
     };
@@ -1445,14 +1493,22 @@ function renderFilamentsGrid() {
             <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between">
                 <div>
                     <div class="flex items-start justify-between">
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider badge-mat-${matLower}">
-                                    ${f.material}
-                                </span>
-                                <h4 class="font-bold text-white text-sm">${f.name}</h4>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl border border-slate-700/60 flex items-center justify-center relative shadow-sm" style="background-color: ${f.color_hex || '#10b981'}22;">
+                                <span class="w-4 h-4 rounded-full border border-white/30 shadow-sm" style="background-color: ${f.color_hex || '#10b981'};"></span>
                             </div>
-                            <p class="text-xs text-slate-400 mt-1">${f.brand || 'Genérico'} • ${f.color || 'Cor padrão'}</p>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider badge-mat-${matLower}">
+                                        ${f.material}
+                                    </span>
+                                    <h4 class="font-bold text-white text-sm">${f.name}</h4>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                                    <span class="inline-block w-2.5 h-2.5 rounded-full border border-white/20 shadow-sm" style="background-color: ${f.color_hex || '#10b981'};"></span>
+                                    <span>${f.brand || 'Genérico'} • ${f.color || 'Cor padrão'}</span>
+                                </p>
+                            </div>
                         </div>
                         <div class="flex items-center gap-1">
                             <button onclick="editFilament(${f.id})" class="p-1 text-slate-400 hover:text-white transition-colors" title="Editar">
@@ -1468,7 +1524,7 @@ function renderFilamentsGrid() {
                     <div class="mt-4 p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-center">
                         <span class="text-[10px] uppercase font-semibold text-emerald-300 tracking-wider">Custo por Grama</span>
                         <div class="text-2xl font-black text-emerald-400 mt-0.5">
-                            R$ ${f.cost_per_gram.toFixed(4)}<span class="text-xs font-normal text-slate-400">/g</span>
+                            R$ ${f.cost_per_gram.toFixed(2)}<span class="text-xs font-normal text-slate-400">/g</span>
                         </div>
                     </div>
                 </div>

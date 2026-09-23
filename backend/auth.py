@@ -67,3 +67,18 @@ def get_current_user(
         raise credentials_exception
 
     return user
+
+def get_user_from_token(token_str: str, db: Session) -> Optional[models.User]:
+    """Helper to validate a token string and return the User model if valid."""
+    if not token_str:
+        return None
+    try:
+        payload = jwt.decode(token_str, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id_str = payload.get("sub")
+        if user_id_str is None:
+            return None
+        user_id = int(user_id_str)
+        return db.query(models.User).filter(models.User.id == user_id).first()
+    except Exception:
+        return None
+
