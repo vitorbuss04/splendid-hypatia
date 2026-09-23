@@ -64,6 +64,21 @@ document.addEventListener('beforeinput', (e) => {
     }
 });
 
+document.addEventListener('keydown', (e) => {
+    const target = e.target;
+    if (target && target.tagName === 'INPUT' && target.type === 'number') {
+        if (e.key === ',' || e.key === 'Decimal') {
+            e.preventDefault();
+            if (!target.value.includes('.')) {
+                if (!document.execCommand('insertText', false, '.')) {
+                    target.value += '.';
+                }
+                target.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    }
+});
+
 document.addEventListener('paste', (e) => {
     const target = e.target;
     if (target && target.tagName === 'INPUT' && target.type === 'number') {

@@ -100,3 +100,13 @@ python -m pytest -v
    - `PORT=8000`
 5. Configure o volume persistente montando `app_data` em `/app/data`.
 6. Clique em **Deploy**. O EasyPanel construirá a imagem e publicará com certificado SSL automático!
+
+---
+
+## 📌 Rastreamento de Issues & Feedbacks
+
+O gerenciamento de correções e melhorias solicitadas por usuários é mantido em:
+- [`.github/ISSUES.md`](.github/ISSUES.md) — Rastreamento detalhado de issues resolvidas e pendentes.
+- [`.github/sync_issues.ps1`](.github/sync_issues.ps1) — Script PowerShell para sincronização automática com GitHub via CLI (`gh`).
+- [`anotacoes/feedbacks.md`](anotacoes/feedbacks.md) — Caderno com histórico de apontamentos de usuários.
+

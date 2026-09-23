@@ -138,8 +138,27 @@ def test_app_js_safety_and_event_listeners():
     content = app_js.read_text(encoding="utf-8")
 
     assert "beforeinput" in content, "Must include beforeinput event listener for comma decimal handling"
+    assert "keydown" in content, "Must include keydown event listener for comma decimal handling fallback"
     assert "paste" in content, "Must include paste event listener for clipboard support"
     assert "function editPrinter" in content, "Must define editPrinter helper"
     assert "function editFilament" in content, "Must define editFilament helper"
     assert "editPrinter(" in content, "renderPrintersGrid must use editPrinter"
     assert "editFilament(" in content, "renderFilamentsGrid must use editFilament"
+
+def test_dynamic_plate_and_bom_inputs_in_app_js():
+    """
+    Validates that dynamic inputs generated in app.js for plates and BOM
+    also support step='any' and do not impose stepMismatch on decimals or round numbers.
+    """
+    app_js = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    content = app_js.read_text(encoding="utf-8")
+
+    # Plates quantitative inputs
+    assert 'custom_printer_hourly_rate' in content
+    assert 'custom_filament_cost_per_g' in content
+    assert 'step="any"' in content
+
+    # BOM unit cost input
+    assert 'placeholder="R$ Unit"' in content
+    assert 'min="0" step="any"' in content
+
