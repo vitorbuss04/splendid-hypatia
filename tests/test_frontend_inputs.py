@@ -878,6 +878,249 @@ def test_payment_terms_and_warranty_browser_flow():
         Path(temp_path).unlink(missing_ok=True)
 
 
+def test_issues_17_to_22_full_suite():
+    """
+    Covers issues #17, #18, #19, #20, #21, #22 across both static template contracts
+    and dynamic execution in headless browser.
+    """
+    import subprocess
+    import shutil
+    import tempfile
+
+    html_file = Path(__file__).parent.parent / "frontend" / "index.html"
+    app_js_file = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    html_content = html_file.read_text(encoding="utf-8")
+    app_js = app_js_file.read_text(encoding="utf-8")
+
+    # 1. Static Contract Checks
+    # Issue #17: Prazo de entrega permite 0 dias
+    assert 'id="proj-delivery-days"' in html_content
+    assert 'min="0"' in html_content.split('id="proj-delivery-days"')[1].split('>')[0] or 'min="0"' in html_content.split('id="proj-delivery-days"')[0].split('<input')[-1]
+
+    # Issue #18: BOM inputs sanitize negative values
+    assert 'min="1"' in app_js
+    assert 'Math.max(1,' in app_js
+    assert 'Math.max(0,' in app_js
+
+    # Issue #19: Modals ESC key and backdrop listeners
+    assert "Escape" in app_js
+    assert "modal-filament" in app_js
+    assert "modal-printer" in app_js
+
+    # Issue #20: Reset file input value
+    assert "e.target.value = ''" in app_js or 'e.target.value = ""' in app_js
+
+    # Issue #21: Duplicate plate row
+    assert "duplicatePlateRow" in app_js
+    assert "copy" in app_js
+
+    # Issue #22: Search inputs for printers and filaments
+    assert 'id="printer-search-input"' in html_content
+    assert 'id="filament-search-input"' in html_content
+    assert "filterPrinters" in app_js
+    assert "filterFilaments" in app_js
+
+    # 2. Browser Execution Check
+    chrome_candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        shutil.which("google-chrome"),
+        shutil.which("chromium"),
+        shutil.which("chrome"),
+    ]
+    browser = None
+    for c in chrome_candidates:
+        if c and Path(c).exists():
+            browser = c
+            break
+
+    if not browser:
+        return
+
+    app_js_path = app_js_file.resolve().as_posix()
+    html_test = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+    <div id="modal-filament" class="hidden">
+        <h3 id="modal-filament-title"></h3>
+        <input type="hidden" id="filament-id">
+        <input type="text" id="filament-material">
+        <input type="text" id="filament-brand">
+        <input type="text" id="filament-color">
+    </div>
+    <div id="modal-printer" class="hidden">
+        <h3 id="modal-printer-title"></h3>
+        <input type="hidden" id="printer-id">
+        <input type="text" id="printer-name">
+        <input type="text" id="printer-model">
+    </div>
+    <div id="view-title"></div>
+    <div id="editor-project-title"></div>
+    <div id="editor-project-subtitle"></div>
+    <input type="text" id="proj-name">
+    <input type="text" id="proj-client-name">
+    <input type="email" id="proj-client-email">
+    <input type="tel" id="proj-client-phone">
+    <select id="proj-status"><option value="draft">Rascunho</option></select>
+    <input type="number" id="proj-cad-hours">
+    <input type="number" id="proj-cad-rate">
+    <input type="number" id="proj-post-hours">
+    <input type="number" id="proj-post-rate">
+    <input type="number" id="proj-overhead">
+    <input type="number" id="proj-margin">
+    <input type="number" id="proj-tax">
+    <input type="number" id="proj-discount">
+    <input type="number" id="proj-shipping">
+    <input type="number" id="proj-delivery-days">
+    <input type="text" id="proj-payment-terms">
+    <input type="text" id="proj-warranty-terms">
+    <textarea id="proj-notes"></textarea>
+    <div id="plates-container"></div>
+    <div id="bom-container"></div>
+    <input type="search" id="printer-search-input">
+    <div id="printers-grid"></div>
+    <input type="search" id="filament-search-input">
+    <div id="filaments-grid"></div>
+    <div id="live-base-cost"></div>
+    <div id="live-bom-cost"></div>
+    <div id="live-weight"></div>
+    <div id="live-time"></div>
+    <div id="live-material-cost"></div>
+    <div id="live-machine-cost"></div>
+    <div id="live-labor-cost"></div>
+    <div id="live-overhead-cost"></div>
+    <div id="live-suggested-price"></div>
+    <div id="live-discount-amount"></div>
+    <div id="live-shipping-amount"></div>
+    <div id="live-tax-amount"></div>
+    <div id="test-result">RUNNING</div>
+
+    <script>
+    let savedPayload = null;
+    window.lucide = {{ createIcons: () => {{}} }};
+    window.API = {{
+        projects: {{
+            get: async (id) => ({{
+                id: 1,
+                name: "Projeto 0 Dias",
+                delivery_days: 0,
+                plates: [{{ name: "Placa Base", print_time_hours: 1, part_weight_g: 10, quantity: 1 }}],
+                bom_items: []
+            }}),
+            create: async (data) => {{ savedPayload = data; return {{ id: 10, ...data }}; }},
+            update: async (id, data) => {{ savedPayload = data; return {{ id, ...data }}; }}
+        }}
+    }};
+    </script>
+    <script src="file:///{app_js_path}"></script>
+    <script>
+    try {{
+        // Test Issue #17: 0 days delivery
+        openNewProject();
+        document.getElementById('proj-delivery-days').value = '0';
+        saveCurrentProject(false).then(() => {{
+            if (savedPayload.delivery_days !== 0) throw new Error("delivery_days was not saved as 0, got: " + savedPayload.delivery_days);
+            return editProject(1);
+        }}).then(() => {{
+            const val = document.getElementById('proj-delivery-days').value;
+            if (val !== '0' && val !== 0) throw new Error("editProject did not populate delivery_days as 0, got: " + val);
+
+            // Test Issue #18: BOM negative quantities/costs
+            state.currentBOM = [
+                {{ name: "Parafuso Teste", category: "Fixadores", quantity: -5, unit_cost: -10 }}
+            ];
+            recalcLiveSummary();
+            const bomCostText = document.getElementById('live-bom-cost').textContent;
+            if (bomCostText.includes("-")) throw new Error("live-bom-cost became negative: " + bomCostText);
+
+            return saveCurrentProject(false);
+        }}).then(() => {{
+            const b = savedPayload.bom_items[0];
+            if (b.quantity < 1) throw new Error("BOM quantity was saved negative: " + b.quantity);
+            if (b.unit_cost < 0) throw new Error("BOM unit_cost was saved negative: " + b.unit_cost);
+
+            // Test Issue #19: ESC key closes modal
+            openFilamentModal();
+            const filModal = document.getElementById('modal-filament');
+            if (filModal.classList.contains('hidden')) throw new Error("Filament modal failed to open");
+            document.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Escape' }}));
+            if (!filModal.classList.contains('hidden')) throw new Error("ESC key failed to close filament modal");
+
+            // Test Issue #19: Backdrop click closes modal
+            openPrinterModal();
+            const prinModal = document.getElementById('modal-printer');
+            if (prinModal.classList.contains('hidden')) throw new Error("Printer modal failed to open");
+            prinModal.dispatchEvent(new MouseEvent('click', {{ bubbles: true, cancelable: true }}));
+            if (!prinModal.classList.contains('hidden')) throw new Error("Backdrop click failed to close printer modal");
+
+            // Test Issue #20: Reset file input value on slicer import
+            const mockInput = {{ files: [], value: 'sample.gcode' }};
+            handleSinglePlateFile({{ target: mockInput }}, 0);
+            if (mockInput.value !== '') throw new Error("handleSinglePlateFile did not reset target.value");
+
+            // Test Issue #21: Duplicate plate
+            state.currentPlates = [{{ id: 42, name: "Tampa Superior", print_time_hours: 2, part_weight_g: 50, quantity: 1 }}];
+            duplicatePlateRow(0);
+            if (state.currentPlates.length !== 2) throw new Error("duplicatePlateRow did not add a plate, len: " + state.currentPlates.length);
+            if (!state.currentPlates[1].name.includes("Cópia")) throw new Error("Cloned plate name wrong: " + state.currentPlates[1].name);
+            if (state.currentPlates[1].id !== undefined) throw new Error("Cloned plate kept old database ID");
+
+            // Test Issue #22: Real-time search/filter for printers & filaments
+            state.printers = [
+                {{ id: 1, name: "Bambu Lab X1-Carbon", model: "CoreXY", rates_breakdown: {{}} }},
+                {{ id: 2, name: "Creality Ender 3 V3", model: "Bed Slinger", rates_breakdown: {{}} }}
+            ];
+            renderPrintersGrid("bambu");
+            const prinGrid = document.getElementById('printers-grid').innerHTML;
+            if (!prinGrid.includes("Bambu") || prinGrid.includes("Ender")) throw new Error("Printers filter failed matching");
+
+            renderPrintersGrid("inexistente");
+            const prinEmpty = document.getElementById('printers-grid').innerHTML;
+            if (!prinEmpty.includes("Nenhuma impressora encontrada")) throw new Error("Printers empty state failed");
+
+            state.filaments = [
+                {{ id: 1, name: "PLA Premium", brand: "Voolt3D", material: "PLA", color: "Preto", color_hex: "#000000" }},
+                {{ id: 2, name: "PETG HT", brand: "3D Fila", material: "PETG", color: "Branco", color_hex: "#ffffff" }}
+            ];
+            renderFilamentsGrid("voolt");
+            const filGrid = document.getElementById('filaments-grid').innerHTML;
+            if (!filGrid.includes("Voolt3D") || filGrid.includes("PETG HT")) throw new Error("Filaments filter failed matching");
+
+            renderFilamentsGrid("inexistente");
+            const filEmpty = document.getElementById('filaments-grid').innerHTML;
+            if (!filEmpty.includes("Nenhum filamento encontrado")) throw new Error("Filaments empty state failed");
+
+            document.getElementById('test-result').innerText = "SUCCESS";
+        }}).catch(e => {{
+            document.getElementById('test-result').innerText = "ERROR: " + e.message;
+        }});
+    }} catch (e) {{
+        document.getElementById('test-result').innerText = "ERROR: " + e.message;
+    }}
+    </script>
+</body>
+</html>"""
+
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8") as f:
+        f.write(html_test)
+        temp_path = f.name
+
+    try:
+        proc = subprocess.run([
+            browser,
+            "--headless=new",
+            "--disable-gpu",
+            "--dump-dom",
+            Path(temp_path).as_uri()
+        ], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=12)
+
+        assert "SUCCESS" in (proc.stdout or ""), f"Headless browser test failed. Output:\n{proc.stdout}"
+    finally:
+        Path(temp_path).unlink(missing_ok=True)
+
+
+
 
 
 

@@ -765,8 +765,10 @@ function removePlateRow(index) {
 // Issue #21: Duplicate a plate row - clones the object and inserts right after the original
 function duplicatePlateRow(idx) {
     const orig = state.currentPlates[idx];
+    if (!orig) return;
     const cloned = JSON.parse(JSON.stringify(orig));
-    cloned.name = `${orig.name} (Cópia)`;
+    delete cloned.id;
+    cloned.name = `${orig.name || 'Placa'} (Cópia)`;
     state.currentPlates.splice(idx + 1, 0, cloned);
     renderPlates();
     recalcLiveSummary();
@@ -780,6 +782,7 @@ function duplicatePlateRow(idx) {
     }
     showToast('Placa duplicada com sucesso!', 'success');
 }
+window.duplicatePlateRow = duplicatePlateRow;
 
 // Global alias for compatibility
 window.removePlate = removePlateRow;
@@ -1361,8 +1364,8 @@ async function saveCurrentProject(navigateBack = true) {
         bom_items: state.currentBOM.map(b => ({
             name: b.name,
             category: b.category,
-            quantity: parseInt(b.quantity, 10) || 1,
-            unit_cost: parseLocaleFloat(b.unit_cost, 0),
+            quantity: Math.max(1, parseInt(b.quantity, 10) || 1),
+            unit_cost: Math.max(0, parseLocaleFloat(b.unit_cost, 0)),
             notes: b.notes,
         })),
     };
@@ -1683,6 +1686,7 @@ function filterPrinters() {
     const term = (document.getElementById('printer-search-input')?.value || '').trim();
     renderPrintersGrid(term);
 }
+window.filterPrinters = filterPrinters;
 
 function renderPrintersGrid(filterTerm = null) {
     const grid = document.getElementById('printers-grid');
@@ -1926,6 +1930,7 @@ function filterFilaments() {
     const term = (document.getElementById('filament-search-input')?.value || '').trim();
     renderFilamentsGrid(term);
 }
+window.filterFilaments = filterFilaments;
 
 function renderFilamentsGrid(filterTerm = null) {
     const grid = document.getElementById('filaments-grid');
