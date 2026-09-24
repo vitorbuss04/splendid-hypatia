@@ -48,6 +48,24 @@ function parseLocaleFloat(val, fallback = 0) {
     return isNaN(num) ? fallback : num;
 }
 
+function normalizeSearchText(str) {
+    return (str || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+function matchesSearch(text, term) {
+    const normTerm = normalizeSearchText(term);
+    if (!normTerm) return true;
+    const normText = normalizeSearchText(text);
+    if (normText.includes(normTerm)) return true;
+    const words = normTerm.split(/\s+/).filter(Boolean);
+    return words.every(word => normText.includes(word));
+}
+
 // Global enhancement for numeric inputs: allows seamless decimal input with comma or dot across all browser locales
 // Avoids HTML5 value sanitization wiping out trailing-dot values (e.g. '56.')
 document.addEventListener('focusin', (e) => {
@@ -405,16 +423,15 @@ function formatStatus(status) {
 
 // ================= PROJECTS VIEW =================
 
-function renderProjectsTable(filterText = '') {
+function renderProjectsTable(filterText = null) {
     const container = document.getElementById('projects-table-container');
     if (!container) return;
 
+    const term = (filterText !== null && filterText !== undefined ? filterText : (document.getElementById('project-search-input')?.value || '')).trim();
     let items = state.projects;
-    if (filterText) {
-        const query = filterText.toLowerCase();
+    if (term) {
         items = items.filter(p => 
-            p.name.toLowerCase().includes(query) || 
-            (p.client_name && p.client_name.toLowerCase().includes(query))
+            matchesSearch(`${p.name || ''} ${p.client_name || ''}`, term)
         );
     }
 
@@ -422,10 +439,16 @@ function renderProjectsTable(filterText = '') {
         container.innerHTML = `
             <div class="text-center py-12 text-slate-400">
                 <i data-lucide="folder-search" class="w-12 h-12 mx-auto mb-3 text-slate-600"></i>
-                <p class="text-sm font-medium">Nenhum projeto encontrado.</p>
-                <button onclick="openNewProject()" class="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">
-                    + Criar Novo Orçamento
-                </button>
+                <p class="text-sm font-medium">Nenhum projeto encontrado${term ? ` para "<strong class="text-white">${term}</strong>"` : ''}.</p>
+                ${term ? `
+                    <button type="button" onclick="const inp = document.getElementById('project-search-input'); if(inp){inp.value='';} filterProjects();" class="mt-3 inline-block px-3 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded text-xs font-medium transition-colors">
+                        Limpar filtro
+                    </button>
+                ` : `
+                    <button onclick="openNewProject()" class="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">
+                        + Criar Novo Orçamento
+                    </button>
+                `}
             </div>
         `;
         refreshIcons();
@@ -1373,19 +1396,18 @@ async function deletePrinter(id) {
 
 // Issue #22: Real-time search/filter for printers grid
 function filterPrinters() {
-    const term = (document.getElementById('printer-search-input')?.value || '').toLowerCase().trim();
+    const term = (document.getElementById('printer-search-input')?.value || '').trim();
     renderPrintersGrid(term);
 }
 
-function renderPrintersGrid(filterTerm = '') {
+function renderPrintersGrid(filterTerm = null) {
     const grid = document.getElementById('printers-grid');
     if (!grid) return;
 
-    const term = filterTerm.toLowerCase().trim();
+    const term = (filterTerm !== null && filterTerm !== undefined ? filterTerm : (document.getElementById('printer-search-input')?.value || '')).trim();
     const printers = term
         ? state.printers.filter(p =>
-            (p.name || '').toLowerCase().includes(term) ||
-            (p.model || '').toLowerCase().includes(term)
+            matchesSearch(`${p.name || ''} ${p.model || ''}`, term)
           )
         : state.printers;
 
@@ -1409,6 +1431,9 @@ function renderPrintersGrid(filterTerm = '') {
             <div class="col-span-full card-dark p-8 text-center text-slate-400">
                 <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 text-slate-600"></i>
                 <p class="text-sm">Nenhuma impressora encontrada para "<strong class="text-white">${term}</strong>".</p>
+                <button type="button" onclick="const inp = document.getElementById('printer-search-input'); if(inp){inp.value='';} filterPrinters();" class="mt-3 inline-block px-3 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded text-xs font-medium transition-colors">
+                    Limpar filtro
+                </button>
             </div>
         `;
         refreshIcons();
@@ -1614,21 +1639,18 @@ async function deleteFilament(id) {
 
 // Issue #22: Real-time search/filter for filaments grid
 function filterFilaments() {
-    const term = (document.getElementById('filament-search-input')?.value || '').toLowerCase().trim();
+    const term = (document.getElementById('filament-search-input')?.value || '').trim();
     renderFilamentsGrid(term);
 }
 
-function renderFilamentsGrid(filterTerm = '') {
+function renderFilamentsGrid(filterTerm = null) {
     const grid = document.getElementById('filaments-grid');
     if (!grid) return;
 
-    const term = filterTerm.toLowerCase().trim();
+    const term = (filterTerm !== null && filterTerm !== undefined ? filterTerm : (document.getElementById('filament-search-input')?.value || '')).trim();
     const filaments = term
         ? state.filaments.filter(f =>
-            (f.name || '').toLowerCase().includes(term) ||
-            (f.brand || '').toLowerCase().includes(term) ||
-            (f.material || '').toLowerCase().includes(term) ||
-            (f.color || '').toLowerCase().includes(term)
+            matchesSearch(`${f.name || ''} ${f.brand || ''} ${f.material || ''} ${f.color || ''}`, term)
           )
         : state.filaments;
 
@@ -1652,6 +1674,9 @@ function renderFilamentsGrid(filterTerm = '') {
             <div class="col-span-full card-dark p-8 text-center text-slate-400">
                 <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 text-slate-600"></i>
                 <p class="text-sm">Nenhum filamento encontrado para "<strong class="text-white">${term}</strong>".</p>
+                <button type="button" onclick="const inp = document.getElementById('filament-search-input'); if(inp){inp.value='';} filterFilaments();" class="mt-3 inline-block px-3 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded text-xs font-medium transition-colors">
+                    Limpar filtro
+                </button>
             </div>
         `;
         refreshIcons();
@@ -1802,7 +1827,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             await loadAllData();
             navigateTo('dashboard');
         } catch (err) {
-            API.auth.clearSession();
+            API.clearSession();
             document.getElementById('auth-modal').classList.remove('hidden');
         }
     } else {

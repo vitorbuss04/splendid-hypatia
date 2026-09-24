@@ -176,7 +176,7 @@ class PlateResponse(PlateBase):
 class BOMItemBase(BaseModel):
     name: str
     category: str = "Fixadores"
-    quantity: int = Field(1, ge=0)
+    quantity: int = Field(1, ge=1)
     unit_cost: float = Field(0.0, ge=0)
     notes: Optional[str] = None
 
@@ -186,7 +186,7 @@ class BOMItemCreate(BOMItemBase):
 class BOMItemUpdate(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
-    quantity: Optional[int] = Field(None, ge=0)
+    quantity: Optional[int] = Field(None, ge=1)
     unit_cost: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
 
@@ -215,7 +215,7 @@ class ProjectBase(BaseModel):
     tax_rate_percent: float = Field(6.0, ge=0, le=99.0)
     discount_percent: float = Field(0.0, ge=0, le=100.0)
     shipping_cost: float = Field(0.0, ge=0)
-    delivery_days: Optional[int] = Field(3, ge=1)
+    delivery_days: Optional[int] = Field(3, ge=0)
     payment_terms: Optional[str] = None
     warranty_terms: Optional[str] = None
     notes: Optional[str] = None
@@ -239,7 +239,7 @@ class ProjectUpdate(BaseModel):
     tax_rate_percent: Optional[float] = Field(None, ge=0, le=99.0)
     discount_percent: Optional[float] = Field(None, ge=0, le=100.0)
     shipping_cost: Optional[float] = Field(None, ge=0)
-    delivery_days: Optional[int] = Field(None, ge=1)
+    delivery_days: Optional[int] = Field(None, ge=0)
     payment_terms: Optional[str] = None
     warranty_terms: Optional[str] = None
     notes: Optional[str] = None

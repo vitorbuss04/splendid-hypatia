@@ -109,7 +109,10 @@ if FRONTEND_DIR.exists():
 
     @app.get("/")
     def serve_index():
-        return FileResponse(str(FRONTEND_DIR / "index.html"))
+        return FileResponse(
+            str(FRONTEND_DIR / "index.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
 
     @app.get("/preview")
     def serve_preview():
@@ -125,7 +128,10 @@ if FRONTEND_DIR.exists():
         if target_path.is_file() and target_path.is_relative_to(FRONTEND_DIR.resolve()):
             return FileResponse(str(target_path))
         # Otherwise fallback to index.html for SPA routing
-        return FileResponse(str(FRONTEND_DIR / "index.html"))
+        return FileResponse(
+            str(FRONTEND_DIR / "index.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
 
 if __name__ == "__main__":
     import uvicorn

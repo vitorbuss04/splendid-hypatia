@@ -369,14 +369,22 @@ def build_pdf_document(
 
         # 5. Terms & Payment Info Box
         pix_info = user_data.get("pix_key")
-        delivery_days = project_data.get("delivery_days")
+        delivery_days_raw = project_data.get("delivery_days")
         try:
-            delivery_days = int(delivery_days) if delivery_days is not None else 0
+            delivery_days = int(delivery_days_raw) if delivery_days_raw is not None else None
         except (ValueError, TypeError):
-            delivery_days = 0
-        if delivery_days <= 0:
-            delivery_days = max(1, int(summary.get('total_print_time_hours', 1) / 8) + 1)
-        unit_days = "dia útil" if delivery_days == 1 else "dias úteis"
+            delivery_days = None
+
+        if delivery_days is None or delivery_days < 0:
+            calc_days = max(1, int(summary.get('total_print_time_hours', 1) / 8) + 1)
+            unit_days = "dia útil" if calc_days == 1 else "dias úteis"
+            delivery_phrase = f"Estimado em até {calc_days} {unit_days} após aprovação."
+        elif delivery_days == 0:
+            delivery_phrase = "Pronta entrega / Retirada imediata (0 dias úteis)."
+        else:
+            unit_days = "dia útil" if delivery_days == 1 else "dias úteis"
+            delivery_phrase = f"Estimado em até {delivery_days} {unit_days} após aprovação."
+
         payment_terms = (
             (project_data.get("payment_terms") or "").strip()
             or (user_data.get("default_payment_terms") or "").strip()
@@ -394,7 +402,7 @@ def build_pdf_document(
 
         terms_text = f"""<b>Condições de Pagamento:</b> {safe_payment_terms}<br/>
 {f'<b>Chave PIX:</b> {safe_pix_info}<br/>' if safe_pix_info else ''}
-<b>Prazo de Produção:</b> Estimado em até {delivery_days} {unit_days} após aprovação.<br/>
+<b>Prazo de Produção:</b> {delivery_phrase}<br/>
 <b>Garantia:</b> {safe_warranty_terms}"""
         
         terms_p = Paragraph(terms_text, ParagraphStyle("Terms", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=PRIMARY))

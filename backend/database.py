@@ -1,6 +1,6 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import declarative_base, sessionmaker
-from backend.config import DATABASE_URL
+from backend.config import DATABASE_URL, DB_SCHEMA
 
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
@@ -14,7 +14,8 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-Base = declarative_base()
+metadata = MetaData(schema=DB_SCHEMA) if DB_SCHEMA else MetaData()
+Base = declarative_base(metadata=metadata)
 
 def get_db():
     db = SessionLocal()
@@ -28,31 +29,32 @@ def init_db():
     from sqlalchemy import inspect, text
     Base.metadata.create_all(bind=engine)
 
-    # Safe column migrations for SQLite
+    # Safe column migrations
     try:
         inspector = inspect(engine)
-        tables = inspector.get_table_names()
+        tables = inspector.get_table_names(schema=DB_SCHEMA) if DB_SCHEMA else inspector.get_table_names()
         with engine.connect() as conn:
+            prefix = f'"{DB_SCHEMA}".' if DB_SCHEMA else ""
             if "users" in tables:
-                user_cols = [c["name"] for c in inspector.get_columns("users")]
+                user_cols = [c["name"] for c in inspector.get_columns("users", schema=DB_SCHEMA)]
                 if "default_payment_terms" not in user_cols:
-                    conn.execute(text("ALTER TABLE users ADD COLUMN default_payment_terms VARCHAR(500)"))
+                    conn.execute(text(f"ALTER TABLE {prefix}users ADD COLUMN default_payment_terms VARCHAR(500)"))
                 if "default_warranty_terms" not in user_cols:
-                    conn.execute(text("ALTER TABLE users ADD COLUMN default_warranty_terms VARCHAR(500)"))
-                conn.execute(text("UPDATE users SET default_payment_terms = 'A combinar / 50% na aprovação e 50% na entrega.' WHERE default_payment_terms IS NULL"))
-                conn.execute(text("UPDATE users SET default_warranty_terms = 'Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas.' WHERE default_warranty_terms IS NULL"))
+                    conn.execute(text(f"ALTER TABLE {prefix}users ADD COLUMN default_warranty_terms VARCHAR(500)"))
+                conn.execute(text(f"UPDATE {prefix}users SET default_payment_terms = 'A combinar / 50% na aprovação e 50% na entrega.' WHERE default_payment_terms IS NULL"))
+                conn.execute(text(f"UPDATE {prefix}users SET default_warranty_terms = 'Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas.' WHERE default_warranty_terms IS NULL"))
             if "filaments" in tables:
-                fil_cols = [c["name"] for c in inspector.get_columns("filaments")]
+                fil_cols = [c["name"] for c in inspector.get_columns("filaments", schema=DB_SCHEMA)]
                 if "color_hex" not in fil_cols:
-                    conn.execute(text("ALTER TABLE filaments ADD COLUMN color_hex VARCHAR(20) DEFAULT '#10b981'"))
+                    conn.execute(text(f"ALTER TABLE {prefix}filaments ADD COLUMN color_hex VARCHAR(20) DEFAULT '#10b981'"))
             if "projects" in tables:
-                proj_cols = [c["name"] for c in inspector.get_columns("projects")]
+                proj_cols = [c["name"] for c in inspector.get_columns("projects", schema=DB_SCHEMA)]
                 if "delivery_days" not in proj_cols:
-                    conn.execute(text("ALTER TABLE projects ADD COLUMN delivery_days INTEGER DEFAULT 3"))
+                    conn.execute(text(f"ALTER TABLE {prefix}projects ADD COLUMN delivery_days INTEGER DEFAULT 3"))
                 if "payment_terms" not in proj_cols:
-                    conn.execute(text("ALTER TABLE projects ADD COLUMN payment_terms VARCHAR(500)"))
+                    conn.execute(text(f"ALTER TABLE {prefix}projects ADD COLUMN payment_terms VARCHAR(500)"))
                 if "warranty_terms" not in proj_cols:
-                    conn.execute(text("ALTER TABLE projects ADD COLUMN warranty_terms VARCHAR(500)"))
+                    conn.execute(text(f"ALTER TABLE {prefix}projects ADD COLUMN warranty_terms VARCHAR(500)"))
             conn.commit()
     except Exception as e:
         pass
