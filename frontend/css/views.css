@@ -639,6 +639,8 @@ div:has(> #live-net-profit) {
     border: 1px dashed var(--border-default, #243044);
     border-radius: var(--radius-md, 0.5rem);
     padding: 0.625rem 0.875rem;
+    min-width: 0;
+    overflow: hidden;
 }
 
 

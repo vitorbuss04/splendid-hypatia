@@ -1810,7 +1810,7 @@ function openFilamentModal(filament = null, isDuplicate = false) {
     modal.classList.remove('hidden');
 
     if (filament && !isDuplicate) {
-        title.innerHTML = `<i data-lucide="cylinder" class="w-5 h-5 text-blue-400"></i> Editar Filamento`;
+        title.textContent = 'Editar Filamento';
         document.getElementById('filament-id').value = filament.id;
         document.getElementById('filament-material').value = filament.material || 'PLA';
         document.getElementById('filament-brand').value = filament.brand || '';
@@ -1820,7 +1820,7 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-price').value = filament.spool_price;
         if (colorInput) colorInput.placeholder = 'Ex: Preto';
     } else if (filament && isDuplicate) {
-        title.innerHTML = `<i data-lucide="copy" class="w-5 h-5 text-blue-400"></i> Cadastrar Filamento (Duplicar)`;
+        title.textContent = 'Cadastrar Filamento (Duplicar)';
         document.getElementById('filament-id').value = '';
         document.getElementById('filament-material').value = filament.material || 'PLA';
         document.getElementById('filament-brand').value = filament.brand || '';
@@ -1842,7 +1842,7 @@ function openFilamentModal(filament = null, isDuplicate = false) {
             }, 50);
         }
     } else {
-        title.innerHTML = `<i data-lucide="cylinder" class="w-5 h-5 text-blue-400"></i> Cadastrar Filamento`;
+        title.textContent = 'Cadastrar Filamento';
         document.getElementById('filament-id').value = '';
         document.getElementById('filament-material').value = 'PLA';
         document.getElementById('filament-brand').value = '';
