@@ -1,6 +1,7 @@
 from html.parser import HTMLParser
 from pathlib import Path
 import re
+import subprocess
 import pytest
 
 class InputParser(HTMLParser):
@@ -876,6 +877,94 @@ def test_payment_terms_and_warranty_browser_flow():
         assert "SUCCESS" in (proc.stdout or ""), f"Headless browser test failed. Output:\n{proc.stdout}"
     finally:
         Path(temp_path).unlink(missing_ok=True)
+
+
+def test_hash_routing_navigation_and_persistence():
+    """Verify URL hash routing, route extraction, and navigation synchronization."""
+    app_js_path = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    assert app_js_path.exists(), "frontend/js/app.js must exist"
+    app_js_text = app_js_path.read_text(encoding="utf-8")
+
+    test_script = f"""
+    let hashValue = '';
+    const classListMock = () => ({{
+        add: () => {{}},
+        remove: () => {{}},
+        contains: () => false
+    }});
+
+    global.window = {{
+        location: {{
+            get hash() {{ return hashValue; }},
+            set hash(val) {{ hashValue = val; }}
+        }},
+        addEventListener: () => {{}},
+        removeEventListener: () => {{}},
+        lucide: {{ createIcons: () => {{}} }}
+    }};
+
+    global.document = {{
+        getElementById: (id) => ({{
+            value: '',
+            textContent: '',
+            classList: classListMock()
+        }}),
+        querySelectorAll: () => [],
+        querySelector: () => null,
+        addEventListener: () => {{}},
+        removeEventListener: () => {{}}
+    }};
+
+    global.refreshIcons = () => {{}};
+    global.loadDashboard = () => {{}};
+    global.renderProjectsTable = () => {{}};
+    global.renderPrintersGrid = () => {{}};
+    global.renderFilamentsGrid = () => {{}};
+    global.populateSettingsForm = () => {{}};
+
+    {app_js_text}
+
+    // 1. Test getRouteFromHash with various hash patterns
+    hashValue = '#/printers';
+    const r1 = getRouteFromHash();
+    if (r1.view !== 'printers') throw new Error('Expected printers, got ' + r1.view);
+
+    hashValue = '#filaments';
+    const r2 = getRouteFromHash();
+    if (r2.view !== 'filaments') throw new Error('Expected filaments, got ' + r2.view);
+
+    hashValue = '#/project-editor?id=42';
+    const r3 = getRouteFromHash();
+    if (r3.view !== 'project-editor' || r3.params.id !== '42') {{
+        throw new Error('Expected project-editor with id 42, got ' + JSON.stringify(r3));
+    }}
+
+    hashValue = '';
+    const r4 = getRouteFromHash();
+    if (r4.view !== 'dashboard') throw new Error('Expected default dashboard for empty hash, got ' + r4.view);
+
+    hashValue = '#unknown-route';
+    const r5 = getRouteFromHash();
+    if (r5.view !== 'dashboard') throw new Error('Expected fallback to dashboard for unknown route, got ' + r5.view);
+
+    // 2. Test navigateTo updates window.location.hash
+    navigateTo('settings');
+    if (hashValue !== '#/settings') throw new Error('navigateTo(settings) did not set hash, got: ' + hashValue);
+
+    state.currentProject = {{ id: 99 }};
+    navigateTo('project-editor');
+    if (hashValue !== '#/project-editor?id=99') throw new Error('navigateTo(project-editor) did not include project ID, got: ' + hashValue);
+
+    navigateTo('projects');
+    if (hashValue !== '#/projects') throw new Error('navigateTo(projects) did not set hash, got: ' + hashValue);
+
+    console.log(JSON.stringify({{ success: true }}));
+    """
+
+    res = subprocess.run(["node"], input=test_script, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
 
 
 

@@ -88,6 +88,8 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- JSZip for client-side 3MF extraction -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Chart.js for Dashboard Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
     
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
@@ -328,6 +330,77 @@
                         </div>
                     </div>
 
+                    <!-- Financial & Operational KPI Highlight Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        <!-- KPI 1: Faturamento Aprovado / Realizado -->
+                        <div class="card-dark p-5 flex items-center justify-between border-l-4 border-l-emerald-500">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Faturamento Aprovado</p>
+                                </div>
+                                <h3 class="text-2xl font-extrabold text-emerald-400 font-mono tracking-tight" id="stat-revenue-approved">R$ 0,00</h3>
+                                <p class="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5">
+                                    <i data-lucide="check-circle" class="w-3 h-3 text-emerald-400"></i> Pedidos fechados
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0">
+                                <i data-lucide="wallet" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+
+                        <!-- KPI 2: Pipeline em Aberto -->
+                        <div class="card-dark p-5 flex items-center justify-between border-l-4 border-l-blue-500">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Em Negociação</p>
+                                </div>
+                                <h3 class="text-2xl font-extrabold text-blue-400 font-mono tracking-tight" id="stat-revenue-pipeline">R$ 0,00</h3>
+                                <p class="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5">
+                                    <i data-lucide="hourglass" class="w-3 h-3 text-blue-400"></i> Propostas enviadas
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/25 flex items-center justify-center shrink-0">
+                                <i data-lucide="clock" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+
+                        <!-- KPI 3: Lucro Líquido Acumulado -->
+                        <div class="card-dark p-5 flex items-center justify-between border-l-4 border-l-teal-500">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-teal-400"></span>
+                                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Lucro Líquido Real</p>
+                                </div>
+                                <h3 class="text-2xl font-extrabold text-teal-300 font-mono tracking-tight" id="stat-net-profit">R$ 0,00</h3>
+                                <p class="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5" id="stat-profit-margin-label">
+                                    <i data-lucide="percent" class="w-3 h-3 text-teal-400"></i> Margem média: 0%
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/25 flex items-center justify-center shrink-0">
+                                <i data-lucide="trending-up" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+
+                        <!-- KPI 4: Horas Totais de Impressão -->
+                        <div class="card-dark p-5 flex items-center justify-between border-l-4 border-l-amber-500">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Horas de Máquina</p>
+                                </div>
+                                <h3 class="text-2xl font-extrabold text-amber-300 font-mono tracking-tight" id="stat-total-print-hours">0 h</h3>
+                                <p class="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5" id="stat-filament-kg-label">
+                                    <i data-lucide="cylinder" class="w-3 h-3 text-amber-400"></i> Filamento: 0 kg
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0">
+                                <i data-lucide="clock-3" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Clean Account Welcome Notice if 0 items -->
                     <div id="dashboard-empty-banner" class="hidden card-dark p-6 border-blue-500/30 bg-gradient-to-r from-blue-950/30 via-slate-900/60 to-slate-900/80 shadow-xl">
                         <div class="flex items-start gap-4">
@@ -351,6 +424,113 @@
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Visual Charts Grid (2x2) -->
+                    <div id="dashboard-charts-container" class="space-y-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            
+                            <!-- Chart 1: Funil & Status dos Orçamentos -->
+                            <div class="card-dark p-6 chart-card flex flex-col justify-between">
+                                <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center">
+                                            <i data-lucide="pie-chart" class="w-4 h-4"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-sm font-bold text-white tracking-tight">Pipeline de Orçamentos</h3>
+                                            <p class="text-[11px] text-slate-400">Distribuição comercial por status</p>
+                                        </div>
+                                    </div>
+                                    <span id="chart-status-total-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-slate-800 text-blue-400 border border-slate-700">
+                                        0 orçamentos
+                                    </span>
+                                </div>
+                                <div class="chart-canvas-wrapper relative flex items-center justify-center">
+                                    <canvas id="chart-status-funnel"></canvas>
+                                    <div id="chart-status-funnel-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-xs">
+                                        <i data-lucide="inbox" class="w-8 h-8 mb-1.5 opacity-40"></i>
+                                        <span>Nenhum orçamento cadastrado</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chart 2: Faturamento & Lucratividade Temporal -->
+                            <div class="card-dark p-6 chart-card flex flex-col justify-between">
+                                <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+                                            <i data-lucide="trending-up" class="w-4 h-4"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-sm font-bold text-white tracking-tight">Faturamento & Lucratividade</h3>
+                                            <p class="text-[11px] text-slate-400">Evolução de faturamento, custo base e margem</p>
+                                        </div>
+                                    </div>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        Visão Mensal
+                                    </span>
+                                </div>
+                                <div class="chart-canvas-wrapper relative">
+                                    <canvas id="chart-financial-timeline"></canvas>
+                                    <div id="chart-financial-timeline-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-xs">
+                                        <i data-lucide="bar-chart-3" class="w-8 h-8 mb-1.5 opacity-40"></i>
+                                        <span>Sem histórico financeiro recente</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chart 3: Estrutura de Custos da Oficina -->
+                            <div class="card-dark p-6 chart-card flex flex-col justify-between">
+                                <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center">
+                                            <i data-lucide="layers" class="w-4 h-4"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-sm font-bold text-white tracking-tight">Estrutura de Custos & Lucro</h3>
+                                            <p class="text-[11px] text-slate-400">Composição média: material, energia, mão de obra e lucro</p>
+                                        </div>
+                                    </div>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                        Oficina
+                                    </span>
+                                </div>
+                                <div class="chart-canvas-wrapper relative flex items-center justify-center">
+                                    <canvas id="chart-cost-breakdown"></canvas>
+                                    <div id="chart-cost-breakdown-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-xs">
+                                        <i data-lucide="pie-chart" class="w-8 h-8 mb-1.5 opacity-40"></i>
+                                        <span>Sem dados de custos acumulados</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chart 4: Top Projetos por Faturamento & Horas -->
+                            <div class="card-dark p-6 chart-card flex flex-col justify-between">
+                                <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+                                            <i data-lucide="award" class="w-4 h-4"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-sm font-bold text-white tracking-tight">Top Projetos & Ocupação</h3>
+                                            <p class="text-[11px] text-slate-400">Trabalhos mais valorizados e horas dedicadas</p>
+                                        </div>
+                                    </div>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                        Top 5
+                                    </span>
+                                </div>
+                                <div class="chart-canvas-wrapper relative">
+                                    <canvas id="chart-top-projects"></canvas>
+                                    <div id="chart-top-projects-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-xs">
+                                        <i data-lucide="award" class="w-8 h-8 mb-1.5 opacity-40"></i>
+                                        <span>Nenhum projeto registrado para ranking</span>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
@@ -385,9 +565,6 @@
                             <h2 class="text-xl font-bold text-white tracking-tight">Projetos & Orçamentos</h2>
                             <p class="text-xs text-slate-400 mt-0.5">Gerenciador de orçamentos, status comercial e fichas técnicas de produção</p>
                         </div>
-                        <button onclick="openNewProject()" class="btn-primary py-2.5 px-4 text-xs font-semibold rounded-lg shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all w-full sm:w-auto">
-                            <i data-lucide="plus" class="w-4 h-4"></i> Criar Orçamento
-                        </button>
                     </div>
 
                     <!-- Search & Filter Chips Toolbar -->
@@ -509,9 +686,6 @@
                                         </h3>
                                         <p class="text-xs text-slate-400 mt-0.5">Importação com detecção automática de múltiplas placas, tempo e consumo</p>
                                     </div>
-                                    <div class="hidden sm:flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 font-mono">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Bambu • Orca • Prusa • Cura • Creality
-                                    </div>
                                 </div>
 
                                 <div id="dropzone" class="dropzone p-8 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer group">
@@ -608,7 +782,7 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                         <!-- CAD Hours -->
                                         <div>
-                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Horas Modelagem CAD</label>
+                                            <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1">Horas Modelagem CAD <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors" data-tooltip="Tempo total dedicado à criação, adaptação ou modelagem CAD 3D do modelo antes de fatiar."><i data-lucide="help-circle" class="w-3.5 h-3.5"></i></span></label>
                                             <div class="relative flex items-center">
                                                 <input type="number" id="proj-cad-hours" step="any" min="0" oninput="recalcLiveSummary()" class="w-full pl-3 pr-8 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors" value="0">
                                                 <span class="absolute right-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">h</span>
@@ -618,7 +792,7 @@
 
                                         <!-- CAD Rate -->
                                         <div>
-                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Taxa CAD (R$/h)</label>
+                                            <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1">Taxa CAD (R$/h) <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors" data-tooltip="Valor cobrado por hora de trabalho técnico de modelagem 3D ou engenharia."><i data-lucide="help-circle" class="w-3.5 h-3.5"></i></span></label>
                                             <div class="relative flex items-center">
                                                 <span class="absolute left-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">R$</span>
                                                 <input type="number" id="proj-cad-rate" step="any" min="0" oninput="recalcLiveSummary()" class="w-full pl-9 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors" value="50">
@@ -629,7 +803,7 @@
 
                                         <!-- Post Hours -->
                                         <div>
-                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Horas Pós-Processo</label>
+                                            <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1">Horas Pós-Processo <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors" data-tooltip="Tempo gasto em atividades manuais como remoção de suportes, lixamento, pintura ou montagem."><i data-lucide="help-circle" class="w-3.5 h-3.5"></i></span></label>
                                             <div class="relative flex items-center">
                                                 <input type="number" id="proj-post-hours" step="any" min="0" oninput="recalcLiveSummary()" class="w-full pl-3 pr-8 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors" value="0">
                                                 <span class="absolute right-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">h</span>
@@ -639,7 +813,7 @@
 
                                         <!-- Post Rate -->
                                         <div>
-                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Taxa Pós (R$/h)</label>
+                                            <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1">Taxa Pós (R$/h) <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors" data-tooltip="Valor cobrado por hora de mão de obra para acabamento e pós-processamento das peças."><i data-lucide="help-circle" class="w-3.5 h-3.5"></i></span></label>
                                             <div class="relative flex items-center">
                                                 <span class="absolute left-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">R$</span>
                                                 <input type="number" id="proj-post-rate" step="any" min="0" oninput="recalcLiveSummary()" class="w-full pl-9 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors" value="30">
@@ -658,7 +832,7 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                         <!-- Overhead -->
                                         <div>
-                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Overhead / Indiretos (R$)</label>
+                                            <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1">Overhead / Indiretos (R$) <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors" data-tooltip="Custos fixos de operação (aluguel, internet, software, embalagens gerais) atribuídos a este lote."><i data-lucide="help-circle" class="w-3.5 h-3.5"></i></span></label>
                                             <div class="relative flex items-center">
                                                 <span class="absolute left-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">R$</span>
                                                 <input type="number" id="proj-overhead" step="any" min="0" oninput="recalcLiveSummary()" class="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors" value="0">
@@ -668,7 +842,7 @@
 
                                         <!-- Target Margin -->
                                         <div>
-                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Margem Lucro Alvo (%)</label>
+                                            <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1">Margem Lucro Alvo (%) <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors" data-tooltip="Percentual de margem de lucro desejado sobre o custo total de produção do projeto."><i data-lucide="help-circle" class="w-3.5 h-3.5"></i></span></label>
                                             <div class="relative flex items-center">
                                                 <input type="number" id="proj-margin" step="any" min="0" oninput="recalcLiveSummary()" class="w-full pl-3 pr-8 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors" value="30">
                                                 <span class="absolute right-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">%</span>
@@ -678,7 +852,7 @@
 
                                         <!-- Taxes -->
                                         <div>
-                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Impostos / Taxas (%)</label>
+                                            <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1">Impostos / Taxas (%) <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors" data-tooltip="Alíquota de impostos (ex: Simples Nacional/MEI) e taxas de cartão ou emissão de nota fiscal."><i data-lucide="help-circle" class="w-3.5 h-3.5"></i></span></label>
                                             <div class="relative flex items-center">
                                                 <input type="number" id="proj-tax" step="any" min="0" max="99" oninput="recalcLiveSummary()" class="w-full pl-3 pr-8 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors" value="6">
                                                 <span class="absolute right-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">%</span>
@@ -688,7 +862,7 @@
 
                                         <!-- Commercial Discount -->
                                         <div>
-                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Desconto Comercial (%)</label>
+                                            <label class="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1">Desconto Comercial (%) <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors" data-tooltip="Percentual de desconto comercial a ser concedido sobre o valor final de venda do projeto."><i data-lucide="help-circle" class="w-3.5 h-3.5"></i></span></label>
                                             <div class="relative flex items-center">
                                                 <input type="number" id="proj-discount" step="any" min="0" max="100" oninput="recalcLiveSummary()" class="w-full pl-3 pr-8 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors" value="0">
                                                 <span class="absolute right-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">%</span>
@@ -717,7 +891,7 @@
 
                                         <!-- Delivery Days (min="0" step="1", 0 = pronta entrega) -->
                                         <div>
-                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Prazo de Entrega (Dias úteis após aprovação; 0 = pronta entrega)</label>
+                                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Prazo de Entrega (Dias úteis)</label>
                                             <div class="relative flex items-center">
                                                 <input type="number" id="proj-delivery-days" min="0" step="1" class="w-full pl-3 pr-14 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors" placeholder="Ex: 0 ou 3" value="3">
                                                 <span class="absolute right-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">dias</span>
@@ -788,19 +962,19 @@
                                 </div>
 
                                 <!-- 2. Net Profit & Margin Pod -->
-                                <div class="net-profit-box p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-800/30 flex items-center justify-between shadow-inner transition-colors">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0">
-                                            <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+                                <div class="net-profit-box p-3 rounded-xl bg-slate-900/90 border border-emerald-500/30 flex items-center justify-between shadow-md transition-all">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-400">
+                                            <i data-lucide="trending-up" class="w-4 h-4"></i>
                                         </div>
                                         <div class="flex flex-col">
-                                            <span class="text-[11px] font-semibold text-slate-200">Lucro Líquido Real</span>
+                                            <span class="text-[11px] font-semibold text-slate-300 leading-tight">Lucro Líquido Real</span>
                                             <span class="text-[10px] text-slate-400">Margem pós-custos e taxas</span>
                                         </div>
                                     </div>
-                                    <div class="flex items-center gap-2 text-right">
-                                        <span class="font-mono font-bold text-sm text-emerald-400" id="live-net-profit">R$ 0,00 (0.0%)</span>
-                                        <span class="profit-margin-pill px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">+0.0%</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono font-bold text-base text-emerald-400" id="live-net-profit">R$ 0,00</span>
+                                        <span class="profit-margin-pill px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">+0.0%</span>
                                     </div>
                                 </div>
 

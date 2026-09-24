@@ -131,6 +131,7 @@ const API = {
     // Projects endpoints
     projects: {
         list: () => API.request("/api/projects"),
+        getDashboardStats: () => API.request("/api/projects/dashboard-stats"),
         get: (id) => API.request(`/api/projects/${id}`),
         create: (data) => API.request("/api/projects", { method: "POST", body: JSON.stringify(data) }),
         update: (id, data) => API.request(`/api/projects/${id}`, { method: "PUT", body: JSON.stringify(data) }),

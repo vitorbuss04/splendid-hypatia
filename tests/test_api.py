@@ -886,6 +886,62 @@ def test_project_pdf_terms_with_xml_special_characters(client, make_user):
     assert "Sinal 50%" in pdf_text
     assert "30 dias" in pdf_text
 
+def test_dashboard_stats_endpoint(client, make_user):
+    user = make_user(email="dashboard_tester@example.com")
+    headers = user["headers"]
+
+    # 1. New user with 0 projects -> returns zeros gracefully
+    empty_stats = client.get("/api/projects/dashboard-stats", headers=headers)
+    assert empty_stats.status_code == 200
+    data = empty_stats.json()
+    assert data["total_projects"] == 0
+    assert data["total_revenue_approved"] == 0.0
+    assert data["pipeline_revenue"] == 0.0
+    assert len(data["monthly_timeline"]) >= 6
+    assert data["status_counts"]["draft"] == 0
+    assert len(data["top_projects"]) == 0
+
+    # 2. Create printer & filament
+    p_resp = client.post("/api/printers", json={"name": "Ender 3", "acquisition_cost": 1500, "lifespan_hours": 3000}, headers=headers)
+    assert p_resp.status_code == 201
+    printer_id = p_resp.json()["id"]
+
+    f_resp = client.post("/api/filaments", json={"name": "PLA Preto", "spool_price": 100, "spool_weight_g": 1000}, headers=headers)
+    assert f_resp.status_code == 201
+    filament_id = f_resp.json()["id"]
+
+    # 3. Create approved project
+    proj_resp = client.post("/api/projects", json={
+        "name": "Suporte Drone",
+        "client_name": "Tech Corp",
+        "status": "approved",
+        "plates": [
+            {
+                "name": "Placa 1",
+                "printer_id": printer_id,
+                "filament_id": filament_id,
+                "print_time_hours": 10.0,
+                "part_weight_g": 200.0,
+                "quantity": 1,
+            }
+        ]
+    }, headers=headers)
+    assert proj_resp.status_code == 201
+
+    # 4. Check dashboard stats now
+    stats_resp = client.get("/api/projects/dashboard-stats", headers=headers)
+    assert stats_resp.status_code == 200
+    stats = stats_resp.json()
+    assert stats["total_projects"] == 1
+    assert stats["total_printers"] == 1
+    assert stats["total_filaments"] == 1
+    assert stats["status_counts"]["approved"] == 1
+    assert stats["total_revenue_approved"] > 0
+    assert stats["total_print_hours"] == 10.0
+    assert stats["cost_breakdown"]["material_cost"] > 0
+    assert len(stats["top_projects"]) == 1
+    assert stats["top_projects"][0]["name"] == "Suporte Drone"
+
 
 
 

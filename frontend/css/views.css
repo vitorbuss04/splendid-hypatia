@@ -22,7 +22,8 @@
 
 /* Sidebar Shell */
 aside {
-    width: 16rem; /* 256px */
+    width: 16rem;
+    /* 256px */
     background-color: var(--bg-surface, #111827) !important;
     border-right: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06)) !important;
     box-shadow: var(--shadow-lg, 0 12px 24px -4px rgba(0, 0, 0, 0.55));
@@ -94,7 +95,7 @@ aside nav button.nav-active {
     color: #ffffff !important;
     font-weight: 600 !important;
     box-shadow: 0 2px 10px rgba(37, 99, 235, 0.20),
-                inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
 }
 
 /* Micro-Active Indicator (Glow Bar on Left Edge) */
@@ -115,7 +116,7 @@ aside nav button.nav-active::before {
 aside nav button i {
     flex-shrink: 0;
     transition: transform var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)),
-                color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+        color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 aside nav button.bg-blue-600 i,
@@ -166,6 +167,7 @@ main header.sticky {
     border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06)) !important;
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
     z-index: 20;
+    padding: 32px;
 }
 
 #view-title {
@@ -191,7 +193,7 @@ main header.sticky {
 }
 
 /* Dashboard Metric Cards Grid */
-#view-dashboard .grid > .card-dark {
+#view-dashboard .grid>.card-dark {
     position: relative;
     padding: 1.25rem;
     overflow: hidden;
@@ -348,15 +350,15 @@ div[class*="col-span-4"].sticky {
 
 /* Financial Terminal Card Container */
 .summary-panel-card,
-.sticky > .card-dark,
+.sticky>.card-dark,
 .card-dark:has(#live-final-price) {
     background: var(--bg-glass-card, rgba(21, 29, 46, 0.88)) !important;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(59, 130, 246, 0.35) !important;
     box-shadow: var(--shadow-xl, 0 24px 48px -12px rgba(0, 0, 0, 0.70)),
-                0 0 35px rgba(37, 99, 235, 0.16),
-                inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+        0 0 35px rgba(37, 99, 235, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
     border-radius: var(--radius-xl, 1rem);
     position: relative;
 }
@@ -432,7 +434,7 @@ div:has(> #live-final-price) {
     background: radial-gradient(circle at center, rgba(37, 99, 235, 0.22) 0%, rgba(15, 23, 42, 0.75) 100%) !important;
     border: 1px solid rgba(59, 130, 246, 0.45) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15),
-                0 4px 20px rgba(37, 99, 235, 0.25) !important;
+        0 4px 20px rgba(37, 99, 235, 0.25) !important;
     border-radius: var(--radius-lg, 0.75rem);
     position: relative;
     overflow: hidden;
@@ -453,7 +455,8 @@ div:has(> #live-final-price)::before {
 /* Vibrant Emerald/Royal-Blue Gradient Typography */
 #live-final-price {
     font-family: var(--font-mono, 'JetBrains Mono', monospace) !important;
-    font-size: 1.875rem !important; /* text-3xl / 30px */
+    font-size: 1.875rem !important;
+    /* text-3xl / 30px */
     font-weight: 800 !important;
     letter-spacing: -0.025em;
     background: linear-gradient(135deg, #60a5fa 0%, #38bdf8 45%, #34d399 100%);
@@ -463,12 +466,11 @@ div:has(> #live-final-price)::before {
 }
 
 /* Net Profit & Margin Indicator Pod */
-.net-profit-box,
-div:has(> #live-net-profit) {
+.net-profit-box {
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 78, 59, 0.20) 100%) !important;
     border: 1px solid rgba(16, 185, 129, 0.35) !important;
     box-shadow: 0 0 16px rgba(16, 185, 129, 0.12),
-                inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
     border-radius: var(--radius-lg, 0.75rem);
 }
 
@@ -489,7 +491,7 @@ div:has(> #live-net-profit) {
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
-.cost-distribution-bar > div {
+.cost-distribution-bar>div {
     height: 100%;
     min-width: 2px;
 }
@@ -526,8 +528,8 @@ div:has(> #live-net-profit) {
     flex-direction: column;
     justify-content: space-between;
     transition: transform var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
-                border-color var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
-                box-shadow var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
+        border-color var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
+        box-shadow var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 #printers-grid .card-dark:hover,
@@ -535,7 +537,7 @@ div:has(> #live-net-profit) {
     transform: translateY(-2px);
     border-color: rgba(59, 130, 246, 0.40) !important;
     box-shadow: var(--shadow-lg, 0 12px 24px -4px rgba(0, 0, 0, 0.55)),
-                0 0 20px rgba(37, 99, 235, 0.15) !important;
+        0 0 20px rgba(37, 99, 235, 0.15) !important;
 }
 
 /* Machine Rate Total Box */
@@ -544,7 +546,7 @@ div:has(> #live-net-profit) {
     background: radial-gradient(circle at center, rgba(37, 99, 235, 0.18) 0%, rgba(15, 23, 42, 0.80) 100%) !important;
     border: 1px solid rgba(59, 130, 246, 0.40) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
-                0 2px 10px rgba(37, 99, 235, 0.15) !important;
+        0 2px 10px rgba(37, 99, 235, 0.15) !important;
     border-radius: var(--radius-lg, 0.75rem);
     padding: 0.75rem;
     text-align: center;
@@ -558,7 +560,7 @@ div:has(> #live-net-profit) {
 }
 
 /* Breakdown rows inside printer cards */
-#printers-grid .card-dark .space-y-2 > div span:last-child {
+#printers-grid .card-dark .space-y-2>div span:last-child {
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
     font-variant-numeric: tabular-nums;
     color: var(--text-primary, #f8fafc);
@@ -581,8 +583,8 @@ div:has(> #live-net-profit) {
     flex-direction: column;
     justify-content: space-between;
     transition: transform var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
-                border-color var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
-                box-shadow var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
+        border-color var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
+        box-shadow var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 #filaments-grid .card-dark:hover,
@@ -590,29 +592,29 @@ div:has(> #live-net-profit) {
     transform: translateY(-2px);
     border-color: rgba(16, 185, 129, 0.40) !important;
     box-shadow: var(--shadow-lg, 0 12px 24px -4px rgba(0, 0, 0, 0.55)),
-                0 0 20px rgba(16, 185, 129, 0.15) !important;
+        0 0 20px rgba(16, 185, 129, 0.15) !important;
 }
 
 /* Filament Swatch Outer Box */
 .filament-swatch,
 #filaments-grid .card-dark .w-10.h-10.rounded-xl {
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15),
-                0 2px 8px rgba(0, 0, 0, 0.40);
+        0 2px 8px rgba(0, 0, 0, 0.40);
     transition: transform var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)),
-                box-shadow var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+        box-shadow var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 #filaments-grid .card-dark:hover .w-10.h-10.rounded-xl {
     transform: scale(1.10);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.30),
-                0 4px 12px rgba(0, 0, 0, 0.50);
+        0 4px 12px rgba(0, 0, 0, 0.50);
 }
 
 /* Filament Inner Color Dot */
 .filament-swatch-dot,
 #filaments-grid .card-dark .w-4.h-4.rounded-full {
     box-shadow: 0 0 8px rgba(0, 0, 0, 0.60),
-                inset 0 1px 1px rgba(255, 255, 255, 0.45);
+        inset 0 1px 1px rgba(255, 255, 255, 0.45);
 }
 
 /* Cost per Gram Box */
@@ -621,7 +623,7 @@ div:has(> #live-net-profit) {
     background: radial-gradient(circle at center, rgba(16, 185, 129, 0.18) 0%, rgba(15, 23, 42, 0.80) 100%) !important;
     border: 1px solid rgba(16, 185, 129, 0.40) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
-                0 2px 10px rgba(16, 185, 129, 0.15) !important;
+        0 2px 10px rgba(16, 185, 129, 0.15) !important;
     border-radius: var(--radius-lg, 0.75rem);
     padding: 0.75rem;
     text-align: center;
@@ -706,11 +708,11 @@ div:has(> #live-net-profit) {
 }
 
 /* BOM Container Item Rows */
-#bom-container > div {
+#bom-container>div {
     transition: background-color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
 }
 
-#bom-container > div:hover {
+#bom-container>div:hover {
     background-color: rgba(37, 99, 235, 0.04);
 }
 
@@ -732,15 +734,46 @@ div:has(> #live-net-profit) {
 /* Responsive Sidebar Collapse on Narrow Displays */
 @media (max-width: 1024px) {
     aside {
-        width: 4.5rem; /* 72px collapsed icon-only sidebar */
+        width: 4.5rem;
+        /* 72px collapsed icon-only sidebar */
     }
+
     aside .h-16 div:last-child,
     aside nav button span,
     aside .border-t .min-w-0 {
         display: none;
     }
+
     aside nav button {
         justify-content: center;
         padding: 0.75rem;
     }
 }
+
+/* ==========================================================================
+   11. DASHBOARD ANALYTICS & CHARTS
+   ========================================================================== */
+
+.chart-card {
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    min-height: 360px;
+}
+
+.chart-card:hover {
+    border-color: rgba(59, 130, 246, 0.35) !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px -3px rgba(59, 130, 246, 0.12);
+}
+
+.chart-canvas-wrapper {
+    position: relative;
+    width: 100%;
+    height: 260px;
+    max-height: 280px;
+}
+
+@media (max-width: 640px) {
+    .chart-canvas-wrapper {
+        height: 230px;
+        max-height: 240px;
+    }
+}

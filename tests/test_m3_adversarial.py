@@ -223,7 +223,7 @@ def _run_node_m3_harness(script_body: str) -> dict:
     {script_body}
     """
 
-    res = subprocess.run(["node"], input=full_script, capture_output=True, text=True)
+    res = subprocess.run(["node"], input=full_script, capture_output=True, text=True, encoding="utf-8")
     if res.returncode != 0:
         raise RuntimeError(f"Node harness failed with code {res.returncode}:\n{res.stderr}\nStdout:\n{res.stdout}")
     return json.loads(res.stdout)

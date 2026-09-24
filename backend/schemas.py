@@ -269,3 +269,49 @@ class ProjectResponse(ProjectBase):
     summary: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ----------------- Dashboard Analytics Schemas -----------------
+
+class MonthlyTimelineItem(BaseModel):
+    month_key: str
+    month_label: str
+    revenue: float = 0.0
+    base_cost: float = 0.0
+    net_profit: float = 0.0
+    print_hours: float = 0.0
+    projects_count: int = 0
+
+class TopProjectItem(BaseModel):
+    id: int
+    name: str
+    client_name: Optional[str] = None
+    status: str
+    final_price: float = 0.0
+    net_profit: float = 0.0
+    print_hours: float = 0.0
+
+class CostBreakdownTotals(BaseModel):
+    material_cost: float = 0.0
+    machine_energy_cost: float = 0.0
+    labor_cost: float = 0.0
+    bom_cost: float = 0.0
+    overhead_cost: float = 0.0
+    net_profit: float = 0.0
+
+class DashboardStatsResponse(BaseModel):
+    total_projects: int = 0
+    active_quotes: int = 0
+    total_printers: int = 0
+    total_filaments: int = 0
+    total_revenue_approved: float = 0.0
+    pipeline_revenue: float = 0.0
+    total_net_profit: float = 0.0
+    total_print_hours: float = 0.0
+    total_filament_kg: float = 0.0
+    avg_profit_margin_percent: float = 0.0
+    status_counts: Dict[str, int] = {}
+    status_values: Dict[str, float] = {}
+    monthly_timeline: List[MonthlyTimelineItem] = []
+    cost_breakdown: CostBreakdownTotals = CostBreakdownTotals()
+    top_projects: List[TopProjectItem] = []

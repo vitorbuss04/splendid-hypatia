@@ -1,4 +1,5 @@
 from typing import List, Optional
+import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.orm import Session
 
@@ -95,6 +96,195 @@ def list_projects(
             final_price_to_client=summary["final_price_to_client"],
         ))
     return results
+
+MONTH_NAMES_PT = {
+    1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
+    7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"
+}
+
+@router.get("/dashboard-stats", response_model=schemas.DashboardStatsResponse)
+def get_dashboard_stats(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    projects = db.query(models.Project).filter(
+        models.Project.user_id == current_user.id
+    ).order_by(models.Project.id.desc()).all()
+
+    printers = db.query(models.Printer).filter(models.Printer.user_id == current_user.id).all()
+    filaments = db.query(models.Filament).filter(models.Filament.user_id == current_user.id).all()
+    printers_map = {p.id: p for p in printers}
+    filaments_map = {f.id: f for f in filaments}
+
+    total_projects = len(projects)
+    total_printers = len(printers)
+    total_filaments = len(filaments)
+
+    active_quotes = 0
+    total_revenue_approved = 0.0
+    pipeline_revenue = 0.0
+    total_net_profit = 0.0
+    total_print_hours = 0.0
+    total_filament_g = 0.0
+    margins_sum = 0.0
+    margins_count = 0
+
+    status_counts = {
+        "draft": 0,
+        "quoted": 0,
+        "approved": 0,
+        "in_production": 0,
+        "completed": 0,
+        "cancelled": 0,
+    }
+    status_values = {
+        "draft": 0.0,
+        "quoted": 0.0,
+        "approved": 0.0,
+        "in_production": 0.0,
+        "completed": 0.0,
+        "cancelled": 0.0,
+    }
+
+    material_cost = 0.0
+    machine_energy_cost = 0.0
+    labor_cost = 0.0
+    bom_cost = 0.0
+    overhead_cost = 0.0
+    profit_acc = 0.0
+
+    monthly_data = {}
+    project_items = []
+
+    for proj in projects:
+        summary = calculate_project_summary(
+            project=proj,
+            plates=proj.plates,
+            bom_items=proj.bom_items,
+            printers_by_id=printers_map,
+            filaments_by_id=filaments_map
+        )
+
+        st = proj.status or "draft"
+        if st not in status_counts:
+            status_counts[st] = 0
+            status_values[st] = 0.0
+        status_counts[st] += 1
+
+        final_price = float(summary.get("final_price_to_client", 0.0) or 0.0)
+        base_cost = float(summary.get("base_cost", 0.0) or 0.0)
+        net_profit = float(summary.get("net_profit", 0.0) or 0.0)
+        hours = float(summary.get("total_print_time_hours", 0.0) or 0.0)
+        weight = float(summary.get("total_filament_weight_g", 0.0) or 0.0)
+
+        status_values[st] = round(status_values[st] + final_price, 2)
+
+        if st in ["draft", "quoted", "in_production"]:
+            active_quotes += 1
+
+        if st in ["approved", "in_production", "completed"]:
+            total_revenue_approved += final_price
+            total_net_profit += net_profit
+            total_print_hours += hours
+            total_filament_g += weight
+        elif st in ["draft", "quoted"]:
+            pipeline_revenue += final_price
+
+        if base_cost > 0:
+            eff_margin = float(summary.get("effective_profit_margin_percent", 0.0) or 0.0)
+            margins_sum += eff_margin
+            margins_count += 1
+
+        material_cost += float(summary.get("total_material_cost", 0.0) or 0.0)
+        machine_energy_cost += float(summary.get("total_machine_cost", 0.0) or 0.0) + float(summary.get("total_energy_cost", 0.0) or 0.0)
+        labor_cost += float(summary.get("total_labor_cost", 0.0) or 0.0)
+        bom_cost += float(summary.get("total_bom_cost", 0.0) or 0.0)
+        overhead_cost += float(summary.get("overhead_cost", 0.0) or 0.0)
+        profit_acc += max(0.0, net_profit)
+
+        created_dt = proj.created_at or datetime.datetime.now()
+        month_key = created_dt.strftime("%Y-%m")
+        pt_m = MONTH_NAMES_PT.get(created_dt.month, str(created_dt.month))
+        year_short = created_dt.strftime("%y")
+        month_label = f"{pt_m}/{year_short}"
+
+        if month_key not in monthly_data:
+            monthly_data[month_key] = {
+                "month_key": month_key,
+                "month_label": month_label,
+                "revenue": 0.0,
+                "base_cost": 0.0,
+                "net_profit": 0.0,
+                "print_hours": 0.0,
+                "projects_count": 0,
+            }
+        monthly_data[month_key]["revenue"] = round(monthly_data[month_key]["revenue"] + final_price, 2)
+        monthly_data[month_key]["base_cost"] = round(monthly_data[month_key]["base_cost"] + base_cost, 2)
+        monthly_data[month_key]["net_profit"] = round(monthly_data[month_key]["net_profit"] + net_profit, 2)
+        monthly_data[month_key]["print_hours"] = round(monthly_data[month_key]["print_hours"] + hours, 2)
+        monthly_data[month_key]["projects_count"] += 1
+
+        project_items.append(schemas.TopProjectItem(
+            id=proj.id,
+            name=proj.name,
+            client_name=proj.client_name,
+            status=proj.status,
+            final_price=round(final_price, 2),
+            net_profit=round(net_profit, 2),
+            print_hours=round(hours, 2),
+        ))
+
+    # Pad with recent months up to 6 months
+    now = datetime.datetime.now()
+    for i in range(5, -1, -1):
+        y = now.year
+        m = now.month - i
+        while m <= 0:
+            m += 12
+            y -= 1
+        pad_key = f"{y:04d}-{m:02d}"
+        if pad_key not in monthly_data:
+            pt_m = MONTH_NAMES_PT.get(m, str(m))
+            year_short = str(y)[-2:]
+            monthly_data[pad_key] = {
+                "month_key": pad_key,
+                "month_label": f"{pt_m}/{year_short}",
+                "revenue": 0.0,
+                "base_cost": 0.0,
+                "net_profit": 0.0,
+                "print_hours": 0.0,
+                "projects_count": 0,
+            }
+
+    sorted_months = [monthly_data[k] for k in sorted(monthly_data.keys())]
+
+    top_projects = sorted(project_items, key=lambda x: x.final_price, reverse=True)[:5]
+    avg_margin = round(margins_sum / margins_count, 1) if margins_count > 0 else 0.0
+
+    return schemas.DashboardStatsResponse(
+        total_projects=total_projects,
+        active_quotes=active_quotes,
+        total_printers=total_printers,
+        total_filaments=total_filaments,
+        total_revenue_approved=round(total_revenue_approved, 2),
+        pipeline_revenue=round(pipeline_revenue, 2),
+        total_net_profit=round(total_net_profit, 2),
+        total_print_hours=round(total_print_hours, 2),
+        total_filament_kg=round(total_filament_g / 1000.0, 2),
+        avg_profit_margin_percent=avg_margin,
+        status_counts=status_counts,
+        status_values=status_values,
+        monthly_timeline=[schemas.MonthlyTimelineItem(**item) for item in sorted_months],
+        cost_breakdown=schemas.CostBreakdownTotals(
+            material_cost=round(material_cost, 2),
+            machine_energy_cost=round(machine_energy_cost, 2),
+            labor_cost=round(labor_cost, 2),
+            bom_cost=round(bom_cost, 2),
+            overhead_cost=round(overhead_cost, 2),
+            net_profit=round(profit_acc, 2),
+        ),
+        top_projects=top_projects,
+    )
 
 @router.post("", response_model=schemas.ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(

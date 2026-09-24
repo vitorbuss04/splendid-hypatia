@@ -11,9 +11,90 @@ const state = {
     currentPlates: [],
     currentBOM: [],
     activeView: 'dashboard',
+    dashboardStats: null,
+    charts: {
+        statusFunnel: null,
+        financialTimeline: null,
+        costBreakdown: null,
+        topProjects: null,
+    },
 };
 
 // ================= UTILITIES & HELPERS =================
+
+// Auto-select text on focus (Tab navigation or click) for all inputs and textareas
+document.addEventListener('focus', (e) => {
+    const el = e.target;
+    if (el.tagName === 'INPUT' && el.type !== 'checkbox' && el.type !== 'radio' && el.type !== 'color') {
+        requestAnimationFrame(() => el.select());
+    } else if (el.tagName === 'TEXTAREA') {
+        requestAnimationFrame(() => el.select());
+    }
+}, true);
+
+// Syncs the native `title` tooltip of a <select> with its currently selected option text.
+function syncSelectTitle(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    sel.title = opt ? opt.text.trim() : '';
+}
+
+// Map filament color name or hex code to a native colored circle emoji
+function getFilamentColorDot(colorHex, colorName = '') {
+    const hex = (colorHex || '').toLowerCase();
+    const name = (colorName || '').toLowerCase();
+
+    if (name.includes('preto') || name.includes('black') || hex === '#000000' || hex === '#0f172a' || hex === '#1e293b') return '⬛';
+    if (name.includes('branco') || name.includes('white') || hex === '#ffffff' || hex === '#f8fafc') return '⚪';
+    if (name.includes('vermelho') || name.includes('red') || hex.startsWith('#ef') || hex.startsWith('#f871') || hex.startsWith('#dc')) return '🔴';
+    if (name.includes('verde') || name.includes('green') || hex.startsWith('#10') || hex.startsWith('#22') || hex.startsWith('#05')) return '🟢';
+    if (name.includes('azul') || name.includes('blue') || hex.startsWith('#3b') || hex.startsWith('#25') || hex.startsWith('#02') || hex.startsWith('#028')) return '🔵';
+    if (name.includes('amarelo') || name.includes('dourado') || name.includes('yellow') || name.includes('gold') || hex.startsWith('#ea') || hex.startsWith('#f5') || hex.startsWith('#eab')) return '🟡';
+    if (name.includes('roxo') || name.includes('purple') || name.includes('violet') || hex.startsWith('#a8') || hex.startsWith('#8b') || hex.startsWith('#7c')) return '🟣';
+    if (name.includes('rosa') || name.includes('pink') || hex.startsWith('#ec') || hex.startsWith('#f4') || hex.startsWith('#db')) return '🩷';
+    if (name.includes('laranja') || name.includes('orange') || hex.startsWith('#f9') || hex.startsWith('#ea5')) return '🟧';
+    if (name.includes('marrom') || name.includes('brown') || name.includes('bege') || hex.startsWith('#78') || hex.startsWith('#92')) return '🟤';
+
+    return '🟢'; // default fallback
+}
+
+// Wrap all <select> elements with .select-wrap so the CSS fade gradient works.
+// Skips selects already inside .select-wrap or .relative (filament dot wrapper).
+function wrapSelectsWithFade(root = document) {
+    root.querySelectorAll('select').forEach(sel => {
+        const parent = sel.parentElement;
+        // Always keep the title in sync (covers re-runs after dynamic renders)
+        syncSelectTitle(sel);
+        if (!parent || parent.classList.contains('select-wrap')) return;
+        // The filament selector already sits inside a `relative` div — add the class there
+        if (parent.classList.contains('relative')) {
+            parent.classList.add('select-wrap');
+            return;
+        }
+        // Wrap bare selects
+        const wrapper = document.createElement('div');
+        wrapper.className = 'select-wrap';
+        parent.insertBefore(wrapper, sel);
+        wrapper.appendChild(sel);
+    });
+}
+
+// Run once on DOM ready, then watch for dynamically added selects
+document.addEventListener('DOMContentLoaded', () => wrapSelectsWithFade());
+
+// Keep title in sync whenever the user picks a new option
+document.addEventListener('change', (e) => {
+    if (e.target.tagName === 'SELECT') syncSelectTitle(e.target);
+}, true);
+
+// MutationObserver: re-wrap whenever new nodes are injected (e.g. plate cards)
+if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' && document.body) {
+    new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            if (m.addedNodes.length) wrapSelectsWithFade(document);
+        }
+    }).observe(document.body, { childList: true, subtree: true });
+}
+
 
 function formatCurrency(val) {
     const num = Number(val) || 0;
@@ -182,7 +263,49 @@ function refreshIcons() {
     }
 }
 
-// ================= NAVIGATION =================
+// ================= ROUTING & NAVIGATION =================
+
+function getRouteFromHash() {
+    if (typeof window === 'undefined' || !window.location || typeof window.location.hash !== 'string') {
+        return { view: 'dashboard', params: {} };
+    }
+    const hashStr = window.location.hash.replace(/^#\/?/, '').trim();
+    if (!hashStr) {
+        return { view: 'dashboard', params: {} };
+    }
+    const [viewPart, queryPart] = hashStr.split('?');
+    const view = viewPart.toLowerCase();
+    const validViews = ['dashboard', 'projects', 'project-editor', 'printers', 'filaments', 'settings'];
+    const params = {};
+    if (queryPart) {
+        const searchParams = new URLSearchParams(queryPart);
+        for (const [k, v] of searchParams.entries()) {
+            params[k] = v;
+        }
+    }
+    return {
+        view: validViews.includes(view) ? view : 'dashboard',
+        params
+    };
+}
+
+async function applyRoute(route) {
+    if (route.view === 'project-editor') {
+        if (route.params.id) {
+            const projId = parseInt(route.params.id, 10);
+            if (!isNaN(projId)) {
+                if (!state.currentProject || state.currentProject.id !== projId) {
+                    await editProject(projId);
+                    return;
+                }
+            }
+        } else if (!state.currentProject && (!state.currentPlates || state.currentPlates.length === 0)) {
+            openNewProject();
+            return;
+        }
+    }
+    navigateTo(route.view);
+}
 
 function navigateTo(viewName) {
     state.activeView = viewName;
@@ -220,7 +343,11 @@ function navigateTo(viewName) {
     if (titleEl) titleEl.textContent = titles[viewName] || 'Painel';
 
     // Reload views if needed
-    if (viewName === 'dashboard') loadDashboard();
+    if (viewName === 'dashboard') {
+        loadDashboard();
+    } else {
+        destroyDashboardCharts();
+    }
     if (viewName === 'projects') renderProjectsTable();
     if (viewName === 'printers') {
         const inp = document.getElementById('printer-search-input');
@@ -234,7 +361,34 @@ function navigateTo(viewName) {
     }
     if (viewName === 'settings') populateSettingsForm();
 
+    // Sync URL hash
+    if (typeof window !== 'undefined' && window.location && typeof window.location.hash === 'string') {
+        let targetHash = `#/${viewName}`;
+        if (viewName === 'project-editor' && state.currentProject && state.currentProject.id) {
+            targetHash = `#/${viewName}?id=${state.currentProject.id}`;
+        }
+        const currentRoute = getRouteFromHash();
+        const currentId = currentRoute.params.id ? parseInt(currentRoute.params.id, 10) : null;
+        const targetId = (viewName === 'project-editor' && state.currentProject?.id) ? state.currentProject.id : null;
+        if (currentRoute.view !== viewName || currentId !== targetId) {
+            window.location.hash = targetHash;
+        }
+    }
+
     refreshIcons();
+}
+
+if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('hashchange', async () => {
+        if (!state.user) return;
+        const route = getRouteFromHash();
+        const curId = route.params.id ? parseInt(route.params.id, 10) : null;
+        const activeId = (state.activeView === 'project-editor' && state.currentProject?.id) ? state.currentProject.id : null;
+
+        if (route.view !== state.activeView || (route.view === 'project-editor' && curId !== activeId)) {
+            await applyRoute(route);
+        }
+    });
 }
 
 // ================= AUTH FLOWS =================
@@ -274,7 +428,8 @@ async function handleLogin(e) {
         showToast('Login realizado com sucesso!', 'success');
         updateUserUI();
         await loadAllData();
-        navigateTo('dashboard');
+        const route = getRouteFromHash();
+        await applyRoute(route);
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -333,29 +488,76 @@ async function loadAllData() {
 
 async function loadDashboard() {
     await loadAllData();
+    try {
+        state.dashboardStats = await API.projects.getDashboardStats();
+    } catch (e) {
+        console.warn("Erro ao buscar dashboard stats:", e);
+        state.dashboardStats = null;
+    }
     renderDashboard();
 }
 
+function destroyDashboardCharts() {
+    if (state.charts) {
+        for (const key of Object.keys(state.charts)) {
+            if (state.charts[key]) {
+                try {
+                    state.charts[key].destroy();
+                } catch (e) {
+                    console.warn("Erro destruindo gráfico:", e);
+                }
+                state.charts[key] = null;
+            }
+        }
+    }
+}
+
 function renderDashboard() {
+    const stats = state.dashboardStats;
+
     // 1. Update Operational Stat Counters
     const statProjects = document.getElementById('stat-projects-count');
     const statPrinters = document.getElementById('stat-printers-count');
     const statFilaments = document.getElementById('stat-filaments-count');
     const statActive = document.getElementById('stat-active-quotes');
 
-    const totalProjects = state.projects ? state.projects.length : 0;
-    const totalPrinters = state.printers ? state.printers.length : 0;
-    const totalFilaments = state.filaments ? state.filaments.length : 0;
-    const activeQuotes = state.projects 
+    const totalProjects = stats ? stats.total_projects : (state.projects ? state.projects.length : 0);
+    const totalPrinters = stats ? stats.total_printers : (state.printers ? state.printers.length : 0);
+    const totalFilaments = stats ? stats.total_filaments : (state.filaments ? state.filaments.length : 0);
+    const activeQuotes = stats ? stats.active_quotes : (state.projects 
         ? state.projects.filter(p => ['draft', 'quoted', 'in_production'].includes(p.status)).length 
-        : 0;
+        : 0);
 
     if (statProjects) statProjects.textContent = totalProjects;
     if (statPrinters) statPrinters.textContent = totalPrinters;
     if (statFilaments) statFilaments.textContent = totalFilaments;
     if (statActive) statActive.textContent = activeQuotes;
 
-    // 2. Toggle Empty Account Onboarding Banner
+    // 2. Update Financial KPI Highlights
+    const revApprovedEl = document.getElementById('stat-revenue-approved');
+    const revPipelineEl = document.getElementById('stat-revenue-pipeline');
+    const netProfitEl = document.getElementById('stat-net-profit');
+    const marginLabelEl = document.getElementById('stat-profit-margin-label');
+    const printHoursEl = document.getElementById('stat-total-print-hours');
+    const filamentLabelEl = document.getElementById('stat-filament-kg-label');
+
+    if (revApprovedEl) revApprovedEl.textContent = formatCurrency(stats ? stats.total_revenue_approved : 0);
+    if (revPipelineEl) revPipelineEl.textContent = formatCurrency(stats ? stats.pipeline_revenue : 0);
+    if (netProfitEl) netProfitEl.textContent = formatCurrency(stats ? stats.total_net_profit : 0);
+    if (marginLabelEl) {
+        const margin = stats ? stats.avg_profit_margin_percent : 0;
+        marginLabelEl.innerHTML = `<i data-lucide="percent" class="w-3 h-3 text-teal-400"></i> Margem média: ${margin.toFixed(1)}%`;
+    }
+    if (printHoursEl) {
+        const hrs = stats ? stats.total_print_hours : 0;
+        printHoursEl.textContent = `${hrs.toFixed(1)} h`;
+    }
+    if (filamentLabelEl) {
+        const kg = stats ? stats.total_filament_kg : 0;
+        filamentLabelEl.innerHTML = `<i data-lucide="cylinder" class="w-3 h-3 text-amber-400"></i> Filamento: ${kg.toFixed(2)} kg`;
+    }
+
+    // 3. Toggle Empty Account Onboarding Banner
     const emptyBanner = document.getElementById('dashboard-empty-banner');
     if (emptyBanner) {
         const isEmptyAccount = totalProjects === 0 && totalPrinters === 0 && totalFilaments === 0;
@@ -366,8 +568,340 @@ function renderDashboard() {
         }
     }
 
-    // 3. Render Recent Projects Table
+    // 4. Render Visual Analytics Charts
+    renderDashboardCharts(stats);
+
+    // 5. Render Recent Projects Table
     renderRecentProjects();
+
+    refreshIcons();
+}
+
+function renderDashboardCharts(stats) {
+    if (!window.Chart) {
+        console.warn("Chart.js ainda não carregado.");
+        return;
+    }
+
+    // Set standard Chart.js Dark Mode Themes
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
+    Chart.defaults.font.size = 11;
+    if (Chart.defaults.plugins?.tooltip) {
+        Chart.defaults.plugins.tooltip.backgroundColor = '#0f172a';
+        Chart.defaults.plugins.tooltip.titleColor = '#ffffff';
+        Chart.defaults.plugins.tooltip.bodyColor = '#cbd5e1';
+        Chart.defaults.plugins.tooltip.borderColor = '#334155';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+        Chart.defaults.plugins.tooltip.padding = 10;
+        Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    }
+
+    destroyDashboardCharts();
+
+    const hasProjects = stats && stats.total_projects > 0;
+
+    // --- Chart 1: Pipeline de Orçamentos (Status) ---
+    const funnelCanvas = document.getElementById('chart-status-funnel');
+    const funnelEmpty = document.getElementById('chart-status-funnel-empty');
+    const funnelBadge = document.getElementById('chart-status-total-badge');
+
+    if (funnelBadge) {
+        funnelBadge.textContent = `${stats ? stats.total_projects : 0} orçamentos`;
+    }
+
+    if (funnelCanvas && funnelEmpty) {
+        if (!hasProjects) {
+            funnelCanvas.classList.add('hidden');
+            funnelEmpty.classList.remove('hidden');
+        } else {
+            funnelCanvas.classList.remove('hidden');
+            funnelEmpty.classList.add('hidden');
+
+            const statusKeys = ['draft', 'quoted', 'approved', 'in_production', 'completed', 'cancelled'];
+            const statusLabels = ['Rascunho', 'Orçado', 'Aprovado', 'Em Produção', 'Concluído', 'Cancelado'];
+            const statusColors = ['#64748b', '#3b82f6', '#10b981', '#8b5cf6', '#06b6d4', '#ef4444'];
+            const counts = statusKeys.map(k => (stats.status_counts && stats.status_counts[k]) || 0);
+
+            state.charts.statusFunnel = new Chart(funnelCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: statusLabels,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: statusColors,
+                        borderColor: '#151d2e',
+                        borderWidth: 3,
+                        hoverOffset: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '68%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8,
+                                padding: 12,
+                                font: { size: 11, weight: '500' }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const key = statusKeys[ctx.dataIndex];
+                                    const val = stats.status_values ? (stats.status_values[key] || 0) : 0;
+                                    return ` ${ctx.label}: ${ctx.raw} un (${formatCurrency(val)})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // --- Chart 2: Faturamento & Lucratividade Temporal ---
+    const timelineCanvas = document.getElementById('chart-financial-timeline');
+    const timelineEmpty = document.getElementById('chart-financial-timeline-empty');
+
+    if (timelineCanvas && timelineEmpty) {
+        const timeline = stats ? stats.monthly_timeline : [];
+        const hasTimelineData = timeline.length > 0 && timeline.some(t => t.revenue > 0 || t.base_cost > 0);
+
+        if (!hasTimelineData) {
+            timelineCanvas.classList.add('hidden');
+            timelineEmpty.classList.remove('hidden');
+        } else {
+            timelineCanvas.classList.remove('hidden');
+            timelineEmpty.classList.add('hidden');
+
+            state.charts.financialTimeline = new Chart(timelineCanvas, {
+                type: 'bar',
+                data: {
+                    labels: timeline.map(t => t.month_label),
+                    datasets: [
+                        {
+                            label: 'Faturamento',
+                            data: timeline.map(t => t.revenue),
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                            hoverBackgroundColor: '#3b82f6',
+                            borderRadius: 6,
+                            order: 2,
+                        },
+                        {
+                            label: 'Custo Base',
+                            data: timeline.map(t => t.base_cost),
+                            backgroundColor: 'rgba(245, 158, 11, 0.75)',
+                            hoverBackgroundColor: '#f59e0b',
+                            borderRadius: 6,
+                            order: 3,
+                        },
+                        {
+                            label: 'Lucro Líquido',
+                            type: 'line',
+                            data: timeline.map(t => t.net_profit),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#10b981',
+                            order: 1,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(51, 65, 85, 0.35)' },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: "'JetBrains Mono', monospace", size: 10 },
+                                callback: (v) => formatCurrency(v)
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8,
+                                padding: 12,
+                                font: { size: 11, weight: '500' }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.raw)}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // --- Chart 3: Estrutura de Custos & Lucro da Oficina ---
+    const costCanvas = document.getElementById('chart-cost-breakdown');
+    const costEmpty = document.getElementById('chart-cost-breakdown-empty');
+
+    if (costCanvas && costEmpty) {
+        const cb = stats ? stats.cost_breakdown : null;
+        const cbValues = cb ? [
+            cb.material_cost || 0,
+            cb.machine_energy_cost || 0,
+            cb.labor_cost || 0,
+            cb.bom_cost || 0,
+            cb.net_profit || 0
+        ] : [0, 0, 0, 0, 0];
+
+        const hasCostData = cbValues.some(v => v > 0);
+
+        if (!hasCostData) {
+            costCanvas.classList.add('hidden');
+            costEmpty.classList.remove('hidden');
+        } else {
+            costCanvas.classList.remove('hidden');
+            costEmpty.classList.add('hidden');
+
+            const cbLabels = ['Filamento', 'Máquina & Energia', 'Mão de Obra', 'Insumos BOM', 'Lucro Líquido'];
+            const cbColors = ['#8b5cf6', '#3b82f6', '#f59e0b', '#64748b', '#10b981'];
+
+            state.charts.costBreakdown = new Chart(costCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: cbLabels,
+                    datasets: [{
+                        data: cbValues,
+                        backgroundColor: cbColors,
+                        borderColor: '#151d2e',
+                        borderWidth: 3,
+                        hoverOffset: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8,
+                                padding: 12,
+                                font: { size: 11, weight: '500' }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.label}: ${formatCurrency(ctx.raw)}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // --- Chart 4: Top Projetos por Faturamento & Horas ---
+    const topCanvas = document.getElementById('chart-top-projects');
+    const topEmpty = document.getElementById('chart-top-projects-empty');
+
+    if (topCanvas && topEmpty) {
+        const topProjects = (stats && stats.top_projects) || [];
+
+        if (topProjects.length === 0) {
+            topCanvas.classList.add('hidden');
+            topEmpty.classList.remove('hidden');
+        } else {
+            topCanvas.classList.remove('hidden');
+            topEmpty.classList.add('hidden');
+
+            const projLabels = topProjects.map(p => {
+                const name = p.name || 'Sem título';
+                return name.length > 18 ? name.substring(0, 16) + '...' : name;
+            });
+
+            state.charts.topProjects = new Chart(topCanvas, {
+                type: 'bar',
+                data: {
+                    labels: projLabels,
+                    datasets: [
+                        {
+                            label: 'Faturamento',
+                            data: topProjects.map(p => p.final_price),
+                            backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                            hoverBackgroundColor: '#3b82f6',
+                            borderRadius: 4,
+                        },
+                        {
+                            label: 'Lucro Líquido',
+                            data: topProjects.map(p => p.net_profit),
+                            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                            hoverBackgroundColor: '#10b981',
+                            borderRadius: 4,
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(51, 65, 85, 0.35)' },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: "'JetBrains Mono', monospace", size: 10 },
+                                callback: (v) => formatCurrency(v)
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: '#e2e8f0', font: { size: 11, weight: '500' } }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8,
+                                padding: 12,
+                                font: { size: 11, weight: '500' }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.raw)}`,
+                                afterLabel: (ctx) => {
+                                    const p = topProjects[ctx.dataIndex];
+                                    return p ? `Horas de impressão: ${p.print_hours.toFixed(1)} h` : '';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
 }
 
 function renderRecentProjects() {
@@ -716,6 +1250,7 @@ async function editProject(id) {
         navigateTo('project-editor');
     } catch (err) {
         showToast(err.message, 'error');
+        navigateTo('projects');
     }
 }
 
@@ -893,8 +1428,8 @@ function renderPlates() {
                             <select onchange="updatePlateFilament(${idx}, this.value)" class="w-full pl-8 pr-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500">
                                 <option value="">Personalizado (Manual)</option>
                                 ${state.filaments.map(f => `
-                                    <option value="${f.id}" style="color: ${f.color_hex || '#10b981'}" ${plate.filament_id === f.id ? 'selected' : ''}>
-                                        ● ${f.name} (R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g)
+                                    <option value="${f.id}" ${plate.filament_id === f.id ? 'selected' : ''}>
+                                        ${f.name} (R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g)
                                     </option>
                                 `).join('')}
                             </select>
@@ -937,10 +1472,11 @@ function renderPlates() {
                     <!-- Layer Height -->
                     <div class="col-span-1">
                         <label class="block text-[10px] font-medium text-slate-400 mb-1">Camada (mm)</label>
-                        <select onchange="state.currentPlates[${idx}].layer_height = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 font-numeric">
-                            <option value="0.20" ${layer === '0.20' ? 'selected' : ''}>0.20 mm</option>
+                        <select onchange="state.currentPlates[${idx}].layer_height = this.value" class="w-full px-2.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 font-numeric">
+                            <option value="0.08" ${layer === '0.08' ? 'selected' : ''}>0.08 mm</option>
                             <option value="0.12" ${layer === '0.12' ? 'selected' : ''}>0.12 mm</option>
                             <option value="0.16" ${layer === '0.16' ? 'selected' : ''}>0.16 mm</option>
+                            <option value="0.20" ${layer === '0.20' ? 'selected' : ''}>0.20 mm</option>
                             <option value="0.24" ${layer === '0.24' ? 'selected' : ''}>0.24 mm</option>
                             <option value="0.28" ${layer === '0.28' ? 'selected' : ''}>0.28 mm</option>
                         </select>
@@ -1254,7 +1790,7 @@ function recalcLiveSummary() {
     setText('live-shipping-amount', `+ ${formatCurrency(shippingCost)}`);
     setText('live-tax-amount', formatCurrency(taxAmount));
     setText('live-final-price', formatCurrency(finalPriceToClient));
-    setText('live-net-profit', `${formatCurrency(netProfit)} (${effectiveMarginPercent.toFixed(1)}%)`);
+    setText('live-net-profit', formatCurrency(netProfit));
 
     // Dynamic Net Profit & Margin Color Indicator
     const netProfitEl = document.getElementById('live-net-profit');
@@ -1383,6 +1919,13 @@ async function saveCurrentProject(navigateBack = true) {
         await loadAllData();
         if (navigateBack) {
             navigateTo('projects');
+        } else if (state.currentProject && state.currentProject.id) {
+            if (typeof window !== 'undefined' && window.location && typeof window.location.hash === 'string') {
+                const targetHash = `#/project-editor?id=${state.currentProject.id}`;
+                if (window.location.hash !== targetHash) {
+                    window.location.hash = targetHash;
+                }
+            }
         }
         return true;
     } catch (err) {
@@ -2099,6 +2642,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     window.addEventListener('auth:logout', () => {
         state.user = null;
+        if (typeof window !== 'undefined' && window.location && typeof window.location.hash === 'string') {
+            window.location.hash = '#/dashboard';
+        }
         document.getElementById('auth-modal').classList.remove('hidden');
     });
 
@@ -2109,7 +2655,8 @@ window.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('auth-modal').classList.add('hidden');
             updateUserUI();
             await loadAllData();
-            navigateTo('dashboard');
+            const route = getRouteFromHash();
+            await applyRoute(route);
         } catch (err) {
             API.clearSession();
             document.getElementById('auth-modal').classList.remove('hidden');
