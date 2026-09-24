@@ -8,16 +8,14 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     APP_ENV=production \
-    DATABASE_URL=sqlite:////app/data/prod.db \
+    DATABASE_URL=postgresql+psycopg://postgres.your-tenant-id:124c92be406d143842e01a4c0c09fb1c@136.248.126.192:5432/postgres \
+    DB_SCHEMA=3dprintcalc \
     PORT=80
 
 # Install curl for container healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
-
-# Create persistent data directory
-RUN mkdir -p /app/data
 
 # Copy and install dependencies first to leverage Docker layer caching
 COPY requirements.txt .
@@ -29,8 +27,6 @@ COPY . .
 
 # Ensure permissions
 RUN chmod -R 755 /app
-
-VOLUME ["/app/data"]
 
 EXPOSE 80 8000
 

@@ -13,8 +13,6 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres.your-tenant-id:124c92be406d143842e01a4c0c09fb1c@136.248.126.192:5432/postgres}
       - DB_SCHEMA=${DB_SCHEMA:-3dprintcalc}
       - PORT=80
-    volumes:
-      - app_data:/app/data
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:80/api/health || curl -f http://localhost:8000/api/health || exit 1"]
       interval: 30s
@@ -27,7 +25,3 @@ services:
           - app
           - 3dprintcalc
           - web
-
-volumes:
-  app_data:
-    driver: local

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 # Ensure APP_ENV is test before importing application
 os.environ["APP_ENV"] = "test"
 os.environ["DATABASE_URL"] = "sqlite:///data/test.db"
+os.environ["DB_SCHEMA"] = ""
 
 from backend.database import Base, get_db
 from backend import models

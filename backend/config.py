@@ -18,8 +18,8 @@ DATABASE_URL = os.getenv("DATABASE_URL", SUPABASE_DB_URL)
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
-# Enforce schema 3dprintcalc for Supabase VPS
-DB_SCHEMA = "3dprintcalc"
+# Enforce schema 3dprintcalc for Supabase VPS (can be overridden by env var for tests)
+DB_SCHEMA = os.getenv("DB_SCHEMA", "3dprintcalc")
 
 DEFAULT_SECRET = "dev_secret_key_super_safe_67890_minimum_32_characters"
 SECRET_KEY = os.getenv("SECRET_KEY", DEFAULT_SECRET)

@@ -3,13 +3,14 @@ from sqlalchemy import (
     Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey
 )
 from sqlalchemy.orm import relationship
-from backend.database import Base
+from backend.database import Base, DB_SCHEMA
 
 def get_utc_now():
     return datetime.datetime.now(datetime.timezone.utc)
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {"schema": DB_SCHEMA} if DB_SCHEMA else {}
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
@@ -39,9 +40,10 @@ class User(Base):
 
 class Printer(Base):
     __tablename__ = "printers"
+    __table_args__ = {"schema": DB_SCHEMA} if DB_SCHEMA else {}
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey(f"{DB_SCHEMA}.users.id" if DB_SCHEMA else "users.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     model = Column(String(255), nullable=True)
     acquisition_cost = Column(Float, default=0.0)  # R$
@@ -59,9 +61,10 @@ class Printer(Base):
 
 class Filament(Base):
     __tablename__ = "filaments"
+    __table_args__ = {"schema": DB_SCHEMA} if DB_SCHEMA else {}
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey(f"{DB_SCHEMA}.users.id" if DB_SCHEMA else "users.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     brand = Column(String(255), nullable=True)
     material = Column(String(100), default="PLA")  # PLA, PETG, ABS, TPU, ASA, Resin, etc.
@@ -80,9 +83,10 @@ class Filament(Base):
 
 class Project(Base):
     __tablename__ = "projects"
+    __table_args__ = {"schema": DB_SCHEMA} if DB_SCHEMA else {}
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey(f"{DB_SCHEMA}.users.id" if DB_SCHEMA else "users.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     client_name = Column(String(255), nullable=True)
     client_email = Column(String(255), nullable=True)
@@ -116,12 +120,13 @@ class Project(Base):
 
 class Plate(Base):
     __tablename__ = "plates"
+    __table_args__ = {"schema": DB_SCHEMA} if DB_SCHEMA else {}
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey(f"{DB_SCHEMA}.projects.id" if DB_SCHEMA else "projects.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)  # e.g. "Placa 1 - Estrutura"
-    printer_id = Column(Integer, ForeignKey("printers.id", ondelete="SET NULL"), nullable=True)
-    filament_id = Column(Integer, ForeignKey("filaments.id", ondelete="SET NULL"), nullable=True)
+    printer_id = Column(Integer, ForeignKey(f"{DB_SCHEMA}.printers.id" if DB_SCHEMA else "printers.id", ondelete="SET NULL"), nullable=True)
+    filament_id = Column(Integer, ForeignKey(f"{DB_SCHEMA}.filaments.id" if DB_SCHEMA else "filaments.id", ondelete="SET NULL"), nullable=True)
 
     # Custom override values if user has no saved printer or filament
     custom_printer_hourly_rate = Column(Float, nullable=True)
@@ -141,9 +146,10 @@ class Plate(Base):
 
 class BOMItem(Base):
     __tablename__ = "bom_items"
+    __table_args__ = {"schema": DB_SCHEMA} if DB_SCHEMA else {}
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey(f"{DB_SCHEMA}.projects.id" if DB_SCHEMA else "projects.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)  # e.g. "Parafuso M3x12", "Rolamento 608zz"
     category = Column(String(100), default="Fixadores")  # Fixadores, Eletrônica, Embalagem, Ferragens, Outros
     quantity = Column(Integer, default=1)
