@@ -66,6 +66,35 @@ function matchesSearch(text, term) {
     return words.every(word => normText.includes(word));
 }
 
+// Issue #27: Dynamic phone masking for commercial phones and WhatsApp
+function formatPhoneInput(value) {
+    if (!value) return '';
+    const digits = String(value).replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) {
+        return digits.length > 0 ? `(${digits}` : '';
+    }
+    if (digits.length <= 6) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    }
+    if (digits.length <= 10) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+}
+window.formatPhoneInput = formatPhoneInput;
+
+function attachPhoneMask(inputEl) {
+    if (!inputEl) return;
+    inputEl.addEventListener('input', (e) => {
+        const val = e.target.value;
+        const formatted = formatPhoneInput(val);
+        if (formatted !== val) {
+            e.target.value = formatted;
+        }
+    });
+}
+window.attachPhoneMask = attachPhoneMask;
+
 // Global enhancement for numeric inputs: allows seamless decimal input with comma or dot across all browser locales
 // Avoids HTML5 value sanitization wiping out trailing-dot values (e.g. '56.')
 document.addEventListener('focusin', (e) => {
@@ -225,11 +254,15 @@ function navigateTo(viewName) {
     if (viewName === 'printers') {
         const inp = document.getElementById('printer-search-input');
         if (inp) inp.value = '';
+        const st = document.getElementById('printer-status-filter');
+        if (st) st.value = 'all';
         renderPrintersGrid();
     }
     if (viewName === 'filaments') {
         const inp = document.getElementById('filament-search-input');
         if (inp) inp.value = '';
+        const mat = document.getElementById('filament-material-filter');
+        if (mat) mat.value = '';
         renderFilamentsGrid();
     }
     if (viewName === 'settings') populateSettingsForm();
@@ -686,7 +719,7 @@ async function editProject(id) {
         document.getElementById('proj-name').value = proj.name;
         document.getElementById('proj-client-name').value = proj.client_name || '';
         document.getElementById('proj-client-email').value = proj.client_email || '';
-        document.getElementById('proj-client-phone').value = proj.client_phone || '';
+        document.getElementById('proj-client-phone').value = formatPhoneInput(proj.client_phone || '');
         document.getElementById('proj-status').value = proj.status || 'draft';
         document.getElementById('proj-cad-hours').value = proj.cad_hours ?? 0;
         document.getElementById('proj-cad-rate').value = proj.cad_hourly_rate ?? 50;
@@ -1681,23 +1714,41 @@ async function deletePrinter(id) {
     }
 }
 
-// Issue #22: Real-time search/filter for printers grid
+// Issue #22 & #25: Real-time search/filter for printers grid (search term + operational status)
+function clearPrinterFilters() {
+    const inp = document.getElementById('printer-search-input');
+    if (inp) inp.value = '';
+    const st = document.getElementById('printer-status-filter');
+    if (st) st.value = 'all';
+    filterPrinters();
+}
+window.clearPrinterFilters = clearPrinterFilters;
+
 function filterPrinters() {
     const term = (document.getElementById('printer-search-input')?.value || '').trim();
-    renderPrintersGrid(term);
+    const status = (document.getElementById('printer-status-filter')?.value || 'all').trim();
+    renderPrintersGrid(term, status);
 }
 window.filterPrinters = filterPrinters;
 
-function renderPrintersGrid(filterTerm = null) {
+function renderPrintersGrid(filterTerm = null, filterStatus = null) {
     const grid = document.getElementById('printers-grid');
     if (!grid) return;
 
     const term = (filterTerm !== null && filterTerm !== undefined ? filterTerm : (document.getElementById('printer-search-input')?.value || '')).trim();
-    const printers = term
-        ? state.printers.filter(p =>
+    const status = (filterStatus !== null && filterStatus !== undefined ? filterStatus : (document.getElementById('printer-status-filter')?.value || 'all')).trim();
+
+    let printers = state.printers;
+    if (status === 'active') {
+        printers = printers.filter(p => p.is_active !== false);
+    } else if (status === 'inactive') {
+        printers = printers.filter(p => p.is_active === false);
+    }
+    if (term) {
+        printers = printers.filter(p =>
             matchesSearch(`${p.name || ''} ${p.model || ''}`, term)
-          )
-        : state.printers;
+        );
+    }
 
     if (state.printers.length === 0) {
         grid.innerHTML = `
@@ -1714,13 +1765,19 @@ function renderPrintersGrid(filterTerm = null) {
         return;
     }
 
-    if (printers.length === 0 && term) {
+    if (printers.length === 0 && (term || status !== 'all')) {
+        const statusLabel = status === 'active' ? 'ativas' : (status === 'inactive' ? 'inativas/manutenção' : '');
+        const filterDesc = [
+            term ? `busca "<strong class="text-white">${term}</strong>"` : '',
+            statusLabel ? `status "<strong class="text-white">${statusLabel}</strong>"` : ''
+        ].filter(Boolean).join(' e ');
+
         grid.innerHTML = `
             <div class="col-span-full card-dark p-8 text-center text-slate-400">
                 <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 text-slate-600"></i>
-                <p class="text-sm">Nenhuma impressora encontrada para "<strong class="text-white">${term}</strong>".</p>
-                <button type="button" onclick="const inp = document.getElementById('printer-search-input'); if(inp){inp.value='';} filterPrinters();" class="mt-3 inline-block px-3 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded text-xs font-medium transition-colors">
-                    Limpar filtro
+                <p class="text-sm">Nenhuma impressora encontrada para os filtros aplicados (${filterDesc}).</p>
+                <button type="button" onclick="clearPrinterFilters()" class="mt-3 inline-block px-3 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded text-xs font-medium transition-colors">
+                    Limpar filtros
                 </button>
             </div>
         `;
@@ -1794,6 +1851,28 @@ function duplicateFilament(id) {
     if (filament) openFilamentModal(filament, true);
 }
 
+// Standard reference densities in g/cm³ for 3D printing polymers
+const MATERIAL_DENSITIES = {
+    'PLA': 1.24,
+    'PETG': 1.27,
+    'ABS': 1.04,
+    'TPU': 1.21,
+    'ASA': 1.07,
+    'Resina': 1.15,
+    'Outro': 1.24,
+};
+
+// Issue #24 & #26: Handle material dropdown change with preview update and suggested density
+function onFilamentMaterialChange() {
+    const mat = document.getElementById('filament-material')?.value || 'PLA';
+    const densityInput = document.getElementById('filament-density');
+    if (densityInput) {
+        densityInput.value = MATERIAL_DENSITIES[mat] !== undefined ? MATERIAL_DENSITIES[mat] : 1.24;
+    }
+    updateFilamentNamePreview();
+}
+window.onFilamentMaterialChange = onFilamentMaterialChange;
+
 function updateFilamentNamePreview() {
     const mat = document.getElementById('filament-material')?.value.trim() || 'PLA';
     const colInput = document.getElementById('filament-color');
@@ -1820,6 +1899,7 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-brand').value = filament.brand || '';
         document.getElementById('filament-color').value = filament.color || '';
         document.getElementById('filament-color-hex').value = filament.color_hex || '#10b981';
+        document.getElementById('filament-density').value = filament.density_g_cm3 != null ? filament.density_g_cm3 : (MATERIAL_DENSITIES[filament.material] || 1.24);
         document.getElementById('filament-weight').value = filament.spool_weight_g;
         document.getElementById('filament-price').value = filament.spool_price;
         if (colorInput) colorInput.placeholder = 'Ex: Preto';
@@ -1830,6 +1910,7 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-brand').value = filament.brand || '';
         document.getElementById('filament-color').value = '';
         document.getElementById('filament-color-hex').value = filament.color_hex || '#10b981';
+        document.getElementById('filament-density').value = filament.density_g_cm3 != null ? filament.density_g_cm3 : (MATERIAL_DENSITIES[filament.material] || 1.24);
         document.getElementById('filament-weight').value = filament.spool_weight_g;
         document.getElementById('filament-price').value = filament.spool_price;
         if (colorInput) {
@@ -1852,6 +1933,7 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-brand').value = '';
         document.getElementById('filament-color').value = '';
         document.getElementById('filament-color-hex').value = '#10b981';
+        document.getElementById('filament-density').value = '1.24';
         document.getElementById('filament-weight').value = '1000';
         document.getElementById('filament-price').value = '95.00';
         if (colorInput) colorInput.placeholder = 'Ex: Preto';
@@ -1893,6 +1975,7 @@ async function handleSaveFilament(e) {
         material: mat,
         color: color,
         color_hex: colorHex,
+        density_g_cm3: parseLocaleFloat(document.getElementById('filament-density')?.value, 1.24),
         spool_weight_g: parseLocaleFloat(document.getElementById('filament-weight').value, 1000),
         spool_price: parseLocaleFloat(document.getElementById('filament-price').value, 90),
     };
@@ -1925,23 +2008,39 @@ async function deleteFilament(id) {
     }
 }
 
-// Issue #22: Real-time search/filter for filaments grid
+// Issue #22 & #25: Real-time search/filter for filaments grid (search term + material filter)
+function clearFilamentFilters() {
+    const inp = document.getElementById('filament-search-input');
+    if (inp) inp.value = '';
+    const mat = document.getElementById('filament-material-filter');
+    if (mat) mat.value = '';
+    filterFilaments();
+}
+window.clearFilamentFilters = clearFilamentFilters;
+
 function filterFilaments() {
     const term = (document.getElementById('filament-search-input')?.value || '').trim();
-    renderFilamentsGrid(term);
+    const material = (document.getElementById('filament-material-filter')?.value || '').trim();
+    renderFilamentsGrid(term, material);
 }
 window.filterFilaments = filterFilaments;
 
-function renderFilamentsGrid(filterTerm = null) {
+function renderFilamentsGrid(filterTerm = null, filterMaterial = null) {
     const grid = document.getElementById('filaments-grid');
     if (!grid) return;
 
     const term = (filterTerm !== null && filterTerm !== undefined ? filterTerm : (document.getElementById('filament-search-input')?.value || '')).trim();
-    const filaments = term
-        ? state.filaments.filter(f =>
+    const material = (filterMaterial !== null && filterMaterial !== undefined ? filterMaterial : (document.getElementById('filament-material-filter')?.value || '')).trim();
+
+    let filaments = state.filaments;
+    if (material) {
+        filaments = filaments.filter(f => (f.material || '').toUpperCase() === material.toUpperCase());
+    }
+    if (term) {
+        filaments = filaments.filter(f =>
             matchesSearch(`${f.name || ''} ${f.brand || ''} ${f.material || ''} ${f.color || ''}`, term)
-          )
-        : state.filaments;
+        );
+    }
 
     if (state.filaments.length === 0) {
         grid.innerHTML = `
@@ -1958,13 +2057,18 @@ function renderFilamentsGrid(filterTerm = null) {
         return;
     }
 
-    if (filaments.length === 0 && term) {
+    if (filaments.length === 0 && (term || material)) {
+        const filterDesc = [
+            term ? `busca "<strong class="text-white">${term}</strong>"` : '',
+            material ? `material "<strong class="text-white">${material}</strong>"` : ''
+        ].filter(Boolean).join(' e ');
+
         grid.innerHTML = `
             <div class="col-span-full card-dark p-8 text-center text-slate-400">
                 <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 text-slate-600"></i>
-                <p class="text-sm">Nenhum filamento encontrado para "<strong class="text-white">${term}</strong>".</p>
-                <button type="button" onclick="const inp = document.getElementById('filament-search-input'); if(inp){inp.value='';} filterFilaments();" class="mt-3 inline-block px-3 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded text-xs font-medium transition-colors">
-                    Limpar filtro
+                <p class="text-sm">Nenhum filamento encontrado para os filtros aplicados (${filterDesc}).</p>
+                <button type="button" onclick="clearFilamentFilters()" class="mt-3 inline-block px-3 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded text-xs font-medium transition-colors">
+                    Limpar filtros
                 </button>
             </div>
         `;
@@ -2036,7 +2140,7 @@ function populateSettingsForm() {
 
     document.getElementById('pref-company').value = u.company_name || '';
     document.getElementById('pref-fullname').value = u.full_name || '';
-    document.getElementById('pref-phone').value = u.phone || '';
+    document.getElementById('pref-phone').value = u.phone ? formatPhoneInput(u.phone) : '';
     document.getElementById('pref-pix').value = u.pix_key || '';
     document.getElementById('pref-energy').value = u.default_energy_rate ?? 0.85;
     document.getElementById('pref-margin').value = u.default_profit_margin ?? 30;
@@ -2081,6 +2185,10 @@ async function handleSavePreferences(e) {
 window.addEventListener('DOMContentLoaded', async () => {
     refreshIcons();
     setupDropzone();
+
+    // Issue #27: Dynamic phone masking for commercial phones and WhatsApp
+    attachPhoneMask(document.getElementById('proj-client-phone'));
+    attachPhoneMask(document.getElementById('pref-phone'));
 
     // Issue #19: Close filament/printer modals with ESC key (WAI-ARIA dialog pattern)
     document.addEventListener('keydown', (e) => {

@@ -1120,6 +1120,238 @@ def test_issues_17_to_22_full_suite():
         Path(temp_path).unlink(missing_ok=True)
 
 
+def test_issues_23_to_27_full_suite():
+    """
+    Covers issues #23, #24, #25, #26, #27:
+    - #23: API 422 detail array error formatting (no [object Object])
+    - #24: Filament preview update on material select onchange
+    - #25: Material filter for filaments and operational status filter for printers
+    - #26: Filament density field in modal, auto-suggestion, and save payload
+    - #27: Brazilian phone mask formatting for commercial phone inputs
+    """
+    import subprocess
+    import shutil
+    import tempfile
+
+    html_file = Path(__file__).parent.parent / "frontend" / "index.html"
+    app_js_file = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    api_js_file = Path(__file__).parent.parent / "frontend" / "js" / "api.js"
+
+    html_content = html_file.read_text(encoding="utf-8")
+    app_js = app_js_file.read_text(encoding="utf-8")
+    api_js = api_js_file.read_text(encoding="utf-8")
+
+    # 1. Static Contract Checks
+    # Issue #23
+    assert "Array.isArray(data.detail)" in api_js
+
+    # Issue #24
+    assert 'id="filament-material"' in html_content
+    assert 'onchange="onFilamentMaterialChange()"' in html_content
+
+    # Issue #25
+    assert 'id="printer-status-filter"' in html_content
+    assert 'id="filament-material-filter"' in html_content
+    assert "clearPrinterFilters" in app_js
+    assert "clearFilamentFilters" in app_js
+
+    # Issue #26
+    assert 'id="filament-density"' in html_content
+    assert 'step="0.01"' in html_content
+    assert "density_g_cm3" in app_js
+
+    # Issue #27
+    assert "formatPhoneInput" in app_js
+    assert "attachPhoneMask" in app_js
+
+    # 2. Headless Browser Dynamic Execution Check
+    chrome_candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        shutil.which("google-chrome"),
+        shutil.which("chromium"),
+        shutil.which("chrome"),
+    ]
+    browser = None
+    for c in chrome_candidates:
+        if c and Path(c).exists():
+            browser = c
+            break
+
+    if not browser:
+        return
+
+    app_js_path = app_js_file.resolve().as_posix()
+    api_js_path = api_js_file.resolve().as_posix()
+
+    html_test = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+    <div id="modal-filament" class="hidden">
+        <h3 id="modal-filament-title"></h3>
+        <input type="hidden" id="filament-id">
+        <select id="filament-material" onchange="onFilamentMaterialChange()" oninput="updateFilamentNamePreview()">
+            <option value="PLA">PLA</option>
+            <option value="PETG">PETG</option>
+            <option value="ABS">ABS</option>
+            <option value="TPU">TPU (Flexível)</option>
+        </select>
+        <input type="text" id="filament-brand" value="3D Prime">
+        <input type="color" id="filament-color-hex" value="#10b981">
+        <input type="text" id="filament-color" value="Preto">
+        <span id="filament-preview-dot"></span>
+        <span id="filament-preview-text"></span>
+        <input type="number" id="filament-density" step="0.01" min="0.5" value="1.24">
+        <input type="number" id="filament-weight" value="1000">
+        <input type="number" id="filament-price" value="95.00">
+    </div>
+    <div id="modal-printer" class="hidden">
+        <h3 id="modal-printer-title"></h3>
+        <input type="hidden" id="printer-id">
+        <input type="text" id="printer-name">
+        <input type="text" id="printer-model">
+    </div>
+    <div id="view-title"></div>
+    <input type="text" id="proj-client-phone">
+    <input type="text" id="pref-phone">
+    <input type="search" id="printer-search-input">
+    <select id="printer-status-filter" onchange="filterPrinters()">
+        <option value="all">Todas as Impressoras</option>
+        <option value="active">Apenas Ativas</option>
+        <option value="inactive">Inativas / Manutenção</option>
+    </select>
+    <div id="printers-grid"></div>
+    <input type="search" id="filament-search-input">
+    <select id="filament-material-filter" onchange="filterFilaments()">
+        <option value="">Todos os Materiais</option>
+        <option value="PLA">PLA</option>
+        <option value="PETG">PETG</option>
+        <option value="ABS">ABS</option>
+        <option value="TPU">TPU</option>
+    </select>
+    <div id="filaments-grid"></div>
+    <div id="test-result">RUNNING</div>
+
+    <script>
+    let lastSavedFilament = null;
+    window.lucide = {{ createIcons: () => {{}} }};
+    window.showToast = (msg, type) => {{}};
+    window.API = {{
+        getToken: () => null,
+        filaments: {{
+            create: async (data) => {{ lastSavedFilament = data; return {{ id: 50, ...data, cost_per_gram: data.spool_price/data.spool_weight_g }}; }},
+            update: async (id, data) => {{ lastSavedFilament = data; return {{ id, ...data, cost_per_gram: data.spool_price/data.spool_weight_g }}; }}
+        }}
+    }};
+    </script>
+    <script src="file:///{api_js_path}"></script>
+    <script src="file:///{app_js_path}"></script>
+    <script>
+    try {{
+        // Test Issue #23: API 422 error parsing
+        const fakeResp = new Response(JSON.stringify({{
+            detail: [
+                {{ loc: ["body", "tax_rate_percent"], msg: "Input should be less than or equal to 99" }}
+            ]
+        }}), {{ status: 422, statusText: "Unprocessable Entity", headers: {{ "Content-Type": "application/json" }} }});
+
+        window.fetch = async () => fakeResp;
+        API.request("/api/test").catch(err => {{
+            if (err.message.includes("[object Object]")) throw new Error("API error still contains [object Object]");
+            if (!err.message.includes("tax_rate_percent")) throw new Error("API error does not format loc and msg: " + err.message);
+
+            // Test Issue #24: Material select dropdown updates preview
+            const matSelect = document.getElementById('filament-material');
+            matSelect.value = "PETG";
+            onFilamentMaterialChange();
+            const prevText = document.getElementById('filament-preview-text').innerText;
+            if (!prevText.includes("PETG")) throw new Error("Preview did not update to PETG, got: " + prevText);
+
+            // Test Issue #26: Density field suggestion and save
+            const densVal = document.getElementById('filament-density').value;
+            if (densVal !== "1.27") throw new Error("PETG density did not auto-suggest 1.27, got: " + densVal);
+
+            matSelect.value = "ABS";
+            onFilamentMaterialChange();
+            if (document.getElementById('filament-density').value !== "1.04") throw new Error("ABS density did not auto-suggest 1.04");
+
+            // Save filament with custom density
+            document.getElementById('filament-density').value = "1.05";
+            handleSaveFilament(new Event('submit')).then(() => {{
+                if (!lastSavedFilament) throw new Error("handleSaveFilament did not submit");
+                if (lastSavedFilament.density_g_cm3 !== 1.05) throw new Error("density_g_cm3 not saved in payload, got: " + lastSavedFilament.density_g_cm3);
+
+                // Test Issue #25: Filter by material & status
+                state.filaments = [
+                    {{ id: 1, name: "PLA Basic", brand: "Bambu", material: "PLA", color: "Preto", spool_weight_g: 1000, spool_price: 100, cost_per_gram: 0.10, density_g_cm3: 1.24 }},
+                    {{ id: 2, name: "PETG HF", brand: "Bambu", material: "PETG", color: "Azul", spool_weight_g: 1000, spool_price: 120, cost_per_gram: 0.12, density_g_cm3: 1.27 }}
+                ];
+                renderFilamentsGrid("", "PLA");
+                let filGrid = document.getElementById('filaments-grid').innerHTML;
+                if (!filGrid.includes("PLA Basic") || filGrid.includes("PETG HF")) throw new Error("Filaments material filter failed");
+
+                renderFilamentsGrid("", "PETG");
+                filGrid = document.getElementById('filaments-grid').innerHTML;
+                if (filGrid.includes("PLA Basic") || !filGrid.includes("PETG HF")) throw new Error("Filaments material filter failed for PETG");
+
+                // Printers status filter
+                state.printers = [
+                    {{ id: 1, name: "Bambu X1C", model: "CoreXY", is_active: true, rates_breakdown: {{}}, lifespan_hours: 5000, acquisition_cost: 10000 }},
+                    {{ id: 2, name: "Ender 3", model: "BedSlinger", is_active: false, rates_breakdown: {{}}, lifespan_hours: 5000, acquisition_cost: 1500 }}
+                ];
+                renderPrintersGrid("", "active");
+                let prinGrid = document.getElementById('printers-grid').innerHTML;
+                if (!prinGrid.includes("Bambu X1C") || prinGrid.includes("Ender 3")) throw new Error("Printers status active filter failed");
+
+                renderPrintersGrid("", "inactive");
+                prinGrid = document.getElementById('printers-grid').innerHTML;
+                if (prinGrid.includes("Bambu X1C") || !prinGrid.includes("Ender 3")) throw new Error("Printers status inactive filter failed");
+
+                // Test Issue #27: Phone mask
+                const masked10 = formatPhoneInput("1133334444");
+                if (masked10 !== "(11) 3333-4444") throw new Error("10-digit phone mask failed, got: " + masked10);
+
+                const masked11 = formatPhoneInput("11987654321");
+                if (masked11 !== "(11) 98765-4321") throw new Error("11-digit phone mask failed, got: " + masked11);
+
+                const phoneInp = document.getElementById('proj-client-phone');
+                attachPhoneMask(phoneInp);
+                phoneInp.value = "41999887766";
+                phoneInp.dispatchEvent(new Event('input'));
+                if (phoneInp.value !== "(41) 99988-7766") throw new Error("Input phone mask event failed, got: " + phoneInp.value);
+
+                document.getElementById('test-result').innerText = "SUCCESS";
+            }}).catch(e => {{
+                document.getElementById('test-result').innerText = "ERROR: " + e.message;
+            }});
+        }});
+    }} catch (e) {{
+        document.getElementById('test-result').innerText = "ERROR: " + e.message;
+    }}
+    </script>
+</body>
+</html>"""
+
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8") as f:
+        f.write(html_test)
+        temp_path = f.name
+
+    try:
+        proc = subprocess.run([
+            browser,
+            "--headless=new",
+            "--disable-gpu",
+            "--dump-dom",
+            Path(temp_path).as_uri()
+        ], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=12)
+
+        assert "SUCCESS" in (proc.stdout or ""), f"Headless browser test failed. Output:\n{proc.stdout}"
+    finally:
+        Path(temp_path).unlink(missing_ok=True)
+
+
+
 
 
 
