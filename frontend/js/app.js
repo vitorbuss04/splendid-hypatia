@@ -303,36 +303,64 @@ async function loadAllData() {
     }
 }
 
+// ================= DASHBOARD & METRICS =================
+
 async function loadDashboard() {
     await loadAllData();
+    renderDashboard();
+}
 
-    // Stats
-    document.getElementById('stat-projects-count').textContent = state.projects.length;
-    document.getElementById('stat-printers-count').textContent = state.printers.length;
-    document.getElementById('stat-filaments-count').textContent = state.filaments.length;
+function renderDashboard() {
+    // 1. Update Operational Stat Counters
+    const statProjects = document.getElementById('stat-projects-count');
+    const statPrinters = document.getElementById('stat-printers-count');
+    const statFilaments = document.getElementById('stat-filaments-count');
+    const statActive = document.getElementById('stat-active-quotes');
 
-    const activeQuotes = state.projects.filter(p => ['draft', 'quoted', 'in_production'].includes(p.status)).length;
-    document.getElementById('stat-active-quotes').textContent = activeQuotes;
+    const totalProjects = state.projects ? state.projects.length : 0;
+    const totalPrinters = state.printers ? state.printers.length : 0;
+    const totalFilaments = state.filaments ? state.filaments.length : 0;
+    const activeQuotes = state.projects 
+        ? state.projects.filter(p => ['draft', 'quoted', 'in_production'].includes(p.status)).length 
+        : 0;
 
-    // Empty account onboarding notice
+    if (statProjects) statProjects.textContent = totalProjects;
+    if (statPrinters) statPrinters.textContent = totalPrinters;
+    if (statFilaments) statFilaments.textContent = totalFilaments;
+    if (statActive) statActive.textContent = activeQuotes;
+
+    // 2. Toggle Empty Account Onboarding Banner
     const emptyBanner = document.getElementById('dashboard-empty-banner');
-    if (state.printers.length === 0 && state.filaments.length === 0 && state.projects.length === 0) {
-        emptyBanner.classList.remove('hidden');
-    } else {
-        emptyBanner.classList.add('hidden');
+    if (emptyBanner) {
+        const isEmptyAccount = totalProjects === 0 && totalPrinters === 0 && totalFilaments === 0;
+        if (isEmptyAccount) {
+            emptyBanner.classList.remove('hidden');
+        } else {
+            emptyBanner.classList.add('hidden');
+        }
     }
 
-    // Recent projects
+    // 3. Render Recent Projects Table
+    renderRecentProjects();
+}
+
+function renderRecentProjects() {
     const recentContainer = document.getElementById('dashboard-recent-projects');
     if (!recentContainer) return;
 
-    if (state.projects.length === 0) {
+    const projects = state.projects || [];
+    if (projects.length === 0) {
         recentContainer.innerHTML = `
-            <div class="text-center py-8 text-slate-400">
-                <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 text-slate-600"></i>
-                <p class="text-sm">Nenhum orçamento cadastrado ainda.</p>
-                <button onclick="openNewProject()" class="mt-3 text-xs font-semibold text-blue-400 hover:underline">
-                    + Criar seu primeiro orçamento
+            <div class="text-center py-10 px-4">
+                <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center mx-auto mb-3 shadow-inner">
+                    <i data-lucide="inbox" class="w-6 h-6"></i>
+                </div>
+                <h4 class="text-sm font-semibold text-white">Nenhum orçamento cadastrado ainda</h4>
+                <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    Crie seu primeiro projeto para visualizar métricas em tempo real e gerar propostas comerciais em PDF.
+                </p>
+                <button onclick="openNewProject()" class="btn-primary mt-4 py-2 px-4 text-xs font-semibold rounded-lg shadow-md shadow-blue-600/20 inline-flex items-center gap-1.5 transition-all">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Criar seu primeiro orçamento
                 </button>
             </div>
         `;
@@ -340,40 +368,58 @@ async function loadDashboard() {
         return;
     }
 
-    const recent = state.projects.slice(0, 5);
+    const recent = projects.slice(0, 5);
     recentContainer.innerHTML = `
         <table class="w-full text-left text-xs">
             <thead>
-                <tr class="border-b border-slate-800 text-slate-400">
-                    <th class="py-2.5 px-3">Projeto</th>
-                    <th class="py-2.5 px-3">Cliente</th>
-                    <th class="py-2.5 px-3">Placas</th>
-                    <th class="py-2.5 px-3">Tempo Est.</th>
-                    <th class="py-2.5 px-3">Valor Final</th>
-                    <th class="py-2.5 px-3">Status</th>
-                    <th class="py-2.5 px-3 text-right">Ações</th>
+                <tr class="border-b border-slate-800 bg-slate-900/60 text-slate-400 uppercase tracking-wider font-semibold text-[11px]">
+                    <th class="py-3 px-3">Projeto</th>
+                    <th class="py-3 px-3">Cliente</th>
+                    <th class="py-3 px-3 text-center">Placas</th>
+                    <th class="py-3 px-3">Tempo Est.</th>
+                    <th class="py-3 px-3">Valor Final</th>
+                    <th class="py-3 px-3 text-center">Status</th>
+                    <th class="py-3 px-3 text-right">Ações</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-800/60">
                 ${recent.map(p => `
-                    <tr class="hover:bg-slate-800/40 transition-colors">
-                        <td class="py-3 px-3 font-semibold text-white">${p.name}</td>
-                        <td class="py-3 px-3 text-slate-300">${p.client_name || '—'}</td>
-                        <td class="py-3 px-3 text-slate-300">${p.plates_count}</td>
-                        <td class="py-3 px-3 text-slate-300">${p.total_time_hours.toFixed(1)} h</td>
-                        <td class="py-3 px-3 font-semibold text-blue-400">${formatCurrency(p.final_price_to_client)}</td>
+                    <tr class="hover:bg-slate-800/40 transition-colors group">
                         <td class="py-3 px-3">
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold badge-${p.status}">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-lg bg-blue-600/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
+                                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                                </div>
+                                <span class="font-semibold text-white group-hover:text-blue-400 transition-colors">${p.name}</span>
+                            </div>
+                        </td>
+                        <td class="py-3 px-3 text-slate-300">
+                            ${p.client_name ? `<span class="flex items-center gap-1.5"><i data-lucide="user" class="w-3 h-3 text-slate-500"></i>${p.client_name}</span>` : '<span class="text-slate-500">—</span>'}
+                        </td>
+                        <td class="py-3 px-3 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                                ${p.plates_count} un
+                            </span>
+                        </td>
+                        <td class="py-3 px-3 font-mono text-slate-300">${p.total_time_hours.toFixed(1)} h</td>
+                        <td class="py-3 px-3 font-mono font-bold text-blue-400">${formatCurrency(p.final_price_to_client)}</td>
+                        <td class="py-3 px-3 text-center">
+                            <span class="badge-${p.status}">
                                 ${formatStatus(p.status)}
                             </span>
                         </td>
                         <td class="py-3 px-3 text-right">
-                            <button onclick="editProject(${p.id})" class="p-1 hover:text-blue-400 transition-colors" title="Editar">
-                                <i data-lucide="edit-3" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick="API.pdf.preview(${p.id}, 'client')" class="p-1 hover:text-emerald-400 transition-colors ml-1" title="Visualizar PDF">
-                                <i data-lucide="eye" class="w-4 h-4"></i>
-                            </button>
+                            <div class="flex items-center justify-end gap-1">
+                                <button onclick="editProject(${p.id})" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors" title="Editar Orçamento">
+                                    <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="duplicateProject(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-md transition-colors" title="Duplicar">
+                                    <i data-lucide="copy" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="API.pdf.preview(${p.id}, 'client')" class="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-md transition-colors" title="Visualizar Orçamento PDF">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `).join('')}
@@ -397,76 +443,125 @@ function formatStatus(status) {
 
 // ================= PROJECTS VIEW =================
 
-function renderProjectsTable(filterText = '') {
+function renderProjectsTable(filterText = '', statusFilter = '') {
     const container = document.getElementById('projects-table-container');
     if (!container) return;
 
-    let items = state.projects;
-    if (filterText) {
-        const query = filterText.toLowerCase();
+    let items = state.projects || [];
+
+    // Search query filter (matches project name or client name)
+    const activeText = filterText !== '' ? filterText : (document.getElementById('project-search-input')?.value || '');
+    if (activeText.trim()) {
+        const query = activeText.trim().toLowerCase();
         items = items.filter(p => 
-            p.name.toLowerCase().includes(query) || 
+            (p.name && p.name.toLowerCase().includes(query)) || 
             (p.client_name && p.client_name.toLowerCase().includes(query))
         );
     }
 
+    // Status filter
+    const activeStatus = statusFilter || state.projectStatusFilter || 'all';
+    if (activeStatus !== 'all') {
+        items = items.filter(p => p.status === activeStatus);
+    }
+
+    // Empty state
     if (items.length === 0) {
+        const hasFilters = activeText.trim() !== '' || activeStatus !== 'all';
         container.innerHTML = `
-            <div class="text-center py-12 text-slate-400">
-                <i data-lucide="folder-search" class="w-12 h-12 mx-auto mb-3 text-slate-600"></i>
-                <p class="text-sm font-medium">Nenhum projeto encontrado.</p>
-                <button onclick="openNewProject()" class="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">
-                    + Criar Novo Orçamento
-                </button>
+            <div class="text-center py-12 px-4 text-slate-400">
+                <div class="w-14 h-14 rounded-2xl bg-slate-800/80 text-slate-500 border border-slate-700/60 flex items-center justify-center mx-auto mb-3 shadow-inner">
+                    <i data-lucide="${hasFilters ? 'search-x' : 'folder-plus'}" class="w-7 h-7"></i>
+                </div>
+                <h4 class="text-sm font-semibold text-white">
+                    ${hasFilters ? 'Nenhum projeto encontrado' : 'Nenhum projeto cadastrado'}
+                </h4>
+                <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    ${hasFilters 
+                        ? 'Não encontramos resultados para os filtros selecionados. Tente buscar por outros termos ou limpar os filtros.' 
+                        : 'Comece criando seu primeiro orçamento profissional com cálculo automático de custos e margem.'}
+                </p>
+                <div class="mt-4 flex items-center justify-center gap-2">
+                    ${hasFilters ? `
+                        <button onclick="clearProjectFilters()" class="btn-secondary py-2 px-3.5 text-xs font-semibold rounded-lg transition-all">
+                            Limpar Filtros
+                        </button>
+                    ` : ''}
+                    <button onclick="openNewProject()" class="btn-primary py-2 px-3.5 text-xs font-semibold rounded-lg shadow-md shadow-blue-600/20 inline-flex items-center gap-1.5 transition-all">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Criar Novo Orçamento
+                    </button>
+                </div>
             </div>
         `;
         refreshIcons();
         return;
     }
 
+    // Render modern SaaS Dark Mode Table
     container.innerHTML = `
         <table class="w-full text-left text-xs">
             <thead>
-                <tr class="border-b border-slate-800 bg-slate-900/60 text-slate-400 uppercase tracking-wider">
-                    <th class="py-3 px-4">Projeto</th>
+                <tr class="border-b border-slate-800 bg-slate-900/70 text-slate-400 uppercase tracking-wider font-semibold text-[11px]">
+                    <th class="py-3 px-4">Projeto & Referência</th>
                     <th class="py-3 px-4">Cliente</th>
-                    <th class="py-3 px-4">Placas</th>
+                    <th class="py-3 px-4 text-center">Placas</th>
                     <th class="py-3 px-4">Tempo Total</th>
                     <th class="py-3 px-4">Custo Base</th>
                     <th class="py-3 px-4">Preço de Venda</th>
-                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-4 text-center">Status</th>
                     <th class="py-3 px-4 text-right">Ações</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800">
+            <tbody class="divide-y divide-slate-800/60">
                 ${items.map(p => `
-                    <tr class="hover:bg-slate-800/40 transition-colors">
-                        <td class="py-3.5 px-4 font-semibold text-white">${p.name}</td>
-                        <td class="py-3.5 px-4 text-slate-300">${p.client_name || '—'}</td>
-                        <td class="py-3.5 px-4 text-slate-300">${p.plates_count} un</td>
-                        <td class="py-3.5 px-4 text-slate-300">${p.total_time_hours.toFixed(1)} h</td>
-                        <td class="py-3.5 px-4 text-slate-400">${formatCurrency(p.base_cost)}</td>
-                        <td class="py-3.5 px-4 font-bold text-blue-400 text-sm">${formatCurrency(p.final_price_to_client)}</td>
-                        <td class="py-3.5 px-4">
-                            <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold badge-${p.status}">
+                    <tr class="hover:bg-slate-800/40 transition-colors group">
+                        <td class="py-3.5 px-4 font-semibold text-white">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                    <i data-lucide="box" class="w-4 h-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="font-bold text-white group-hover:text-blue-400 transition-colors truncate">${p.name}</p>
+                                    <p class="text-[10px] text-slate-500 font-mono">#${p.id.toString().padStart(4, '0')}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-4 text-slate-300">
+                            ${p.client_name ? `
+                                <div class="flex items-center gap-1.5">
+                                    <i data-lucide="user" class="w-3.5 h-3.5 text-slate-500 shrink-0"></i>
+                                    <span class="truncate">${p.client_name}</span>
+                                </div>
+                            ` : '<span class="text-slate-500">—</span>'}
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                                ${p.plates_count} un
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 font-mono text-slate-300">${p.total_time_hours.toFixed(1)} h</td>
+                        <td class="py-3.5 px-4 font-mono text-slate-400">${formatCurrency(p.base_cost)}</td>
+                        <td class="py-3.5 px-4 font-mono font-bold text-blue-400 text-sm">${formatCurrency(p.final_price_to_client)}</td>
+                        <td class="py-3.5 px-4 text-center">
+                            <span class="badge-${p.status}">
                                 ${formatStatus(p.status)}
                             </span>
                         </td>
                         <td class="py-3.5 px-4 text-right">
-                            <div class="flex items-center justify-end gap-1.5">
-                                <button onclick="editProject(${p.id})" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors" title="Editar">
-                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                            <div class="flex items-center justify-end gap-1">
+                                <button onclick="editProject(${p.id})" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors" title="Editar">
+                                    <i data-lucide="edit-3" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="duplicateProject(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded transition-colors" title="Duplicar">
+                                <button onclick="duplicateProject(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-md transition-colors" title="Duplicar">
                                     <i data-lucide="copy" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="API.pdf.preview(${p.id}, 'client')" class="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors" title="Visualizar Orçamento PDF">
+                                <button onclick="API.pdf.preview(${p.id}, 'client')" class="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-md transition-colors" title="Visualizar Orçamento PDF">
                                     <i data-lucide="eye" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="API.pdf.preview(${p.id}, 'technical')" class="p-1.5 text-slate-400 hover:text-purple-400 hover:bg-slate-800 rounded transition-colors" title="Visualizar Ficha Técnica">
+                                <button onclick="API.pdf.preview(${p.id}, 'technical')" class="p-1.5 text-slate-400 hover:text-purple-400 hover:bg-slate-800 rounded-md transition-colors" title="Ficha Técnica de Produção">
                                     <i data-lucide="clipboard-list" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="deleteProject(${p.id})" class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition-colors" title="Excluir">
+                                <button onclick="deleteProject(${p.id})" class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors" title="Excluir">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
@@ -475,13 +570,39 @@ function renderProjectsTable(filterText = '') {
                 `).join('')}
             </tbody>
         </table>
+        <div class="px-4 py-3 bg-slate-900/50 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Exibindo <b>${items.length}</b> de <b>${state.projects.length}</b> projetos</span>
+            <span class="text-slate-500 font-mono">3D Print Calc Pro</span>
+        </div>
     `;
     refreshIcons();
 }
 
 function filterProjects() {
     const input = document.getElementById('project-search-input');
-    renderProjectsTable(input ? input.value : '');
+    renderProjectsTable(input ? input.value : '', state.projectStatusFilter || 'all');
+}
+
+function setProjectStatusFilter(status) {
+    state.projectStatusFilter = status;
+
+    // Update active style on filter chips
+    document.querySelectorAll('.project-filter-chip').forEach(chip => {
+        const chipStatus = chip.getAttribute('data-status');
+        if (chipStatus === status) {
+            chip.className = 'project-filter-chip px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-sm';
+        } else {
+            chip.className = 'project-filter-chip px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all bg-slate-800/60 text-slate-400 border border-slate-700/50 hover:text-white';
+        }
+    });
+
+    filterProjects();
+}
+
+function clearProjectFilters() {
+    const input = document.getElementById('project-search-input');
+    if (input) input.value = '';
+    setProjectStatusFilter('all');
 }
 
 // ================= PROJECT CALCULATOR & EDITOR =================
@@ -584,6 +705,9 @@ function createDefaultPlate(idx = 1) {
         filament_id: defaultFilament ? defaultFilament.id : null,
         custom_printer_hourly_rate: defaultPrinter ? null : 2.50,
         custom_filament_cost_per_g: defaultFilament ? null : 0.10,
+        nozzle_diameter: '0.4',
+        bed_type: 'Textured PEI',
+        layer_height: '0.20',
         print_time_hours: 0,
         part_weight_g: 0,
         purge_weight_g: 0,
@@ -614,6 +738,9 @@ function removePlateRow(index) {
     recalcLiveSummary();
 }
 
+// Global alias for compatibility
+window.removePlate = removePlateRow;
+
 function updatePlateTime(idx) {
     const hElem = document.getElementById(`plate-time-h-${idx}`);
     const mElem = document.getElementById(`plate-time-m-${idx}`);
@@ -632,115 +759,183 @@ function renderPlates() {
         const totalMin = Math.round((plate.print_time_hours || 0) * 60);
         const timeH = Math.floor(totalMin / 60);
         const timeM = totalMin % 60;
+        const nozzle = plate.nozzle_diameter || '0.4';
+        const bed = plate.bed_type || 'Textured PEI';
+        const layer = plate.layer_height || '0.20';
 
         return `
-        <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 relative group">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="w-6 h-6 rounded-full bg-blue-600/20 text-blue-400 font-bold text-xs flex items-center justify-center border border-blue-500/30">
-                        ${idx + 1}
+        <div class="card-dark p-5 rounded-xl space-y-4 relative group transition-all">
+            <!-- Plate Header: Index, Title, Slicer Import & Delete Action -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 font-bold text-xs flex items-center justify-center border border-blue-500/30 font-mono shadow-sm">
+                        #${idx + 1}
                     </span>
-                    <input type="text" value="${plate.name}" oninput="state.currentPlates[${idx}].name = this.value" class="px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs font-semibold text-white focus:outline-none focus:border-blue-500 w-44" placeholder="Nome da Placa">
+                    <input type="text" value="${(plate.name || `Placa ${idx + 1}`).replace(/"/g, '&quot;')}" oninput="state.currentPlates[${idx}].name = this.value" class="px-3 py-1.5 bg-slate-800/80 border border-slate-700 rounded-lg text-xs font-semibold text-white focus:outline-none focus:border-blue-500 w-48 sm:w-56 transition-colors placeholder:text-slate-500" placeholder="Nome da Placa">
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <label class="cursor-pointer px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium border border-slate-700 flex items-center gap-1 transition-colors" title="Carregar 3MF, Gcode ou .gcode.3mf especificamente nesta placa">
-                        <i data-lucide="upload" class="w-3 h-3 text-blue-400"></i> Importar 3MF/Gcode
+                    <label class="cursor-pointer px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-medium border border-slate-700 flex items-center gap-1.5 transition-all shadow-sm" title="Carregar 3MF, Gcode ou .gcode.3mf especificamente nesta placa">
+                        <i data-lucide="file-up" class="w-3.5 h-3.5 text-blue-400"></i> Importar 3MF/Gcode
                         <input type="file" accept=".3mf,.gcode,.gcode.3mf" class="hidden" onchange="handleSinglePlateFile(event, ${idx})">
                     </label>
-                    <button type="button" onclick="removePlateRow(${idx})" class="p-1 text-slate-400 hover:text-red-400 transition-colors" title="Remover Placa">
+                    <button type="button" onclick="removePlateRow(${idx})" class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Remover Placa">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
 
-            <!-- Hardware & Filament selector -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Impressora</label>
-                    <select onchange="updatePlatePrinter(${idx}, this.value)" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-blue-500">
-                        <option value="">Personalizada (Definir R$/h manual)</option>
-                        ${state.printers.map(p => `
-                            <option value="${p.id}" ${plate.printer_id === p.id ? 'selected' : ''}>
-                                ${p.name} (R$ ${p.machine_hourly_rate.toFixed(2)}/h)
-                            </option>
-                        `).join('')}
-                    </select>
-                    ${!plate.printer_id ? `
-                        <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded border border-slate-700/60">
-                            <span class="text-[10px] text-amber-400 font-medium">Taxa manual:</span>
-                            <span class="text-[10px] text-slate-400">R$</span>
-                            <input type="number" step="any" min="0" value="${plate.custom_printer_hourly_rate ?? 2.50}" oninput="state.currentPlates[${idx}].custom_printer_hourly_rate = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400" placeholder="2.50">
-                            <span class="text-[10px] text-slate-400">/h</span>
-                        </div>
-                    ` : ''}
+            <!-- Group A: Hardware & Setup Parameters -->
+            <div class="bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/60 space-y-3">
+                <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <i data-lucide="cpu" class="w-3.5 h-3.5 text-blue-400"></i> Configuração de Hardware & Setup
                 </div>
 
-                <div>
-                    <label class="block text-[11px] font-medium text-slate-400 mb-1 flex items-center justify-between">
-                        <span>Filamento</span>
-                        ${selFil ? `<span class="flex items-center gap-1 text-[10px] text-slate-300 font-normal"><span class="w-2.5 h-2.5 rounded-full inline-block border border-slate-600 shadow-sm" style="background-color: ${selFil.color_hex || '#10b981'};"></span> ${selFil.color || ''}</span>` : ''}
-                    </label>
-                    <div class="relative flex items-center">
-                        <span class="absolute left-2.5 w-3 h-3 rounded-full border border-white/20 pointer-events-none shadow-sm" style="background-color: ${selFil ? (selFil.color_hex || '#10b981') : '#64748b'};"></span>
-                        <select onchange="updatePlateFilament(${idx}, this.value)" class="w-full pl-8 pr-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-blue-500">
-                            <option value="">Personalizado (Definir R$/g manual)</option>
-                            ${state.filaments.map(f => `
-                                <option value="${f.id}" style="color: ${f.color_hex || '#10b981'}" ${plate.filament_id === f.id ? 'selected' : ''}>
-                                    ● ${f.name} (R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g)
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <!-- Printer Selector -->
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-300 mb-1">Impressora</label>
+                        <select onchange="updatePlatePrinter(${idx}, this.value)" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500">
+                            <option value="">Personalizada (Manual)</option>
+                            ${state.printers.map(p => `
+                                <option value="${p.id}" ${plate.printer_id === p.id ? 'selected' : ''}>
+                                    ${p.name} (R$ ${p.machine_hourly_rate.toFixed(2)}/h)
                                 </option>
                             `).join('')}
                         </select>
+                        ${!plate.printer_id ? `
+                            <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/60">
+                                <span class="text-[10px] text-amber-400 font-medium">Taxa manual:</span>
+                                <span class="text-[10px] text-slate-400">R$</span>
+                                <input type="number" step="any" min="0" value="${plate.custom_printer_hourly_rate ?? 2.50}" oninput="state.currentPlates[${idx}].custom_printer_hourly_rate = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400 font-numeric" placeholder="2.50">
+                                <span class="text-[10px] text-slate-400">/h</span>
+                            </div>
+                        ` : ''}
                     </div>
-                    ${!plate.filament_id ? `
-                        <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded border border-slate-700/60">
-                            <span class="text-[10px] text-amber-400 font-medium">Custo manual:</span>
-                            <span class="text-[10px] text-slate-400">R$</span>
-                            <input type="number" step="any" min="0" value="${plate.custom_filament_cost_per_g ?? 0.10}" oninput="state.currentPlates[${idx}].custom_filament_cost_per_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400" placeholder="0.10">
-                            <span class="text-[10px] text-slate-400">/g</span>
+
+                    <!-- Nozzle Diameter -->
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-300 mb-1">Diâmetro do Bico</label>
+                        <select onchange="state.currentPlates[${idx}].nozzle_diameter = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 font-numeric">
+                            <option value="0.4" ${nozzle === '0.4' ? 'selected' : ''}>0.4 mm (Padrão)</option>
+                            <option value="0.2" ${nozzle === '0.2' ? 'selected' : ''}>0.2 mm (Alta Res.)</option>
+                            <option value="0.6" ${nozzle === '0.6' ? 'selected' : ''}>0.6 mm (Rápido)</option>
+                            <option value="0.8" ${nozzle === '0.8' ? 'selected' : ''}>0.8 mm (Industrial)</option>
+                        </select>
+                    </div>
+
+                    <!-- Bed Surface Type -->
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-300 mb-1">Superfície da Mesa</label>
+                        <select onchange="state.currentPlates[${idx}].bed_type = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500">
+                            <option value="Textured PEI" ${bed === 'Textured PEI' ? 'selected' : ''}>PEI Texturizada</option>
+                            <option value="Smooth PEI" ${bed === 'Smooth PEI' ? 'selected' : ''}>PEI Lisa</option>
+                            <option value="Glass" ${bed === 'Glass' ? 'selected' : ''}>Vidro Borossilicato</option>
+                            <option value="Engineering" ${bed === 'Engineering' ? 'selected' : ''}>Engenharia / Fixação</option>
+                            <option value="Garolite" ${bed === 'Garolite' ? 'selected' : ''}>Garolite / G10 (Nylon)</option>
+                        </select>
+                    </div>
+
+                    <!-- Filament Selector with Dynamic Dot -->
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-300 mb-1 flex items-center justify-between">
+                            <span>Filamento</span>
+                            ${selFil ? `<span class="flex items-center gap-1 text-[10px] text-slate-400 font-normal"><span class="w-2 h-2 rounded-full inline-block border border-slate-600 shadow-sm" style="background-color: ${selFil.color_hex || '#10b981'};"></span> ${selFil.material} ${selFil.color || ''}</span>` : ''}
+                        </label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-2.5 w-3 h-3 rounded-full border border-white/20 pointer-events-none shadow-sm" style="background-color: ${selFil ? (selFil.color_hex || '#10b981') : '#64748b'};"></span>
+                            <select onchange="updatePlateFilament(${idx}, this.value)" class="w-full pl-8 pr-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500">
+                                <option value="">Personalizado (Manual)</option>
+                                ${state.filaments.map(f => `
+                                    <option value="${f.id}" style="color: ${f.color_hex || '#10b981'}" ${plate.filament_id === f.id ? 'selected' : ''}>
+                                        ● ${f.name} (R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g)
+                                    </option>
+                                `).join('')}
+                            </select>
                         </div>
-                    ` : ''}
+                        ${!plate.filament_id ? `
+                            <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/60">
+                                <span class="text-[10px] text-amber-400 font-medium">Custo manual:</span>
+                                <span class="text-[10px] text-slate-400">R$</span>
+                                <input type="number" step="any" min="0" value="${plate.custom_filament_cost_per_g ?? 0.10}" oninput="state.currentPlates[${idx}].custom_filament_cost_per_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-20 px-1.5 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-xs text-white font-medium focus:outline-none focus:border-amber-400 font-numeric" placeholder="0.10">
+                                <span class="text-[10px] text-slate-400">/g</span>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
 
-            <!-- Quantitative Inputs -->
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2 border-t border-slate-800/80">
-                <div>
-                    <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Tempo (h : min)</label>
-                    <div class="flex items-center gap-1">
-                        <div class="relative flex-1">
-                            <input type="number" min="0" step="1" id="plate-time-h-${idx}" value="${timeH}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full px-2 py-1 pr-3 bg-slate-800 border border-slate-700 rounded text-xs text-white text-center" title="Horas">
-                            <span class="absolute right-1 top-1 text-[10px] text-slate-400 pointer-events-none">h</span>
-                        </div>
-                        <span class="text-slate-500 font-bold">:</span>
-                        <div class="relative flex-1">
-                            <input type="number" min="0" max="59" step="1" id="plate-time-m-${idx}" value="${timeM}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full px-2 py-1 pr-3 bg-slate-800 border border-slate-700 rounded text-xs text-white text-center" title="Minutos">
-                            <span class="absolute right-1 top-1 text-[10px] text-slate-400 pointer-events-none">m</span>
+            <!-- Group B: Slicer & Physical Parameters -->
+            <div class="bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/60 space-y-3">
+                <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400"></i> Parâmetros do Fatiador & Físicos
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <!-- Print Time Dual Input (Hours & Minutes) -->
+                    <div class="col-span-2 sm:col-span-1">
+                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Tempo (h : min)</label>
+                        <div class="flex items-center gap-1">
+                            <div class="relative flex-1">
+                                <input type="number" min="0" step="1" id="plate-time-h-${idx}" value="${timeH}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full px-2 py-1.5 pr-4 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Horas">
+                                <span class="absolute right-1.5 top-1.5 text-[10px] text-slate-400 pointer-events-none">h</span>
+                            </div>
+                            <span class="text-slate-500 font-bold">:</span>
+                            <div class="relative flex-1">
+                                <input type="number" min="0" max="59" step="1" id="plate-time-m-${idx}" value="${timeM}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full px-2 py-1.5 pr-4 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Minutos">
+                                <span class="absolute right-1.5 top-1.5 text-[10px] text-slate-400 pointer-events-none">m</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div>
-                    <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Peso Peça (g)</label>
-                    <input type="number" step="any" min="0" value="${plate.part_weight_g}" oninput="state.currentPlates[${idx}].part_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Purga (g)</label>
-                    <input type="number" step="any" min="0" value="${plate.purge_weight_g}" oninput="state.currentPlates[${idx}].purge_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Falha (%)</label>
-                    <input type="number" step="any" min="0" value="${plate.failure_margin_percent}" oninput="state.currentPlates[${idx}].failure_margin_percent = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-medium text-slate-400 mb-0.5">Qtd Cópias</label>
-                    <input type="number" step="1" min="1" value="${plate.quantity}" oninput="state.currentPlates[${idx}].quantity = parseInt(this.value,10)||1; recalcLiveSummary();" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-white font-bold">
+
+                    <!-- Layer Height -->
+                    <div>
+                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Camada (mm)</label>
+                        <select onchange="state.currentPlates[${idx}].layer_height = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 font-numeric">
+                            <option value="0.20" ${layer === '0.20' ? 'selected' : ''}>0.20 mm</option>
+                            <option value="0.12" ${layer === '0.12' ? 'selected' : ''}>0.12 mm</option>
+                            <option value="0.16" ${layer === '0.16' ? 'selected' : ''}>0.16 mm</option>
+                            <option value="0.24" ${layer === '0.24' ? 'selected' : ''}>0.24 mm</option>
+                            <option value="0.28" ${layer === '0.28' ? 'selected' : ''}>0.28 mm</option>
+                        </select>
+                    </div>
+
+                    <!-- Part Weight -->
+                    <div>
+                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Peso Peça (g)</label>
+                        <input type="number" step="any" min="0" value="${plate.part_weight_g}" oninput="state.currentPlates[${idx}].part_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="0">
+                    </div>
+
+                    <!-- Purge Weight -->
+                    <div>
+                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Purga (g)</label>
+                        <input type="number" step="any" min="0" value="${plate.purge_weight_g}" oninput="state.currentPlates[${idx}].purge_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="0">
+                    </div>
+
+                    <!-- Failure Margin -->
+                    <div>
+                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Falha (%)</label>
+                        <input type="number" step="any" min="0" value="${plate.failure_margin_percent}" oninput="state.currentPlates[${idx}].failure_margin_percent = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="10">
+                    </div>
+
+                    <!-- Quantity -->
+                    <div>
+                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Qtd Cópias</label>
+                        <input type="number" step="1" min="1" value="${plate.quantity}" oninput="state.currentPlates[${idx}].quantity = parseInt(this.value, 10) || 1; recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-bold font-numeric text-center focus:outline-none focus:border-blue-500" placeholder="1">
+                    </div>
                 </div>
             </div>
 
-            <!-- Single Plate Subtotal Pill -->
-            <div class="flex items-center justify-between pt-1 text-[11px] text-slate-400">
-                <span id="plate-summary-text-${idx}">Calculando custo da placa...</span>
-                <span class="font-bold text-white" id="plate-cost-${idx}">R$ 0,00</span>
+            <!-- Single Plate Subtotal Summary Pill -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 px-1 border-t border-slate-800/80 text-xs">
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                    <span id="plate-summary-text-${idx}" class="text-[11px] text-slate-400 font-mono">Calculando custo da placa...</span>
+                </div>
+                <div class="flex items-center gap-1.5 bg-blue-950/40 border border-blue-500/30 px-3 py-1 rounded-lg">
+                    <span class="text-[10px] text-blue-400 uppercase font-semibold">Custo da Placa:</span>
+                    <span class="font-bold text-white font-numeric text-xs" id="plate-cost-${idx}">R$ 0,00</span>
+                </div>
             </div>
         </div>
         `;
@@ -775,7 +970,7 @@ function updatePlateFilament(idx, val) {
     recalcLiveSummary();
 }
 
-// ================= BOM ITEMS (HARDWARE, SCREWS, ETC) =================
+// ================= BOM (BILL OF MATERIALS) INSUMOS MANAGER =================
 
 function createDefaultBOM() {
     return {
@@ -799,47 +994,94 @@ function removeBomRow(index) {
     recalcLiveSummary();
 }
 
+// Casing aliases to ensure total runtime resilience
+window.addNewBOMRow = addNewBomRow;
+window.removeBOMRow = removeBomRow;
+
 function renderBOM() {
     const container = document.getElementById('bom-container');
     if (!container) return;
 
-    if (state.currentBOM.length === 0) {
+    if (!state.currentBOM || state.currentBOM.length === 0) {
         container.innerHTML = `
-            <div class="p-4 rounded-lg bg-slate-900/40 border border-slate-800/80 text-center text-xs text-slate-400">
-                Nenhum componente adicional (parafusos, insertos, eletrônica) adicionado ao projeto.
+            <div class="p-6 rounded-xl bg-slate-900/40 border border-dashed border-slate-800/80 text-center flex flex-col items-center justify-center space-y-2">
+                <div class="w-10 h-10 rounded-full bg-slate-800/60 border border-slate-700/60 flex items-center justify-center text-slate-400">
+                    <i data-lucide="package-plus" class="w-5 h-5 text-blue-400/80"></i>
+                </div>
+                <p class="text-xs font-semibold text-slate-200">Nenhum componente ou insumo adicional cadastrado.</p>
+                <p class="text-[11px] text-slate-400 max-w-sm">Adicione parafusos, insertos de latão, ímãs, rolamentos ou embalagens para cálculo automático no custo base.</p>
+                <button type="button" onclick="addNewBomRow()" class="mt-2 py-1.5 px-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Adicionar Primeiro Insumo
+                </button>
             </div>
         `;
+        refreshIcons();
         return;
     }
 
-    container.innerHTML = state.currentBOM.map((item, idx) => `
-        <div class="flex flex-wrap items-center gap-3 p-3 bg-slate-900/80 border border-slate-800 rounded-lg text-xs">
-            <div class="flex-1 min-w-[140px]">
-                <input type="text" value="${item.name}" oninput="state.currentBOM[${idx}].name = this.value" placeholder="Item (ex: Parafuso M3)" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white">
+    container.innerHTML = `
+        <div class="space-y-2">
+            <!-- Header Labels (Desktop Table Columns) -->
+            <div class="hidden sm:grid sm:grid-cols-12 gap-3 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800/60">
+                <div class="col-span-4">Descrição do Componente</div>
+                <div class="col-span-2">Categoria</div>
+                <div class="col-span-2 text-center">Qtd</div>
+                <div class="col-span-2 text-right">Custo Unit. (R$)</div>
+                <div class="col-span-1 text-right">Subtotal</div>
+                <div class="col-span-1 text-center">Ações</div>
             </div>
-            <div class="w-28">
-                <select onchange="state.currentBOM[${idx}].category = this.value" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white">
-                    <option value="Fixadores" ${item.category === 'Fixadores' ? 'selected' : ''}>Fixadores</option>
-                    <option value="Insertos" ${item.category === 'Insertos' ? 'selected' : ''}>Insertos</option>
-                    <option value="Eletrônica" ${item.category === 'Eletrônica' ? 'selected' : ''}>Eletrônica</option>
-                    <option value="Embalagem" ${item.category === 'Embalagem' ? 'selected' : ''}>Embalagem</option>
-                    <option value="Outros" ${item.category === 'Outros' ? 'selected' : ''}>Outros</option>
-                </select>
-            </div>
-            <div class="w-16">
-                <input type="number" min="1" step="1" value="${item.quantity}" oninput="state.currentBOM[${idx}].quantity = parseInt(this.value,10)||1; recalcLiveSummary();" placeholder="Qtd" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white text-center font-bold">
-            </div>
-            <div class="w-24">
-                <input type="number" min="0" step="any" value="${item.unit_cost}" oninput="state.currentBOM[${idx}].unit_cost = parseLocaleFloat(this.value, 0); recalcLiveSummary();" placeholder="R$ Unit" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white">
-            </div>
-            <div class="w-24 text-right font-bold text-white" id="bom-subtotal-${idx}">
-                ${formatCurrency((item.quantity || 1) * (item.unit_cost || 0))}
-            </div>
-            <button type="button" onclick="removeBomRow(${idx})" class="p-1 text-slate-400 hover:text-red-400 transition-colors">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
+
+            <!-- Dynamic Insumo Rows -->
+            ${state.currentBOM.map((item, idx) => `
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 p-3 bg-slate-900/70 hover:bg-slate-900/95 border border-slate-800/80 hover:border-slate-700 rounded-lg items-center text-xs transition-all shadow-sm">
+                    <!-- Item Description -->
+                    <div class="sm:col-span-4">
+                        <label class="block sm:hidden text-[10px] text-slate-400 mb-1">Item / Descrição</label>
+                        <input type="text" value="${(item.name || '').replace(/"/g, '&quot;')}" oninput="state.currentBOM[${idx}].name = this.value" placeholder="Item (ex: Parafuso M3)" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-md text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                    </div>
+
+                    <!-- Category Select -->
+                    <div class="sm:col-span-2">
+                        <label class="block sm:hidden text-[10px] text-slate-400 mb-1">Categoria</label>
+                        <select onchange="state.currentBOM[${idx}].category = this.value" class="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 rounded-md text-white text-xs focus:outline-none focus:border-blue-500 transition-colors">
+                            <option value="Fixadores" ${item.category === 'Fixadores' ? 'selected' : ''}>Fixadores</option>
+                            <option value="Insertos" ${item.category === 'Insertos' ? 'selected' : ''}>Insertos</option>
+                            <option value="Eletrônica" ${item.category === 'Eletrônica' ? 'selected' : ''}>Eletrônica</option>
+                            <option value="Embalagem" ${item.category === 'Embalagem' ? 'selected' : ''}>Embalagem</option>
+                            <option value="Outros" ${item.category === 'Outros' ? 'selected' : ''}>Outros</option>
+                        </select>
+                    </div>
+
+                    <!-- Quantity Input (min=1 step=1) -->
+                    <div class="sm:col-span-2">
+                        <label class="block sm:hidden text-[10px] text-slate-400 mb-1">Quantidade</label>
+                        <input type="number" min="1" step="1" value="${item.quantity || 1}" oninput="state.currentBOM[${idx}].quantity = parseInt(this.value, 10) || 1; recalcLiveSummary();" placeholder="Qtd" class="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 rounded-md text-white text-xs text-center font-bold font-mono focus:outline-none focus:border-blue-500 transition-colors">
+                    </div>
+
+                    <!-- Unit Cost (CRITICAL CONTRACT: placeholder="R$ Unit" min="0" step="any") -->
+                    <div class="sm:col-span-2">
+                        <label class="block sm:hidden text-[10px] text-slate-400 mb-1">Custo Unitário</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-2 text-[11px] font-mono text-slate-500 pointer-events-none select-none">R$</span>
+                            <input type="number" min="0" step="any" value="${item.unit_cost ?? 0}" oninput="state.currentBOM[${idx}].unit_cost = parseLocaleFloat(this.value, 0); recalcLiveSummary();" placeholder="R$ Unit" class="w-full pl-7 pr-2 py-1.5 bg-slate-800 border border-slate-700 rounded-md text-white text-xs text-right font-mono focus:outline-none focus:border-blue-500 transition-colors">
+                        </div>
+                    </div>
+
+                    <!-- Subtotal (CRITICAL CONTRACT: id="bom-subtotal-${idx}") -->
+                    <div class="sm:col-span-1 text-right font-mono font-bold text-white text-xs py-1" id="bom-subtotal-${idx}">
+                        ${formatCurrency((item.quantity || 1) * (item.unit_cost || 0))}
+                    </div>
+
+                    <!-- Delete Button Action -->
+                    <div class="sm:col-span-1 flex justify-center items-center pt-1 sm:pt-0">
+                        <button type="button" onclick="removeBomRow(${idx})" class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all" title="Remover Insumo">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('')}
         </div>
-    `).join('');
+    `;
 
     refreshIcons();
 }
@@ -968,6 +1210,56 @@ function recalcLiveSummary() {
     setText('live-tax-amount', formatCurrency(taxAmount));
     setText('live-final-price', formatCurrency(finalPriceToClient));
     setText('live-net-profit', `${formatCurrency(netProfit)} (${effectiveMarginPercent.toFixed(1)}%)`);
+
+    // Dynamic Net Profit & Margin Color Indicator
+    const netProfitEl = document.getElementById('live-net-profit');
+    if (netProfitEl) {
+        if (netProfit < 0) {
+            netProfitEl.className = 'font-mono font-bold text-sm text-rose-400';
+        } else if (effectiveMarginPercent >= 20) {
+            netProfitEl.className = 'font-mono font-bold text-sm text-emerald-400';
+        } else if (effectiveMarginPercent >= 5) {
+            netProfitEl.className = 'font-mono font-bold text-sm text-amber-400';
+        } else {
+            netProfitEl.className = 'font-mono font-bold text-sm text-slate-300';
+        }
+    }
+
+    const marginPill = document.querySelector('.profit-margin-pill');
+    if (marginPill) {
+        marginPill.textContent = `${effectiveMarginPercent >= 0 ? '+' : ''}${effectiveMarginPercent.toFixed(1)}%`;
+        if (netProfit < 0) {
+            marginPill.className = 'profit-margin-pill px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/15 text-rose-400 border border-rose-500/30';
+        } else if (effectiveMarginPercent >= 20) {
+            marginPill.className = 'profit-margin-pill px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+        } else if (effectiveMarginPercent >= 5) {
+            marginPill.className = 'profit-margin-pill px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30';
+        } else {
+            marginPill.className = 'profit-margin-pill px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-800 text-slate-400 border border-slate-700';
+        }
+    }
+
+    // Dynamic Cost Distribution Mini-Bar
+    const barMat = document.querySelector('.cost-bar-mat');
+    const barMach = document.querySelector('.cost-bar-mach');
+    const barLabor = document.querySelector('.cost-bar-labor');
+    const barBom = document.querySelector('.cost-bar-bom');
+    const barOver = document.querySelector('.cost-bar-over');
+    if (barMat && barMach && barLabor && barBom && barOver) {
+        if (baseCost > 0) {
+            barMat.style.width = `${((totalMaterialCost / baseCost) * 100).toFixed(1)}%`;
+            barMach.style.width = `${((totalMachineCost / baseCost) * 100).toFixed(1)}%`;
+            barLabor.style.width = `${((totalLaborCost / baseCost) * 100).toFixed(1)}%`;
+            barBom.style.width = `${((totalBOMCost / baseCost) * 100).toFixed(1)}%`;
+            barOver.style.width = `${((overheadCost / baseCost) * 100).toFixed(1)}%`;
+        } else {
+            barMat.style.width = '20%';
+            barMach.style.width = '20%';
+            barLabor.style.width = '20%';
+            barBom.style.width = '20%';
+            barOver.style.width = '20%';
+        }
+    }
 }
 
 function setText(id, text) {
