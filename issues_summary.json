@@ -1,8 +1,76 @@
 [
   {
+    "number": 27,
+    "title": "[FEAT] Formatação automática e máscara para telefones comerciais e chave PIX",
+    "state": "open",
+    "body": "### Descrição da Solicitação\nNos formulários da aplicação — especificamente o telefone do cliente no editor de orçamento (`#proj-client-phone`) e o telefone/WhatsApp comercial da oficina nas preferências (`#pref-phone`) —, os campos aceitam digitação de texto totalmente livre sem qualquer máscara de formatação ou padronização.\n\nComo esses números são renderizados diretamente no cabeçalho comercial e rodapé das propostas em PDF enviadas aos clientes, preenchimentos sem DDD, sem parênteses ou sem hífen (ex: `11999998888` ou `9999-8888`) prejudicam a apresentação profissional da oficina e dificultam o clique direto para envio de mensagens via WhatsApp pelo cliente.\n\n### Solução Proposta\n1. Implementar função de máscara dinâmica no evento `input` em `frontend/js/app.js`:\n   - Detectar a quantidade de dígitos numéricos e aplicar automaticamente a formatação brasileira:\n     - 10 dígitos: `(XX) XXXX-XXXX` (Telefone Fixo)\n     - 11 dígitos: `(XX) XXXXX-XXXX` (Celular / WhatsApp)\n2. Adicionar listeners nos inputs `#proj-client-phone` e `#pref-phone`.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "ux"
+    ],
+    "created_at": "2026-09-24T18:21:21Z",
+    "closed_at": null
+  },
+  {
+    "number": 26,
+    "title": "[BUG] Cadastro e duplicação de filamento não incluem campo para densidade do material (g/cm³)",
+    "state": "open",
+    "body": "### Descrição do Problema\nO modelo de dados `Filament` (`backend/models.py`) e os schemas Pydantic (`backend/schemas.py`) possuem a propriedade `density_g_cm3` (padrão 1.24 g/cm³), utilizada para conversões volumétricas de comprimento extrudado (mm/cm³) para massa em gramas na importação de arquivos de fatiadores G-code.\n\nEntretanto:\n1. No formulário do modal `#modal-filament` (`frontend/index.html`), não há input para visualizar ou ajustar a densidade do carretel.\n2. Na função `handleSaveFilament()` em `frontend/js/app.js`, o campo `density_g_cm3` é omitido do payload enviado à API, forçando sempre o valor padrão de 1.24 g/cm³ (densidade típica do PLA).\n\nTermoplásticos de engenharia comuns em impressão 3D apresentam densidades significativamente distintas:\n- ABS: ~1.04 g/cm³ (~16% mais leve que PLA)\n- ASA: ~1.07 g/cm³\n- TPU: ~1.21 g/cm³\n- PETG: ~1.27 g/cm³\n- Resina UV: ~1.10 - 1.15 g/cm³\n\nEssa discrepância causa erros no cálculo de peso quando arquivos G-code expressam consumo em volume ou milímetros lineares.\n\n### Solução Proposta\n1. **No modal `frontend/index.html`**:\n   - Adicionar input numérico `#filament-density` (step=\"0.01\", min=\"0.5\") com valor padrão automático preenchido com base no material selecionado.\n2. **No controlador `frontend/js/app.js`**:\n   - Ao trocar o material em `#filament-material`, sugerir a densidade de referência do polímero.\n   - Incluir `density_g_cm3: parseLocaleFloat(document.getElementById('filament-density')?.value, 1.24)` no payload de criação e atualização em `handleSaveFilament`.\n   - Na duplicação de filamento (`openFilamentModal(filament, true)`), herdar a densidade do carretel original.",
+    "labels": [
+      "bug",
+      "frontend",
+      "parsers",
+      "filaments"
+    ],
+    "created_at": "2026-09-24T18:21:20Z",
+    "closed_at": null
+  },
+  {
+    "number": 25,
+    "title": "[FEAT] Filtro por tipo de material na tela de Filamentos e por status operacional na tela de Impressoras",
+    "state": "open",
+    "body": "### Descrição da Solicitação\nA tela inicial de Filamentos (`#view-filaments`) e de Impressoras (`#view-printers`) dispõem atualmente de um campo de busca por texto livre em tempo real (`#filament-search-input` e `#printer-search-input`).\n\nContudo, para oficinas e birôs com catálogos volumosos (dezenas de carretéis de filamento e múltiplas máquinas em produção), a seleção visual rápida por categoria é essencial para agilizar o fluxo de trabalho:\n1. **Na tela de Filamentos (`#view-filaments`)**:\n   - Disponibilizar um seletor/chips de filtro por material (ex: `Todos`, `PLA`, `PETG`, `ABS`, `TPU`, `ASA`, `Resina`, `Outro`).\n   - Ao selecionar uma categoria, a grade exibe exclusivamente os carretéis do polímero correspondente, combinando o filtro categórico com o termo digitado na barra de busca.\n2. **Na tela de Impressoras (`#view-printers`)**:\n   - Disponibilizar um seletor/chips de status operacional (ex: `Todas`, `Ativas`, `Inativas / Manutenção`).\n\n### Solução Proposta\n1. **Na interface (`frontend/index.html`)**:\n   - Adicionar dropdowns ou botões de chip de filtro ao lado dos inputs de busca nas seções `#view-filaments` e `#view-printers`.\n2. **No controlador (`frontend/js/app.js`)**:\n   - Atualizar `filterFilaments()` e `renderFilamentsGrid()` para considerar o material selecionado em conjunto com o termo de busca.\n   - Atualizar `filterPrinters()` e `renderPrintersGrid()` para filtrar pelo status `is_active` em conjunto com a busca.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "ux",
+      "printers",
+      "filaments"
+    ],
+    "created_at": "2026-09-24T18:21:19Z",
+    "closed_at": null
+  },
+  {
+    "number": 24,
+    "title": "[BUG] Pré-visualização do nome do filamento não atualiza ao selecionar tipo de material pelo dropdown",
+    "state": "open",
+    "body": "### Descrição do Problema\nNo modal de cadastro e edição de filamento (`#modal-filament`), a caixa de pré-visualização dinâmica (`#filament-preview-text`) deve gerar e exibir o nome padronizado do material no formato:\n`Material + Cor + - + Marca` (ex: `PETG Azul Royal - Sunlu`).\n\nEntretanto, o elemento `<select id=\"filament-material\">` no arquivo `frontend/index.html` possui apenas o atributo `oninput=\"updateFilamentNamePreview()\"`. Na especificação HTML5 e na implementação da maioria dos navegadores (Google Chrome, Microsoft Edge, Firefox, Safari), elementos do tipo `<select>` disparam o evento `change` ao ter uma opção selecionada pelo cursor do mouse ou navegação por teclado, enquanto o evento `input` pode não ser disparado ou falhar em mudanças programáticas.\n\nComo consequência, ao abrir o modal e selecionar outro polímero (ex: mudar de `PLA` para `PETG` ou `TPU`), o preview permanece exibindo `PLA ...` até que o usuário foque e digite alguma letra nos campos de marca ou cor.\n\n### Passos para Reproduzir\n1. Acessar a tela \"Carretéis de Filamento\" (`#view-filaments`).\n2. Clicar em \"Cadastrar Filamento\".\n3. No campo \"Tipo de Material\", selecionar \"PETG\" ou \"TPU\".\n4. Observar a caixa \"Nome Gerado (Padrão)\": o texto permanece como \"PLA Preto - Marca\" em vez de atualizar imediatamente para \"PETG Preto - Marca\".\n\n### Solução Proposta\nNo arquivo `frontend/index.html`:\nAdicionar o atributo `onchange=\"updateFilamentNamePreview()\"` ao elemento `#filament-material`:\n```html\n<select id=\"filament-material\" oninput=\"updateFilamentNamePreview()\" onchange=\"updateFilamentNamePreview()\" class=\"...\">\n```",
+    "labels": [
+      "bug",
+      "frontend",
+      "filaments"
+    ],
+    "created_at": "2026-09-24T18:21:19Z",
+    "closed_at": null
+  },
+  {
+    "number": 23,
+    "title": "[BUG] Notificações toast exibem '[object Object]' ao ocorrer erro de validação HTTP 422 da API",
+    "state": "open",
+    "body": "### Descrição do Problema\nAo submeter formulários que violam regras de validação do backend (ex: alíquota de impostos superior a 99%, desconto comercial inválido, formato de e-mail incorreto ou campos obrigatórios faltantes), o FastAPI retorna uma resposta com status HTTP 422 (*Unprocessable Entity*) contendo um corpo JSON com a chave `detail` estruturada como uma lista de objetos:\n```json\n{\n  \"detail\": [\n    {\n      \"type\": \"less_than_equal\",\n      \"loc\": [\"body\", \"tax_rate_percent\"],\n      \"msg\": \"Input should be less than or equal to 99\",\n      \"input\": 150,\n      \"ctx\": { \"le\": 99.0 }\n    }\n  ]\n}\n```\n\nNo arquivo `frontend/js/api.js`, o método `API.request` trata os erros da seguinte forma:\n```javascript\nif (!resp.ok) {\n    const msg = data && data.detail ? data.detail : `Erro na requisição (${resp.status})`;\n    throw new Error(msg);\n}\n```\nComo `data.detail` é uma lista de objetos, a conversão nativa de `new Error(data.detail)` chama o método `.toString()`, resultando na mensagem textual `\"[object Object]\"`. Quando o bloco `catch` aciona `showToast(err.message, 'error')`, o usuário visualiza na interface uma notificação toast vermelha contendo apenas o texto opaco e incompreensível `[object Object]`, sem qualquer indicação de qual campo foi rejeitado ou como corrigir o problema.\n\n### Passos para Reproduzir\n1. Abrir o navegador em `http://localhost:8000` e autenticar-se.\n2. Abrir o editor de orçamentos ou executar via console:\n   ```javascript\n   await API.projects.create({ name: 'Teste', tax_rate_percent: 150 });\n   ```\n3. Observar a notificação toast exibida no canto da tela:\n   - Texto exibido: `[object Object]`\n\n### Solução Proposta\nNo arquivo `frontend/js/api.js`, tratar adequadamente respostas onde `data.detail` é um array ou objeto:\n```javascript\nif (!resp.ok) {\n    let msg = `Erro na requisição (${resp.status})`;\n    if (data && data.detail) {\n        if (Array.isArray(data.detail)) {\n            msg = data.detail\n                .map(d => `${d.loc ? d.loc.slice(-1)[0] + ': ' : ''}${d.msg}`)\n                .join('; ');\n        } else if (typeof data.detail === 'string') {\n            msg = data.detail;\n        } else {\n            msg = JSON.stringify(data.detail);\n        }\n    }\n    throw new Error(msg);\n}\n```",
+    "labels": [
+      "bug",
+      "frontend",
+      "ux"
+    ],
+    "created_at": "2026-09-24T18:21:18Z",
+    "closed_at": null
+  },
+  {
     "number": 22,
     "title": "[FEAT] Campo de busca e filtro em tempo real nas telas de Filamentos e Impressoras",
-    "state": "open",
+    "state": "closed",
     "body": "### Descrição da Solicitação\nNa tela inicial do Dashboard, existe um campo de busca em tempo real (`#project-search-input`) que permite filtrar rapidamente os orçamentos por nome do projeto ou nome do cliente.\n\nEntretanto, nas telas \"Meus Filamentos\" (`view-filaments`) e \"Minhas Impressoras\" (`view-printers`), não há qualquer campo de busca ou filtro. Oficinas com grande volume de carretéis de diversas marcas, materiais (PLA, PETG, ABS, TPU, ASA, Nylon) e cores encontram lentidão para localizar materiais específicos na grade de cartões.\n\n### Solução Proposta\n1. **Na interface (`frontend/index.html`)**:\n   - Adicionar uma barra de busca (`input type=\"search\"`) no cabeçalho das seções `#view-filaments` e `#view-printers`.\n2. **No controlador (`frontend/js/app.js`)**:\n   - Criar as funções `filterFilaments()` e `filterPrinters()` ativadas no evento `input`.\n   - Filtrar os itens por nome, marca, tipo de material e cor antes de passar para `renderFilamentsGrid()` e `renderPrintersGrid()`.\n   - Exibir mensagem de busca sem resultados caso nenhum registro coincida com o termo digitado.",
     "labels": [
       "enhancement",
@@ -12,12 +80,12 @@
       "filaments"
     ],
     "created_at": "2026-09-24T07:13:17Z",
-    "closed_at": null
+    "closed_at": "2026-09-24T18:21:25Z"
   },
   {
     "number": 21,
     "title": "[FEAT] Adicionar opção de duplicar placa na calculadora de orçamentos",
-    "state": "open",
+    "state": "closed",
     "body": "### Descrição da Solicitação\nProjetos de impressão 3D frequentemente contêm múltiplas placas de impressão que utilizam a mesma máquina, o mesmo tipo de filamento e as mesmas configurações de margem de falha (ex: um conjunto de 4 placas para compor um gabinete técnico).\n\nAtualmente, o usuário dispõe de duplicação para filamentos inteiros (#15) e clonagem de orçamentos completos no Dashboard, mas ao trabalhar dentro do editor de orçamento não existe botão para duplicar uma placa existente. O usuário é forçado a clicar em \"Nova Placa\" e reconfigurar impressora, filamento, taxa manual e margem de falha linha por linha.\n\n### Solução Proposta\n1. **No card de placa (`renderPlates` em `frontend/js/app.js`)**:\n   - Inserir um botão de ação com ícone `copy` do Lucide ao lado do botão de importação e exclusão:\n     ```html\n     <button type=\"button\" onclick=\"duplicatePlateRow(${idx})\" class=\"p-1 text-slate-400 hover:text-blue-400 transition-colors\" title=\"Duplicar Placa\">\n         <i data-lucide=\"copy\" class=\"w-4 h-4\"></i>\n     </button>\n     ```\n2. **Implementar a função `duplicatePlateRow(idx)`**:\n   - Clonar o objeto da placa em `state.currentPlates[idx]` com novo nome (ex: `${orig.name} (Cópia)`).\n   - Inserir a placa duplicada logo após a placa original (`splice(idx + 1, 0, cloned)`).\n   - Chamar `renderPlates()`, `recalcLiveSummary()` e emitir toast informativo.",
     "labels": [
       "enhancement",
@@ -25,12 +93,12 @@
       "ux"
     ],
     "created_at": "2026-09-24T07:13:15Z",
-    "closed_at": null
+    "closed_at": "2026-09-24T18:21:25Z"
   },
   {
     "number": 20,
     "title": "[BUG] Reimportar o mesmo arquivo de fatiador (3MF/G-code) não atualiza a placa devido ao cache do input file",
-    "state": "open",
+    "state": "closed",
     "body": "### Descrição do Problema\nAo utilizar a funcionalidade \"Importar 3MF/Gcode\" em uma placa individual (`handleSinglePlateFile`) ou no dropzone geral (`setupDropzone`), o elemento `<input type=\"file\">` não tem sua propriedade `.value` redefinida para string vazia (`''`) após o processamento.\n\nNo ciclo de desenvolvimento de peças em impressão 3D, é extremamente comum o operador fatiar o modelo, importá-lo no sistema, perceber a necessidade de um ajuste (ex: infill, suportes ou velocidade), reexportar o arquivo pelo fatiador com o mesmo nome e tentar reimportá-lo para recalcular o tempo e peso. Quando isso ocorre, o navegador detecta que o caminho do arquivo selecionado é idêntico e **não dispara o evento `change`**, fazendo com que a reimportação falhe silenciosamente sem qualquer feedback ao usuário.\n\n### Passos para Reproduzir\n1. Em qualquer placa do orçamento, clique no botão \"Importar 3MF/Gcode\" e selecione um arquivo (ex: `suporte.gcode`).\n2. Os dados de tempo e peso são preenchidos corretamente.\n3. Altere qualquer parâmetro no fatiador e sobrescreva o mesmo arquivo `suporte.gcode`.\n4. Clique novamente em \"Importar 3MF/Gcode\" na placa e selecione novamente o arquivo `suporte.gcode`.\n5. O navegador não dispara o evento `change` e os novos dados não são carregados.\n\n### Solução Proposta\n1. Na função `handleSinglePlateFile(e, plateIdx)` em `frontend/js/app.js`, adicionar:\n   ```javascript\n   if (e.target) e.target.value = '';\n   ```\n2. No ouvinte de `setupDropzone()`, adicionar a mesma limpeza no `fileInput`:\n   ```javascript\n   fileInput.addEventListener('change', (e) => {\n       if (e.target.files && e.target.files.length > 0) {\n           handleSlicerFile(e.target.files[0]);\n           e.target.value = '';\n       }\n   });\n   ```",
     "labels": [
       "bug",
@@ -38,12 +106,12 @@
       "parsers"
     ],
     "created_at": "2026-09-24T07:13:13Z",
-    "closed_at": null
+    "closed_at": "2026-09-24T18:21:24Z"
   },
   {
     "number": 19,
     "title": "[UX/A11Y] Modais de Filamento e Impressora não fecham com a tecla ESC nem com clique no backdrop",
-    "state": "open",
+    "state": "closed",
     "body": "### Descrição do Problema\nAo abrir os modais de cadastro e edição de insumos e equipamentos (`#modal-filament` e `#modal-printer`), os diálogos não possuem comportamento de fechamento por teclado (tecla `Escape`) nem por clique fora do modal (área escura de *backdrop*).\n\nEssa ausência contraria as diretrizes de acessibilidade e usabilidade (WAI-ARIA Dialog Modal Pattern), prejudicando a navegação rápida e forçando o usuário a movimentar o cursor especificamente até o botão \"Cancelar\" ou o ícone \"X\".\n\n### Passos para Reproduzir\n1. Acesse 'Meus Filamentos' ou 'Minhas Impressoras'.\n2. Clique no botão de criar novo item ou editar um item existente para abrir o modal.\n3. Pressione a tecla `ESC` no teclado: o modal permanece aberto.\n4. Clique na área escura ao redor do modal: o modal não fecha.\n\n### Solução Proposta\n1. **Adicionar listener de tecla ESC**:\n   - No `DOMContentLoaded` de `frontend/js/app.js`, adicionar ouvinte global para `keydown`:\n     ```javascript\n     document.addEventListener('keydown', (e) => {\n         if (e.key === 'Escape' || e.key === 'Esc') {\n             closeFilamentModal();\n             closePrinterModal();\n         }\n     });\n     ```\n2. **Adicionar fechamento por clique no backdrop**:\n   - Nos containers `#modal-filament` e `#modal-printer`, verificar se o alvo do evento de clique (`e.target`) é o próprio container do backdrop para invocar a respectiva função de fechamento.",
     "labels": [
       "accessibility",
@@ -51,12 +119,12 @@
       "ux"
     ],
     "created_at": "2026-09-24T07:13:12Z",
-    "closed_at": null
+    "closed_at": "2026-09-24T18:21:24Z"
   },
   {
     "number": 18,
     "title": "[BUG] Itens de BOM aceitam custos unitários e quantidades negativas distorcendo o custo base",
-    "state": "open",
+    "state": "closed",
     "body": "### Descrição do Problema\nNa seção de Itens Adicionais (BOM) do editor de orçamentos (`#bom-container`), os inputs de quantidade e custo unitário aceitam números negativos (ex: `-15` ou `-2`) sem qualquer sanitização no evento `oninput`.\n\nComo consequência, a função reativa `recalcLiveSummary()` calcula subtotais negativos (ex: `-R$ 30,00`), que são somados ao custo total de BOM (`live-bom-cost`) e abatem o custo base do projeto (`live-base-cost`). Isso permite que componentes adicionais artificialmente diminuam o custo real de produção e o preço final de venda cobrado do cliente.\n\n### Passos para Reproduzir\n1. No editor de orçamentos, clique em \"Adicionar Item\" na tabela de Itens Adicionais (BOM).\n2. No campo de custo unitário, digite um valor negativo (ex: `-15`).\n3. Observe que o subtotal do item passa a exibir `-R$ 15,00` e o custo base do projeto no resumo financeiro é reduzido.\n\n### Solução Proposta\n1. **No template de `renderBOM()` (`frontend/js/app.js`)**:\n   - Adicionar atributos `min=\"1\"` para quantidade e `min=\"0\"` para custo unitário.\n   - Tratar no `oninput` com `Math.max(1, ...)` para quantidade e `Math.max(0, ...)` para custo unitário.\n2. **Na função `recalcLiveSummary()`**:\n   - Assegurar que `Math.max(0, unit)` e `Math.max(1, qty)` sejam respeitados no somatório financeiro.",
     "labels": [
       "bug",
@@ -64,12 +132,12 @@
       "financial"
     ],
     "created_at": "2026-09-24T07:13:10Z",
-    "closed_at": null
+    "closed_at": "2026-09-24T18:21:24Z"
   },
   {
     "number": 17,
     "title": "[BUG] Prazo de entrega igual a 0 dias (pronta entrega) é sobrescrito para 3 dias ao salvar e rejeitado pela API",
-    "state": "open",
+    "state": "closed",
     "body": "### Descrição do Problema\nEm oficinas e bureaus de manufatura aditiva (impressão 3D), peças técnicas padronizadas mantidas em estoque ou serviços de pronta entrega / retirada imediata têm prazo de entrega de 0 dias úteis.\n\nNo entanto, o sistema apresenta duas restrições que impedem o uso de prazo zero:\n1. No frontend (`frontend/js/app.js`, função `saveCurrentProject`), a extração do valor é feita com `parseInt(..., 10) || 3`. Como `0` é avaliado como *falsy* em JavaScript, definir o prazo como `0` faz com que o sistema force o valor padrão de 3 dias úteis.\n2. No backend (`backend/schemas.py`, classe `ProjectBase`), o atributo `delivery_days` está anotado como `Field(3, ge=1)`. Se o valor `0` for transmitido, o Pydantic rejeita a requisição com erro HTTP 422 Unprocessable Entity.\n\n### Passos para Reproduzir\n1. No editor de orçamento, localize o campo \"Prazo de Entrega (dias úteis)\".\n2. Digite o valor `0` (representando pronta entrega ou mesmo dia).\n3. Clique em \"Salvar Orçamento\".\n4. Ao recarregar ou exportar o orçamento em PDF, o prazo foi alterado para 3 dias úteis.\n\n### Solução Proposta\n1. **No backend (`backend/schemas.py`)**:\n   - Alterar a validação de `delivery_days` em `ProjectBase` para permitir `ge=0`:\n     ```python\n     delivery_days: Optional[int] = Field(3, ge=0)\n     ```\n2. **No frontend (`frontend/js/app.js`)**:\n   - Ajustar o parser em `saveCurrentProject` para não usar `||` com zero:\n     ```javascript\n     const parsedDays = parseInt(document.getElementById('proj-delivery-days')?.value, 10);\n     delivery_days: isNaN(parsedDays) ? 3 : parsedDays,\n     ```\n   - Em `editProject` e `openNewProject`, garantir que `0` seja mantido no input.\n3. **No gerador de PDF (`backend/pdf_service.py`)**:\n   - Quando `delivery_days == 0`, formatar como \"Pronta entrega / Retirada imediata\" ou \"0 dias úteis\".",
     "labels": [
       "bug",
@@ -77,7 +145,7 @@
       "backend"
     ],
     "created_at": "2026-09-24T07:13:09Z",
-    "closed_at": null
+    "closed_at": "2026-09-24T18:21:23Z"
   },
   {
     "number": 16,

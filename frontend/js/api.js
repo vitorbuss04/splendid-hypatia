@@ -54,7 +54,18 @@ const API = {
             const data = await resp.json().catch(() => null);
 
             if (!resp.ok) {
-                const msg = data && data.detail ? data.detail : `Erro na requisição (${resp.status})`;
+                let msg = `Erro na requisição (${resp.status})`;
+                if (data && data.detail) {
+                    if (Array.isArray(data.detail)) {
+                        msg = data.detail
+                            .map(d => `${d.loc ? d.loc.slice(-1)[0] + ': ' : ''}${d.msg}`)
+                            .join('; ');
+                    } else if (typeof data.detail === 'string') {
+                        msg = data.detail;
+                    } else {
+                        msg = JSON.stringify(data.detail);
+                    }
+                }
                 throw new Error(msg);
             }
 

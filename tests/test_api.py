@@ -943,6 +943,89 @@ def test_dashboard_stats_endpoint(client, make_user):
     assert stats["top_projects"][0]["name"] == "Suporte Drone"
 
 
+def test_project_delivery_days_zero_and_pdf_terms(client, make_user):
+    user = make_user(email="zero_delivery@example.com")
+    headers = user["headers"]
+
+    # 1. Create project with delivery_days = 0
+    payload = {
+        "name": "Projeto Pronta Entrega",
+        "client_name": "Cliente Imediato",
+        "delivery_days": 0,
+        "plates": [
+            {
+                "name": "Peça Estoque",
+                "print_time_hours": 1.0,
+                "part_weight_g": 30.0,
+                "quantity": 1
+            }
+        ]
+    }
+    resp = client.post("/api/projects", json=payload, headers=headers)
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["delivery_days"] == 0
+    proj_id = data["id"]
+
+    # 2. Get project by ID
+    get_resp = client.get(f"/api/projects/{proj_id}", headers=headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["delivery_days"] == 0
+
+    # 3. Update project keeping delivery_days = 0
+    upd_resp = client.put(f"/api/projects/{proj_id}", json={
+        "delivery_days": 0,
+        "notes": "Confirmado pronta entrega"
+    }, headers=headers)
+    assert upd_resp.status_code == 200
+    assert upd_resp.json()["delivery_days"] == 0
+
+    # 4. Duplicate project: ensure delivery_days = 0 is preserved
+    dup_resp = client.post(f"/api/projects/{proj_id}/duplicate", headers=headers)
+    assert dup_resp.status_code == 200
+    assert dup_resp.json()["delivery_days"] == 0
+
+    # 5. PDF generation should format delivery phrase for 0 days
+    pdf_res = client.get(f"/api/projects/{proj_id}/pdf?type=client", headers=headers)
+    assert pdf_res.status_code == 200
+    pdf_text = extract_pdf_stream_text(pdf_res.content)
+    assert "Pronta entrega" in pdf_text or "0 dias" in pdf_text
+
+
+def test_bom_items_negative_validation_rejection(client, make_user):
+    user = make_user(email="bom_neg@example.com")
+    headers = user["headers"]
+
+    # 1. Project creation with negative BOM quantity should be rejected (422)
+    bad_qty_payload = {
+        "name": "Projeto BOM Invalido",
+        "bom_items": [
+            {
+                "name": "Parafuso M3",
+                "quantity": -2,
+                "unit_cost": 1.50
+            }
+        ]
+    }
+    res_qty = client.post("/api/projects", json=bad_qty_payload, headers=headers)
+    assert res_qty.status_code == 422
+
+    # 2. Project creation with negative BOM unit_cost should be rejected (422)
+    bad_cost_payload = {
+        "name": "Projeto BOM Custo Negativo",
+        "bom_items": [
+            {
+                "name": "Parafuso M3",
+                "quantity": 2,
+                "unit_cost": -15.0
+            }
+        ]
+    }
+    res_cost = client.post("/api/projects", json=bad_cost_payload, headers=headers)
+    assert res_cost.status_code == 422
+
+
+
 
 
 
