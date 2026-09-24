@@ -20,7 +20,7 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-metadata = MetaData(schema=DB_SCHEMA) if DB_SCHEMA else MetaData()
+metadata = MetaData(schema=DB_SCHEMA) if (DB_SCHEMA and not DATABASE_URL.startswith("sqlite")) else MetaData()
 Base = declarative_base(metadata=metadata)
 
 def get_db():
