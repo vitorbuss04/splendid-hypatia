@@ -614,6 +614,25 @@ function removePlateRow(index) {
     recalcLiveSummary();
 }
 
+// Issue #21: Duplicate a plate row - clones the object and inserts right after the original
+function duplicatePlateRow(idx) {
+    const orig = state.currentPlates[idx];
+    const cloned = JSON.parse(JSON.stringify(orig));
+    cloned.name = `${orig.name} (Cópia)`;
+    state.currentPlates.splice(idx + 1, 0, cloned);
+    renderPlates();
+    recalcLiveSummary();
+    // Scroll to the new cloned plate
+    const container = document.getElementById('plates-container');
+    if (container) {
+        const plateEls = container.querySelectorAll(':scope > div');
+        if (plateEls[idx + 1]) {
+            plateEls[idx + 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+    showToast('Placa duplicada com sucesso!', 'success');
+}
+
 function updatePlateTime(idx) {
     const hElem = document.getElementById(`plate-time-h-${idx}`);
     const mElem = document.getElementById(`plate-time-m-${idx}`);
@@ -648,6 +667,9 @@ function renderPlates() {
                         <i data-lucide="upload" class="w-3 h-3 text-blue-400"></i> Importar 3MF/Gcode
                         <input type="file" accept=".3mf,.gcode,.gcode.3mf" class="hidden" onchange="handleSinglePlateFile(event, ${idx})">
                     </label>
+                    <button type="button" onclick="duplicatePlateRow(${idx})" class="p-1 text-slate-400 hover:text-blue-400 transition-colors" title="Duplicar Placa">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                    </button>
                     <button type="button" onclick="removePlateRow(${idx})" class="p-1 text-slate-400 hover:text-red-400 transition-colors" title="Remover Placa">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
@@ -827,10 +849,10 @@ function renderBOM() {
                 </select>
             </div>
             <div class="w-16">
-                <input type="number" min="1" step="1" value="${item.quantity}" oninput="state.currentBOM[${idx}].quantity = parseInt(this.value,10)||1; recalcLiveSummary();" placeholder="Qtd" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white text-center font-bold">
+                <input type="number" min="1" step="1" value="${item.quantity}" oninput="state.currentBOM[${idx}].quantity = Math.max(1, parseInt(this.value,10)||1); recalcLiveSummary();" placeholder="Qtd" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white text-center font-bold">
             </div>
             <div class="w-24">
-                <input type="number" min="0" step="any" value="${item.unit_cost}" oninput="state.currentBOM[${idx}].unit_cost = parseLocaleFloat(this.value, 0); recalcLiveSummary();" placeholder="R$ Unit" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white">
+                <input type="number" min="0" step="any" value="${item.unit_cost}" oninput="state.currentBOM[${idx}].unit_cost = Math.max(0, parseLocaleFloat(this.value, 0)); recalcLiveSummary();" placeholder="R$ Unit" class="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white">
             </div>
             <div class="w-24 text-right font-bold text-white" id="bom-subtotal-${idx}">
                 ${formatCurrency((item.quantity || 1) * (item.unit_cost || 0))}
@@ -913,8 +935,8 @@ function recalcLiveSummary() {
     // 2. BOM Items math
     let totalBOMCost = 0;
     state.currentBOM.forEach((item, idx) => {
-        const qty = item.quantity || 1;
-        const unit = item.unit_cost || 0;
+        const qty = Math.max(1, item.quantity || 1);
+        const unit = Math.max(0, item.unit_cost || 0);
         const subtotal = qty * unit;
         totalBOMCost += subtotal;
         const subEl = document.getElementById(`bom-subtotal-${idx}`);
@@ -1004,7 +1026,7 @@ async function saveCurrentProject(navigateBack = true) {
         tax_rate_percent: parseLocaleFloat(document.getElementById('proj-tax').value, 0),
         discount_percent: parseLocaleFloat(document.getElementById('proj-discount').value, 0),
         shipping_cost: parseLocaleFloat(document.getElementById('proj-shipping').value, 0),
-        delivery_days: parseInt(document.getElementById('proj-delivery-days')?.value, 10) || 3,
+        delivery_days: (() => { const d = parseInt(document.getElementById('proj-delivery-days')?.value, 10); return isNaN(d) ? 3 : d; })(),
         payment_terms: document.getElementById('proj-payment-terms')?.value.trim() || null,
         warranty_terms: document.getElementById('proj-warranty-terms')?.value.trim() || null,
         notes: document.getElementById('proj-notes').value.trim(),
@@ -1118,6 +1140,8 @@ function setupDropzone() {
     fileInput.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
             handleSlicerFile(e.target.files[0]);
+            // Reset so same file can be re-selected (issue #20)
+            e.target.value = '';
         }
     });
 }
@@ -1208,6 +1232,8 @@ async function handleSlicerFile(file) {
 
 async function handleSinglePlateFile(e, plateIdx) {
     const file = e.target.files[0];
+    // Reset input value so re-selecting the same file triggers 'change' again (issue #20)
+    if (e.target) e.target.value = '';
     if (!file) return;
 
     try {
@@ -1337,6 +1363,34 @@ async function deletePrinter(id) {
     }
 }
 
+// Issue #22: Real-time search/filter for printers grid
+function filterPrinters() {
+    const term = (document.getElementById('printer-search-input')?.value || '').toLowerCase().trim();
+    const grid = document.getElementById('printers-grid');
+    if (!grid) return;
+    const cards = grid.querySelectorAll(':scope > div[data-printer-id]');
+    let visibleCount = 0;
+    cards.forEach(card => {
+        const name = (card.dataset.printerName || '').toLowerCase();
+        const model = (card.dataset.printerModel || '').toLowerCase();
+        const matches = !term || name.includes(term) || model.includes(term);
+        card.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+    });
+    let noResultsEl = grid.querySelector('.filter-no-results');
+    if (visibleCount === 0 && term) {
+        if (!noResultsEl) {
+            noResultsEl = document.createElement('div');
+            noResultsEl.className = 'filter-no-results col-span-full card-dark p-8 text-center text-slate-400 text-sm';
+            noResultsEl.innerHTML = `<i data-lucide="search-x" class="w-8 h-8 mx-auto mb-2 text-slate-600"></i><p>Nenhuma impressora encontrada para "<strong>${term}</strong>".</p>`;
+            grid.appendChild(noResultsEl);
+            refreshIcons();
+        }
+    } else if (noResultsEl) {
+        noResultsEl.remove();
+    }
+}
+
 function renderPrintersGrid() {
     const grid = document.getElementById('printers-grid');
     if (!grid) return;
@@ -1359,7 +1413,7 @@ function renderPrintersGrid() {
     grid.innerHTML = state.printers.map(p => {
         const rates = p.rates_breakdown || {};
         return `
-            <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between">
+            <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between" data-printer-id="${p.id}" data-printer-name="${(p.name || '').replace(/"/g, '&quot;')}" data-printer-model="${(p.model || '').replace(/"/g, '&quot;')}">
                 <div>
                     <div class="flex items-start justify-between">
                         <div>
@@ -1552,6 +1606,36 @@ async function deleteFilament(id) {
     }
 }
 
+// Issue #22: Real-time search/filter for filaments grid
+function filterFilaments() {
+    const term = (document.getElementById('filament-search-input')?.value || '').toLowerCase().trim();
+    const grid = document.getElementById('filaments-grid');
+    if (!grid) return;
+    const cards = grid.querySelectorAll(':scope > div[data-filament-id]');
+    let visibleCount = 0;
+    cards.forEach(card => {
+        const name = (card.dataset.filamentName || '').toLowerCase();
+        const brand = (card.dataset.filamentBrand || '').toLowerCase();
+        const material = (card.dataset.filamentMaterial || '').toLowerCase();
+        const color = (card.dataset.filamentColor || '').toLowerCase();
+        const matches = !term || name.includes(term) || brand.includes(term) || material.includes(term) || color.includes(term);
+        card.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+    });
+    let noResultsEl = grid.querySelector('.filter-no-results');
+    if (visibleCount === 0 && term) {
+        if (!noResultsEl) {
+            noResultsEl = document.createElement('div');
+            noResultsEl.className = 'filter-no-results col-span-full card-dark p-8 text-center text-slate-400 text-sm';
+            noResultsEl.innerHTML = `<i data-lucide="search-x" class="w-8 h-8 mx-auto mb-2 text-slate-600"></i><p>Nenhum filamento encontrado para "<strong>${term}</strong>".</p>`;
+            grid.appendChild(noResultsEl);
+            refreshIcons();
+        }
+    } else if (noResultsEl) {
+        noResultsEl.remove();
+    }
+}
+
 function renderFilamentsGrid() {
     const grid = document.getElementById('filaments-grid');
     if (!grid) return;
@@ -1574,7 +1658,7 @@ function renderFilamentsGrid() {
     grid.innerHTML = state.filaments.map(f => {
         const matLower = (f.material || 'other').toLowerCase();
         return `
-            <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between">
+            <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between" data-filament-id="${f.id}" data-filament-name="${(f.name || '').replace(/"/g, '&quot;')}" data-filament-brand="${(f.brand || '').replace(/"/g, '&quot;')}" data-filament-material="${(f.material || '').replace(/"/g, '&quot;')}" data-filament-color="${(f.color || '').replace(/"/g, '&quot;')}">
                 <div>
                     <div class="flex items-start justify-between">
                         <div class="flex items-center gap-3">
@@ -1679,6 +1763,22 @@ async function handleSavePreferences(e) {
 window.addEventListener('DOMContentLoaded', async () => {
     refreshIcons();
     setupDropzone();
+
+    // Issue #19: Close filament/printer modals with ESC key (WAI-ARIA dialog pattern)
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || e.key === 'Esc') {
+            closeFilamentModal();
+            closePrinterModal();
+        }
+    });
+
+    // Issue #19: Close modals when clicking on their backdrop (the outer container)
+    document.getElementById('modal-filament')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeFilamentModal();
+    });
+    document.getElementById('modal-printer')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closePrinterModal();
+    });
 
     window.addEventListener('auth:unauthorized', () => {
         document.getElementById('auth-modal').classList.remove('hidden');
