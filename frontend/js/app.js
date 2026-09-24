@@ -917,25 +917,25 @@ function renderPlates() {
                     <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400"></i> Parâmetros do Fatiador & Físicos
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                     <!-- Print Time Dual Input (Hours & Minutes) -->
-                    <div class="col-span-2 sm:col-span-1">
+                    <div class="col-span-2 sm:col-span-2 lg:col-span-2">
                         <label class="block text-[10px] font-medium text-slate-400 mb-1">Tempo (h : min)</label>
                         <div class="flex items-center gap-1">
                             <div class="relative flex-1">
-                                <input type="number" min="0" step="1" id="plate-time-h-${idx}" value="${timeH}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full px-2 py-1.5 pr-4 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Horas">
+                                <input type="number" min="0" step="1" id="plate-time-h-${idx}" value="${timeH}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full pl-2 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Horas">
                                 <span class="absolute right-1.5 top-1.5 text-[10px] text-slate-400 pointer-events-none">h</span>
                             </div>
                             <span class="text-slate-500 font-bold">:</span>
                             <div class="relative flex-1">
-                                <input type="number" min="0" max="59" step="1" id="plate-time-m-${idx}" value="${timeM}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full px-2 py-1.5 pr-4 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Minutos">
+                                <input type="number" min="0" max="59" step="1" id="plate-time-m-${idx}" value="${timeM}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full pl-2 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Minutos">
                                 <span class="absolute right-1.5 top-1.5 text-[10px] text-slate-400 pointer-events-none">m</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Layer Height -->
-                    <div>
+                    <div class="col-span-1">
                         <label class="block text-[10px] font-medium text-slate-400 mb-1">Camada (mm)</label>
                         <select onchange="state.currentPlates[${idx}].layer_height = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 font-numeric">
                             <option value="0.20" ${layer === '0.20' ? 'selected' : ''}>0.20 mm</option>
@@ -947,25 +947,25 @@ function renderPlates() {
                     </div>
 
                     <!-- Part Weight -->
-                    <div>
+                    <div class="col-span-1">
                         <label class="block text-[10px] font-medium text-slate-400 mb-1">Peso Peça (g)</label>
                         <input type="number" step="any" min="0" value="${plate.part_weight_g}" oninput="state.currentPlates[${idx}].part_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="0">
                     </div>
 
                     <!-- Purge Weight -->
-                    <div>
+                    <div class="col-span-1">
                         <label class="block text-[10px] font-medium text-slate-400 mb-1">Purga (g)</label>
                         <input type="number" step="any" min="0" value="${plate.purge_weight_g}" oninput="state.currentPlates[${idx}].purge_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="0">
                     </div>
 
                     <!-- Failure Margin -->
-                    <div>
+                    <div class="col-span-1">
                         <label class="block text-[10px] font-medium text-slate-400 mb-1">Falha (%)</label>
                         <input type="number" step="any" min="0" value="${plate.failure_margin_percent}" oninput="state.currentPlates[${idx}].failure_margin_percent = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="10">
                     </div>
 
                     <!-- Quantity -->
-                    <div>
+                    <div class="col-span-1">
                         <label class="block text-[10px] font-medium text-slate-400 mb-1">Qtd Cópias</label>
                         <input type="number" step="1" min="1" value="${plate.quantity}" oninput="state.currentPlates[${idx}].quantity = parseInt(this.value, 10) || 1; recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-bold font-numeric text-center focus:outline-none focus:border-blue-500" placeholder="1">
                     </div>
