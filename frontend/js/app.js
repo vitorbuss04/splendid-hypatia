@@ -204,8 +204,16 @@ function navigateTo(viewName) {
     // Reload views if needed
     if (viewName === 'dashboard') loadDashboard();
     if (viewName === 'projects') renderProjectsTable();
-    if (viewName === 'printers') renderPrintersGrid();
-    if (viewName === 'filaments') renderFilamentsGrid();
+    if (viewName === 'printers') {
+        const inp = document.getElementById('printer-search-input');
+        if (inp) inp.value = '';
+        renderPrintersGrid();
+    }
+    if (viewName === 'filaments') {
+        const inp = document.getElementById('filament-search-input');
+        if (inp) inp.value = '';
+        renderFilamentsGrid();
+    }
     if (viewName === 'settings') populateSettingsForm();
 
     refreshIcons();
@@ -1366,34 +1374,20 @@ async function deletePrinter(id) {
 // Issue #22: Real-time search/filter for printers grid
 function filterPrinters() {
     const term = (document.getElementById('printer-search-input')?.value || '').toLowerCase().trim();
-    const grid = document.getElementById('printers-grid');
-    if (!grid) return;
-    const cards = grid.querySelectorAll(':scope > div[data-printer-id]');
-    let visibleCount = 0;
-    cards.forEach(card => {
-        const name = (card.dataset.printerName || '').toLowerCase();
-        const model = (card.dataset.printerModel || '').toLowerCase();
-        const matches = !term || name.includes(term) || model.includes(term);
-        card.style.display = matches ? '' : 'none';
-        if (matches) visibleCount++;
-    });
-    let noResultsEl = grid.querySelector('.filter-no-results');
-    if (visibleCount === 0 && term) {
-        if (!noResultsEl) {
-            noResultsEl = document.createElement('div');
-            noResultsEl.className = 'filter-no-results col-span-full card-dark p-8 text-center text-slate-400 text-sm';
-            noResultsEl.innerHTML = `<i data-lucide="search-x" class="w-8 h-8 mx-auto mb-2 text-slate-600"></i><p>Nenhuma impressora encontrada para "<strong>${term}</strong>".</p>`;
-            grid.appendChild(noResultsEl);
-            refreshIcons();
-        }
-    } else if (noResultsEl) {
-        noResultsEl.remove();
-    }
+    renderPrintersGrid(term);
 }
 
-function renderPrintersGrid() {
+function renderPrintersGrid(filterTerm = '') {
     const grid = document.getElementById('printers-grid');
     if (!grid) return;
+
+    const term = filterTerm.toLowerCase().trim();
+    const printers = term
+        ? state.printers.filter(p =>
+            (p.name || '').toLowerCase().includes(term) ||
+            (p.model || '').toLowerCase().includes(term)
+          )
+        : state.printers;
 
     if (state.printers.length === 0) {
         grid.innerHTML = `
@@ -1410,10 +1404,21 @@ function renderPrintersGrid() {
         return;
     }
 
-    grid.innerHTML = state.printers.map(p => {
+    if (printers.length === 0 && term) {
+        grid.innerHTML = `
+            <div class="col-span-full card-dark p-8 text-center text-slate-400">
+                <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 text-slate-600"></i>
+                <p class="text-sm">Nenhuma impressora encontrada para "<strong class="text-white">${term}</strong>".</p>
+            </div>
+        `;
+        refreshIcons();
+        return;
+    }
+
+    grid.innerHTML = printers.map(p => {
         const rates = p.rates_breakdown || {};
         return `
-            <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between" data-printer-id="${p.id}" data-printer-name="${(p.name || '').replace(/"/g, '&quot;')}" data-printer-model="${(p.model || '').replace(/"/g, '&quot;')}">
+            <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between">
                 <div>
                     <div class="flex items-start justify-between">
                         <div>
@@ -1464,6 +1469,7 @@ function renderPrintersGrid() {
     }).join('');
     refreshIcons();
 }
+
 
 function editFilament(id) {
     const filament = state.filaments.find(f => f.id === id || String(f.id) === String(id));
@@ -1609,36 +1615,22 @@ async function deleteFilament(id) {
 // Issue #22: Real-time search/filter for filaments grid
 function filterFilaments() {
     const term = (document.getElementById('filament-search-input')?.value || '').toLowerCase().trim();
-    const grid = document.getElementById('filaments-grid');
-    if (!grid) return;
-    const cards = grid.querySelectorAll(':scope > div[data-filament-id]');
-    let visibleCount = 0;
-    cards.forEach(card => {
-        const name = (card.dataset.filamentName || '').toLowerCase();
-        const brand = (card.dataset.filamentBrand || '').toLowerCase();
-        const material = (card.dataset.filamentMaterial || '').toLowerCase();
-        const color = (card.dataset.filamentColor || '').toLowerCase();
-        const matches = !term || name.includes(term) || brand.includes(term) || material.includes(term) || color.includes(term);
-        card.style.display = matches ? '' : 'none';
-        if (matches) visibleCount++;
-    });
-    let noResultsEl = grid.querySelector('.filter-no-results');
-    if (visibleCount === 0 && term) {
-        if (!noResultsEl) {
-            noResultsEl = document.createElement('div');
-            noResultsEl.className = 'filter-no-results col-span-full card-dark p-8 text-center text-slate-400 text-sm';
-            noResultsEl.innerHTML = `<i data-lucide="search-x" class="w-8 h-8 mx-auto mb-2 text-slate-600"></i><p>Nenhum filamento encontrado para "<strong>${term}</strong>".</p>`;
-            grid.appendChild(noResultsEl);
-            refreshIcons();
-        }
-    } else if (noResultsEl) {
-        noResultsEl.remove();
-    }
+    renderFilamentsGrid(term);
 }
 
-function renderFilamentsGrid() {
+function renderFilamentsGrid(filterTerm = '') {
     const grid = document.getElementById('filaments-grid');
     if (!grid) return;
+
+    const term = filterTerm.toLowerCase().trim();
+    const filaments = term
+        ? state.filaments.filter(f =>
+            (f.name || '').toLowerCase().includes(term) ||
+            (f.brand || '').toLowerCase().includes(term) ||
+            (f.material || '').toLowerCase().includes(term) ||
+            (f.color || '').toLowerCase().includes(term)
+          )
+        : state.filaments;
 
     if (state.filaments.length === 0) {
         grid.innerHTML = `
@@ -1655,10 +1647,21 @@ function renderFilamentsGrid() {
         return;
     }
 
-    grid.innerHTML = state.filaments.map(f => {
+    if (filaments.length === 0 && term) {
+        grid.innerHTML = `
+            <div class="col-span-full card-dark p-8 text-center text-slate-400">
+                <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 text-slate-600"></i>
+                <p class="text-sm">Nenhum filamento encontrado para "<strong class="text-white">${term}</strong>".</p>
+            </div>
+        `;
+        refreshIcons();
+        return;
+    }
+
+    grid.innerHTML = filaments.map(f => {
         const matLower = (f.material || 'other').toLowerCase();
         return `
-            <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between" data-filament-id="${f.id}" data-filament-name="${(f.name || '').replace(/"/g, '&quot;')}" data-filament-brand="${(f.brand || '').replace(/"/g, '&quot;')}" data-filament-material="${(f.material || '').replace(/"/g, '&quot;')}" data-filament-color="${(f.color || '').replace(/"/g, '&quot;')}">
+            <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between">
                 <div>
                     <div class="flex items-start justify-between">
                         <div class="flex items-center gap-3">
@@ -1709,6 +1712,7 @@ function renderFilamentsGrid() {
     }).join('');
     refreshIcons();
 }
+
 
 // ================= SETTINGS & PREFERENCES =================
 
