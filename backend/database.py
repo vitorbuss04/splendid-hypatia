@@ -2,13 +2,20 @@ from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import declarative_base, sessionmaker
 from backend.config import DATABASE_URL, DB_SCHEMA
 
+execution_options = {}
+if DB_SCHEMA:
+    execution_options["schema_translate_map"] = {None: DB_SCHEMA}
+
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+elif DB_SCHEMA:
+    connect_args["options"] = f"-c search_path={DB_SCHEMA},public"
 
 engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,
+    execution_options=execution_options,
     echo=False
 )
 
