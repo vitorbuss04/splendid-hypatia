@@ -1,0 +1,163 @@
+/**
+ * 3D Print Calc Pro — Base Stylesheet
+ * File: frontend/css/base.css
+ * Architecture: Dark Mode SaaS Premium (Font stack, Custom Scrollbar, Global Styles, Selection)
+ */
+
+/* ==========================================================================
+   1. BOX SIZING & HTML DEFAULTS
+   ========================================================================== */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   2. BODY GLOBAL STYLES
+   ========================================================================== */
+body {
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ==========================================================================
+   3. TYPOGRAPHY HIERARCHY & NUMBER FORMATTING
+   ========================================================================== */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary);
+    font-weight: var(--font-semibold);
+    letter-spacing: -0.02em;
+    margin: 0;
+}
+
+p {
+    margin: 0;
+}
+
+/* Tabular Monospace Figures for Calculations & Currency */
+code, 
+kbd, 
+samp, 
+pre, 
+.font-mono, 
+input[type="number"], 
+input[inputmode="decimal"],
+.font-numeric {
+    font-family: var(--font-mono);
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   4. CUSTOM SAAS SCROLLBARS
+   ========================================================================== */
+/* WebKit / Chromium / Edge / Safari */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-hover);
+}
+
+::-webkit-scrollbar-corner {
+    background: var(--bg-app);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-default) var(--bg-app);
+}
+
+/* ==========================================================================
+   5. TEXT SELECTION & ACCESSIBILITY FOCUS
+   ========================================================================== */
+::selection {
+    background-color: rgba(37, 99, 235, 0.40);
+    color: #ffffff;
+}
+
+::-moz-selection {
+    background-color: rgba(37, 99, 235, 0.40);
+    color: #ffffff;
+}
+
+:focus-visible {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 2px;
+}
+
+/* ==========================================================================
+   6. INTERACTIVE ANCHORS & BUTTON RESETS
+   ========================================================================== */
+a {
+    color: var(--text-accent);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+a:hover {
+    color: var(--brand-300);
+}
+
+button {
+    font-family: inherit;
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+}
+
+/* ==========================================================================
+   7. FORM INPUT NORMALIZATION
+   ========================================================================== */
+/* Prevent browser auto-fill blinding white flashes in dark mode */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text-primary);
+    -webkit-box-shadow: 0 0 0px 1000px var(--bg-input) inset;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Hide native number input spinners where appropriate for cleaner aesthetics */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    opacity: 0.2;
+    transition: opacity var(--transition-fast);
+}
+
+input[type="number"]:hover::-webkit-inner-spin-button,
+input[type="number"]:hover::-webkit-outer-spin-button {
+    opacity: 0.6;
+}

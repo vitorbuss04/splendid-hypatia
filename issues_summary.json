@@ -1,0 +1,294 @@
+[
+  {
+    "number": 22,
+    "title": "[FEAT] Campo de busca e filtro em tempo real nas telas de Filamentos e Impressoras",
+    "state": "open",
+    "body": "### Descrição da Solicitação\nNa tela inicial do Dashboard, existe um campo de busca em tempo real (`#project-search-input`) que permite filtrar rapidamente os orçamentos por nome do projeto ou nome do cliente.\n\nEntretanto, nas telas \"Meus Filamentos\" (`view-filaments`) e \"Minhas Impressoras\" (`view-printers`), não há qualquer campo de busca ou filtro. Oficinas com grande volume de carretéis de diversas marcas, materiais (PLA, PETG, ABS, TPU, ASA, Nylon) e cores encontram lentidão para localizar materiais específicos na grade de cartões.\n\n### Solução Proposta\n1. **Na interface (`frontend/index.html`)**:\n   - Adicionar uma barra de busca (`input type=\"search\"`) no cabeçalho das seções `#view-filaments` e `#view-printers`.\n2. **No controlador (`frontend/js/app.js`)**:\n   - Criar as funções `filterFilaments()` e `filterPrinters()` ativadas no evento `input`.\n   - Filtrar os itens por nome, marca, tipo de material e cor antes de passar para `renderFilamentsGrid()` e `renderPrintersGrid()`.\n   - Exibir mensagem de busca sem resultados caso nenhum registro coincida com o termo digitado.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "ux",
+      "printers",
+      "filaments"
+    ],
+    "created_at": "2026-09-24T07:13:17Z",
+    "closed_at": null
+  },
+  {
+    "number": 21,
+    "title": "[FEAT] Adicionar opção de duplicar placa na calculadora de orçamentos",
+    "state": "open",
+    "body": "### Descrição da Solicitação\nProjetos de impressão 3D frequentemente contêm múltiplas placas de impressão que utilizam a mesma máquina, o mesmo tipo de filamento e as mesmas configurações de margem de falha (ex: um conjunto de 4 placas para compor um gabinete técnico).\n\nAtualmente, o usuário dispõe de duplicação para filamentos inteiros (#15) e clonagem de orçamentos completos no Dashboard, mas ao trabalhar dentro do editor de orçamento não existe botão para duplicar uma placa existente. O usuário é forçado a clicar em \"Nova Placa\" e reconfigurar impressora, filamento, taxa manual e margem de falha linha por linha.\n\n### Solução Proposta\n1. **No card de placa (`renderPlates` em `frontend/js/app.js`)**:\n   - Inserir um botão de ação com ícone `copy` do Lucide ao lado do botão de importação e exclusão:\n     ```html\n     <button type=\"button\" onclick=\"duplicatePlateRow(${idx})\" class=\"p-1 text-slate-400 hover:text-blue-400 transition-colors\" title=\"Duplicar Placa\">\n         <i data-lucide=\"copy\" class=\"w-4 h-4\"></i>\n     </button>\n     ```\n2. **Implementar a função `duplicatePlateRow(idx)`**:\n   - Clonar o objeto da placa em `state.currentPlates[idx]` com novo nome (ex: `${orig.name} (Cópia)`).\n   - Inserir a placa duplicada logo após a placa original (`splice(idx + 1, 0, cloned)`).\n   - Chamar `renderPlates()`, `recalcLiveSummary()` e emitir toast informativo.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "ux"
+    ],
+    "created_at": "2026-09-24T07:13:15Z",
+    "closed_at": null
+  },
+  {
+    "number": 20,
+    "title": "[BUG] Reimportar o mesmo arquivo de fatiador (3MF/G-code) não atualiza a placa devido ao cache do input file",
+    "state": "open",
+    "body": "### Descrição do Problema\nAo utilizar a funcionalidade \"Importar 3MF/Gcode\" em uma placa individual (`handleSinglePlateFile`) ou no dropzone geral (`setupDropzone`), o elemento `<input type=\"file\">` não tem sua propriedade `.value` redefinida para string vazia (`''`) após o processamento.\n\nNo ciclo de desenvolvimento de peças em impressão 3D, é extremamente comum o operador fatiar o modelo, importá-lo no sistema, perceber a necessidade de um ajuste (ex: infill, suportes ou velocidade), reexportar o arquivo pelo fatiador com o mesmo nome e tentar reimportá-lo para recalcular o tempo e peso. Quando isso ocorre, o navegador detecta que o caminho do arquivo selecionado é idêntico e **não dispara o evento `change`**, fazendo com que a reimportação falhe silenciosamente sem qualquer feedback ao usuário.\n\n### Passos para Reproduzir\n1. Em qualquer placa do orçamento, clique no botão \"Importar 3MF/Gcode\" e selecione um arquivo (ex: `suporte.gcode`).\n2. Os dados de tempo e peso são preenchidos corretamente.\n3. Altere qualquer parâmetro no fatiador e sobrescreva o mesmo arquivo `suporte.gcode`.\n4. Clique novamente em \"Importar 3MF/Gcode\" na placa e selecione novamente o arquivo `suporte.gcode`.\n5. O navegador não dispara o evento `change` e os novos dados não são carregados.\n\n### Solução Proposta\n1. Na função `handleSinglePlateFile(e, plateIdx)` em `frontend/js/app.js`, adicionar:\n   ```javascript\n   if (e.target) e.target.value = '';\n   ```\n2. No ouvinte de `setupDropzone()`, adicionar a mesma limpeza no `fileInput`:\n   ```javascript\n   fileInput.addEventListener('change', (e) => {\n       if (e.target.files && e.target.files.length > 0) {\n           handleSlicerFile(e.target.files[0]);\n           e.target.value = '';\n       }\n   });\n   ```",
+    "labels": [
+      "bug",
+      "frontend",
+      "parsers"
+    ],
+    "created_at": "2026-09-24T07:13:13Z",
+    "closed_at": null
+  },
+  {
+    "number": 19,
+    "title": "[UX/A11Y] Modais de Filamento e Impressora não fecham com a tecla ESC nem com clique no backdrop",
+    "state": "open",
+    "body": "### Descrição do Problema\nAo abrir os modais de cadastro e edição de insumos e equipamentos (`#modal-filament` e `#modal-printer`), os diálogos não possuem comportamento de fechamento por teclado (tecla `Escape`) nem por clique fora do modal (área escura de *backdrop*).\n\nEssa ausência contraria as diretrizes de acessibilidade e usabilidade (WAI-ARIA Dialog Modal Pattern), prejudicando a navegação rápida e forçando o usuário a movimentar o cursor especificamente até o botão \"Cancelar\" ou o ícone \"X\".\n\n### Passos para Reproduzir\n1. Acesse 'Meus Filamentos' ou 'Minhas Impressoras'.\n2. Clique no botão de criar novo item ou editar um item existente para abrir o modal.\n3. Pressione a tecla `ESC` no teclado: o modal permanece aberto.\n4. Clique na área escura ao redor do modal: o modal não fecha.\n\n### Solução Proposta\n1. **Adicionar listener de tecla ESC**:\n   - No `DOMContentLoaded` de `frontend/js/app.js`, adicionar ouvinte global para `keydown`:\n     ```javascript\n     document.addEventListener('keydown', (e) => {\n         if (e.key === 'Escape' || e.key === 'Esc') {\n             closeFilamentModal();\n             closePrinterModal();\n         }\n     });\n     ```\n2. **Adicionar fechamento por clique no backdrop**:\n   - Nos containers `#modal-filament` e `#modal-printer`, verificar se o alvo do evento de clique (`e.target`) é o próprio container do backdrop para invocar a respectiva função de fechamento.",
+    "labels": [
+      "accessibility",
+      "frontend",
+      "ux"
+    ],
+    "created_at": "2026-09-24T07:13:12Z",
+    "closed_at": null
+  },
+  {
+    "number": 18,
+    "title": "[BUG] Itens de BOM aceitam custos unitários e quantidades negativas distorcendo o custo base",
+    "state": "open",
+    "body": "### Descrição do Problema\nNa seção de Itens Adicionais (BOM) do editor de orçamentos (`#bom-container`), os inputs de quantidade e custo unitário aceitam números negativos (ex: `-15` ou `-2`) sem qualquer sanitização no evento `oninput`.\n\nComo consequência, a função reativa `recalcLiveSummary()` calcula subtotais negativos (ex: `-R$ 30,00`), que são somados ao custo total de BOM (`live-bom-cost`) e abatem o custo base do projeto (`live-base-cost`). Isso permite que componentes adicionais artificialmente diminuam o custo real de produção e o preço final de venda cobrado do cliente.\n\n### Passos para Reproduzir\n1. No editor de orçamentos, clique em \"Adicionar Item\" na tabela de Itens Adicionais (BOM).\n2. No campo de custo unitário, digite um valor negativo (ex: `-15`).\n3. Observe que o subtotal do item passa a exibir `-R$ 15,00` e o custo base do projeto no resumo financeiro é reduzido.\n\n### Solução Proposta\n1. **No template de `renderBOM()` (`frontend/js/app.js`)**:\n   - Adicionar atributos `min=\"1\"` para quantidade e `min=\"0\"` para custo unitário.\n   - Tratar no `oninput` com `Math.max(1, ...)` para quantidade e `Math.max(0, ...)` para custo unitário.\n2. **Na função `recalcLiveSummary()`**:\n   - Assegurar que `Math.max(0, unit)` e `Math.max(1, qty)` sejam respeitados no somatório financeiro.",
+    "labels": [
+      "bug",
+      "frontend",
+      "financial"
+    ],
+    "created_at": "2026-09-24T07:13:10Z",
+    "closed_at": null
+  },
+  {
+    "number": 17,
+    "title": "[BUG] Prazo de entrega igual a 0 dias (pronta entrega) é sobrescrito para 3 dias ao salvar e rejeitado pela API",
+    "state": "open",
+    "body": "### Descrição do Problema\nEm oficinas e bureaus de manufatura aditiva (impressão 3D), peças técnicas padronizadas mantidas em estoque ou serviços de pronta entrega / retirada imediata têm prazo de entrega de 0 dias úteis.\n\nNo entanto, o sistema apresenta duas restrições que impedem o uso de prazo zero:\n1. No frontend (`frontend/js/app.js`, função `saveCurrentProject`), a extração do valor é feita com `parseInt(..., 10) || 3`. Como `0` é avaliado como *falsy* em JavaScript, definir o prazo como `0` faz com que o sistema force o valor padrão de 3 dias úteis.\n2. No backend (`backend/schemas.py`, classe `ProjectBase`), o atributo `delivery_days` está anotado como `Field(3, ge=1)`. Se o valor `0` for transmitido, o Pydantic rejeita a requisição com erro HTTP 422 Unprocessable Entity.\n\n### Passos para Reproduzir\n1. No editor de orçamento, localize o campo \"Prazo de Entrega (dias úteis)\".\n2. Digite o valor `0` (representando pronta entrega ou mesmo dia).\n3. Clique em \"Salvar Orçamento\".\n4. Ao recarregar ou exportar o orçamento em PDF, o prazo foi alterado para 3 dias úteis.\n\n### Solução Proposta\n1. **No backend (`backend/schemas.py`)**:\n   - Alterar a validação de `delivery_days` em `ProjectBase` para permitir `ge=0`:\n     ```python\n     delivery_days: Optional[int] = Field(3, ge=0)\n     ```\n2. **No frontend (`frontend/js/app.js`)**:\n   - Ajustar o parser em `saveCurrentProject` para não usar `||` com zero:\n     ```javascript\n     const parsedDays = parseInt(document.getElementById('proj-delivery-days')?.value, 10);\n     delivery_days: isNaN(parsedDays) ? 3 : parsedDays,\n     ```\n   - Em `editProject` e `openNewProject`, garantir que `0` seja mantido no input.\n3. **No gerador de PDF (`backend/pdf_service.py`)**:\n   - Quando `delivery_days == 0`, formatar como \"Pronta entrega / Retirada imediata\" ou \"0 dias úteis\".",
+    "labels": [
+      "bug",
+      "frontend",
+      "backend"
+    ],
+    "created_at": "2026-09-24T07:13:09Z",
+    "closed_at": null
+  },
+  {
+    "number": 16,
+    "title": "[FEAT] Campos editáveis para condições de pagamento e garantia no orçamento e preferências",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nOs termos de Condição de Pagamento e Garantia apareciam fixos no rodapé da proposta comercial em PDF sem qualquer possibilidade de customização. O usuário necessita de campos para definir esses termos no orçamento individual, bem como definir valores padrão editáveis nas preferências/configurações da oficina para preenchimento automático.\n\n### Solução Implementada\n1. No modelo de dados e banco de dados:\n   - Em `User` (`backend/models.py`), adicionadas as colunas `default_payment_terms` e `default_warranty_terms`.\n   - Em `Project` (`backend/models.py`), adicionadas as colunas `payment_terms` e `warranty_terms`.\n   - Migração dinâmica segura em SQLite implementada em `backend/database.py`.\n2. Nos schemas Pydantic (`backend/schemas.py`):\n   - Atualizados `UserPreferencesUpdate`, `UserResponse`, `ProjectBase`, `ProjectCreate` e `ProjectUpdate`.\n3. No gerador de relatórios PDF (`backend/pdf_service.py`):\n   - Integrada a resolução hierárquica dos termos: orçamento específico -> preferências da oficina -> padrão do sistema.\n4. No frontend (`frontend/index.html` e `frontend/js/app.js`):\n   - Adicionados inputs `#proj-payment-terms` e `#proj-warranty-terms` no editor de orçamentos.\n   - Adicionados inputs `#pref-payment-terms` e `#pref-warranty-terms` no painel de preferências/configurações da oficina.\n   - Sincronização automática na inicialização de projetos (`initNewProject`), edição (`editProject`), salvamento (`saveCurrentProject`) e preferências (`handleSavePreferences`).\n5. Coberto por testes automatizados:\n   - `tests/test_api.py`: `test_project_payment_and_warranty_terms_and_pdf`\n   - `tests/test_frontend_inputs.py`: `test_payment_and_warranty_inputs_in_frontend`.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "pdf",
+      "backend"
+    ],
+    "created_at": "2026-09-23T19:33:42Z",
+    "closed_at": "2026-09-23T19:45:00Z"
+  },
+  {
+    "number": 15,
+    "title": "[FEAT] Adicionar opção de duplicar filamentos",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nAdicionar opção de duplicar filamentos. Quando o usuário deseja cadastrar um novo filamento da mesma marca e linha de um já existente, não é necessário preencher todos os dados (marca, material, peso, preço, etc.) do zero. Ao clicar no botão de duplicar no card de filamento, o modal de cadastro é aberto pré-preenchido com os dados do filamento original e com o campo de cor limpo e com foco ativo pronto para digitação da nova cor.\n\n### Solução Implementada\n1. No frontend (`frontend/js/app.js`):\n   - Adicionada função `duplicateFilament(id)` que localiza o filamento e aciona `openFilamentModal(filament, true)`.\n   - No modal de filamento (`openFilamentModal`), configurado o modo duplicação: define `filament-id` como vazio (salva como novo registro), herda marca, material, peso, preço e tom de cor original, limpa o campo textual de cor, altera o placeholder para \"Digite a nova cor...\" e foca automaticamente no input (`#filament-color`).\n   - Atualizada a prévia em tempo real (`updateFilamentNamePreview`) para refletir dinamicamente a nova cor à medida que é digitada.\n   - No grid de filamentos (`renderFilamentsGrid`), adicionado o botão \"Duplicar\" com ícone de cópia (`data-lucide=\"copy\"`).\n2. Na API cliente (`frontend/js/api.js`):\n   - Adicionado o método `API.filaments.duplicate(id)`.\n3. No backend (`backend/routes/filament_routes.py`):\n   - Implementado o endpoint `POST /api/filaments/{filament_id}/duplicate` com isolamento de usuário e enriquecimento de resposta com custo por grama.\n4. Coberto por testes automatizados:\n   - `tests/test_api.py`: `test_filament_duplicate_endpoint`\n   - `tests/test_frontend_inputs.py`: `test_filament_duplication_features` e `test_filament_duplication_browser_interaction`.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "ux",
+      "filaments"
+    ],
+    "created_at": "2026-09-23T19:26:43Z",
+    "closed_at": "2026-09-23T19:35:22Z"
+  },
+  {
+    "number": 14,
+    "title": "[FEAT] Suporte à leitura e importação de arquivos .gcode.3mf",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nFatiadores modernos como Bambu Studio e OrcaSlicer frequentemente exportam arquivos fatiados com a extensão composta `.gcode.3mf`. A plataforma aceitava apenas `.3mf` ou `.gcode`, impedindo a seleção ou importação direta desse formato comum.\n\n### Solução Implementada\n1. No arquivo `frontend/index.html`:\n   - Atualizados os atributos de upload para `accept=\".3mf,.gcode,.gcode.3mf\"` no dropzone híbrido e cards de placas.\n   - Atualizada a identidade visual e textos informativos do dropzone.\n2. No arquivo `frontend/js/parsers/threemf.js`:\n   - Implementado suporte a pacotes ZIP contendo arquivos G-code embutidos (`Metadata/plate_*.gcode`), extraindo metadados de impressão (tempo estimado, massa de filamento e polímero).\n   - Adicionado fallback resiliente para decodificação como texto caso o arquivo contenha código G-code puro.\n3. No arquivo `frontend/js/app.js`:\n   - Atualizados `handleSlicerFile` e `handleSinglePlateFile` para processar e reconhecer `.gcode.3mf`.\n4. Coberto por testes automatizados em `tests/test_parsers.py` e `tests/test_frontend_inputs.py`.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "parsers"
+    ],
+    "created_at": "2026-09-23T18:55:24Z",
+    "closed_at": "2026-09-23T19:03:55Z"
+  },
+  {
+    "number": 13,
+    "title": "[FEAT] Mudar a posição do botão \"Nova Placa\" para a parte de baixo",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nNa calculadora de orçamentos, o botão \"Nova Placa\" encontrava-se posicionado no cabeçalho superior da seção \"Placas Impressas\", enquanto as novas placas criadas eram adicionadas no final da lista. Quando um projeto continha múltiplas placas, o usuário era obrigado a rolar até o topo da tela para clicar no botão e depois descer até o rodapé para editar a placa adicionada.\n\n### Solução Implementada\n1. No arquivo `frontend/index.html`:\n   - Removido o botão de adição do topo do card de \"Placas Impressas\".\n   - Inserido botão proeminente `#btn-add-plate-bottom` imediatamente abaixo do container de placas (`#plates-container`), com largura total e estilo tracejado integrado.\n2. No arquivo `frontend/js/app.js`:\n   - Na função `addNewPlateRow()`, adicionada rolagem suave automática (`scrollIntoView`) para a nova placa adicionada.\n3. Coberto por testes em `tests/test_frontend_inputs.py` (`test_nova_placa_button_at_bottom`).",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "ux"
+    ],
+    "created_at": "2026-09-23T18:52:09Z",
+    "closed_at": "2026-09-23T19:03:51Z"
+  },
+  {
+    "number": 12,
+    "title": "[BUG] Edição de orçamento reseta campo Impostos / Taxas para 6% quando definido como 0%",
+    "state": "closed",
+    "body": "### Descrição do Problema\nAo editar um orçamento salvo com alíquota de impostos de 0%, o campo \"Impostos / Taxas (%)\" no formulário de edição voltava indevidamente para o valor padrão de 6%, recalculando os valores comerciais de forma equivocada.\n\n### Causa Raiz\nNo arquivo `frontend/js/app.js`, a função `editProject` utilizava o operador lógico OR (`||`) para carregar o valor no formulário:\n`document.getElementById('proj-tax').value = proj.tax_rate_percent || 6;`\nComo `0` é avaliado como falso em JavaScript (`0 || 6 === 6`), a alíquota zero era sempre substituída por 6. O mesmo ocorria nas preferências (`populateSettingsForm`) e na inicialização (`initNewProject`).\n\n### Solução Implementada\n1. No arquivo `frontend/js/app.js`:\n   - Substituído `||` pelo operador de coalescência nula (`??`) em `editProject`:\n     `proj.tax_rate_percent ?? 6`, `proj.profit_margin_percent ?? 30`, `proj.cad_hourly_rate ?? 50`, `proj.post_process_hourly_rate ?? 30`, etc.\n   - Atualizados `initNewProject`, `populateSettingsForm`, `openPrinterModal` e `createDefaultPlate` para preservar valores `0`.\n   - Ajustado fallback em `recalcLiveSummary()` para `0%`.\n2. No backend (`backend/engine.py` e `backend/routes/project_routes.py`):\n   - Função de extração de atributos protegida contra `None` vs `0.0`.\n   - Preservação do campo `delivery_days` na duplicação de projetos.\n3. Adicionados testes automatizados:\n   - `tests/test_api.py`: `test_project_zero_tax_rate_and_preservation`\n   - `tests/test_frontend_inputs.py`: `test_edit_project_preserves_zero_tax_rate_and_nullish_coalescing` (incluindo teste com navegador Chrome headless real).",
+    "labels": [
+      "bug",
+      "frontend",
+      "ux",
+      "financial"
+    ],
+    "created_at": "2026-09-23T18:44:39Z",
+    "closed_at": "2026-09-23T18:56:24Z"
+  },
+  {
+    "number": 11,
+    "title": "Exportação de Orçamento: visualização em nova guia com opção de download",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nAo invés de efetuar o download forçado e imediato do orçamento ao clicar, o sistema deve apresentar uma página de visualização em uma nova guia do navegador, acompanhada de opção de download e impressão.\n\n### Solução Implementada\n1. Criada a página dedicada `frontend/preview.html` com visualizador PDF em tela cheia, barra de ferramentas escura, e botões de `Baixar PDF` e `Imprimir`.\n2. Adicionada rota dedicada `/preview` em `app.py` e suporte a `disposition=inline` e autenticação via query param `token` no endpoint `backend/routes/project_routes.py`.\n3. Atualizados os métodos `API.pdf.preview()` e `exportCurrentPdf()` em `frontend/js/app.js` e botões da interface em `frontend/index.html`.\n4. Coberto por testes em `tests/test_api.py` e `tests/test_frontend_inputs.py`.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "ux",
+      "pdf"
+    ],
+    "created_at": "2026-09-23T18:10:49Z",
+    "closed_at": "2026-09-23T18:10:50Z"
+  },
+  {
+    "number": 10,
+    "title": "Orçamento: campo para prazo de entrega em dias úteis após aprovação no rodapé",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nAdicionar um campo para número de dias úteis para entrega a partir da data de aprovação, conferindo ao usuário controle direto sobre a informação de prazo exibida no rodapé do orçamento em PDF.\n\n### Solução Implementada\n1. Adicionada coluna `delivery_days` ao modelo `Project` em `backend/models.py`, schemas Pydantic e migração do banco SQLite.\n2. Adicionado campo `proj-delivery-days` no formulário do projeto em `frontend/index.html` e controle no `frontend/js/app.js`.\n3. Atualizada a seção de condições comerciais em `backend/pdf_service.py` para injetar o prazo informado (ou cálculo automático de segurança).\n4. Coberto por testes em `tests/test_api.py` e `tests/test_frontend_inputs.py`.",
+    "labels": [
+      "enhancement",
+      "financial",
+      "pdf"
+    ],
+    "created_at": "2026-09-23T18:10:46Z",
+    "closed_at": "2026-09-23T18:10:47Z"
+  },
+  {
+    "number": 9,
+    "title": "Exportação de PDF: exibir apenas o nome do material na coluna de filamento (ex: PLA, TPU)",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nNas propostas e orçamentos em PDF (tanto para o cliente quanto na ficha técnica de produção), a coluna de insumo/filamento deve exibir exclusivamente o nome do material (ex: `PLA`, `TPU`, `PETG`), em vez da descrição completa do carretel.\n\n### Solução Implementada\n1. No motor de cálculo (`backend/engine.py`), incluído o atributo `filament_material` na estrutura resumida das placas.\n2. No gerador de relatórios (`backend/pdf_service.py`), alterado o cabeçalho da coluna para `Material` e exibição exclusiva da nomenclatura técnica do polímero.\n3. Coberto por testes unitários e de integração em `tests/test_api.py`.",
+    "labels": [
+      "enhancement",
+      "pdf",
+      "reporting"
+    ],
+    "created_at": "2026-09-23T18:10:43Z",
+    "closed_at": "2026-09-23T18:10:44Z"
+  },
+  {
+    "number": 8,
+    "title": "Cadastro de filamento: gerar nome padronizado (Material + Cor + - + Marca) e seletor visual de cor",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nAo cadastrar um novo filamento:\n1. Remover o campo manual de nome do filamento.\n2. O nome do filamento deve seguir automaticamente o padrão: `Material + Cor + - + Marca` (ex: `PLA Preto - 3D Prime`).\n3. Adicionar seletor visual de cor (`<input type=\"color\">`), exibindo a cor escolhida tanto no card de filamento quanto no seletor de filamentos da calculadora.\n\n### Solução Implementada\n1. No banco de dados e schemas (`backend/models.py`, `backend/schemas.py`), adicionada a coluna `color_hex` com migração automática no SQLite.\n2. No modal `frontend/index.html`, removido o input de nome livre, adicionado `<input type=\"color\" id=\"filament-color-hex\">` e preview dinâmico do nome gerado.\n3. Em `frontend/js/app.js`, geração automática do nome padronizado no salvamento e inclusão de badges/swatches coloridos no card de filamento e no dropdown de placas da calculadora.\n4. Coberto por testes em `tests/test_api.py` e `tests/test_frontend_inputs.py`.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "database"
+    ],
+    "created_at": "2026-09-23T18:10:39Z",
+    "closed_at": "2026-09-23T18:10:40Z"
+  },
+  {
+    "number": 7,
+    "title": "Inputs das placas: adicionar campos separados para horas e minutos (ex: 1:30)",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nNos inputs quantitativos das placas na calculadora, adicionar um campo específico para minutos além de apenas horas, viabilizando preenchimento intuitivo como `1:30` em vez de apenas `1` ou decimais complexos.\n\n### Solução Implementada\n1. Decomposto o input de tempo em `frontend/js/app.js` em dois campos numéricos agrupados: Horas (`plate-time-h-${idx}`) e Minutos (`plate-time-m-${idx}`).\n2. Implementada função reativa `updatePlateTime(idx)` que converte `h + m/60` para horas decimais em tempo real.\n3. Importações de 3MF e G-Code decompõem automaticamente o tempo lido em horas e minutos no formulário.\n4. Adicionado teste de validação em `tests/test_frontend_inputs.py`.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "ux"
+    ],
+    "created_at": "2026-09-23T18:10:35Z",
+    "closed_at": "2026-09-23T18:10:36Z"
+  },
+  {
+    "number": 6,
+    "title": "Importação de G-Code: extrair tempo estimado de impressão além do peso do filamento",
+    "state": "closed",
+    "body": "### Descrição do Problema\nAo importar arquivos `.gcode`, o leitor puxava apenas os gramas do filamento, deixando o tempo estimado de impressão zerado ou falhando na extração de cabeçalhos de diversos fatiadores.\n\n### Causa Raiz\n1. A checagem de palavras-chave de tempo em `frontend/js/parsers/gcode.js` era estritamente sensível a maiúsculas/minúsculas (`line.includes('print time')` falhava em `;Print time:` ou `;Estimated printing time:`).\n2. Regexes de Cura falhavam quando havia espaços após o ponto-e-vírgula (ex: `; TIME:`).\n3. Padrões sem segundos (como `1:30` ou `01:45`) e linhas combinadas de Bambu/OrcaSlicer não eram casados.\n4. O leitor analisava apenas 500 linhas finais, perdendo metadados em fatiadores com rodapés de configuração extensos (+800 linhas).\n\n### Solução Implementada\n1. Reformulado o extrator em `frontend/js/parsers/gcode.js` para busca normalizada em minúsculas, ampliação de janela para 3000 linhas e fallback dinâmico.\n2. Adicionado suporte completo para Cura, PrusaSlicer, SuperSlicer, Bambu Studio, OrcaSlicer, IdeaMaker e Creality Print.\n3. Atualizado o espelho de testes `tests/test_parsers.py` com cobertura completa de casos de borda.",
+    "labels": [
+      "bug",
+      "frontend",
+      "parsers"
+    ],
+    "created_at": "2026-09-23T18:10:32Z",
+    "closed_at": "2026-09-23T18:10:33Z"
+  },
+  {
+    "number": 5,
+    "title": "Card de filamento: exibir custo por grama com 2 casas decimais",
+    "state": "closed",
+    "body": "### Descrição da Solicitação\nNo elemento de destaque do card de filamento (`mt-4 p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-center`), o custo por grama do filamento deve ser exibido com duas casas decimais em vez de quatro casas decimais.\n\n### Solução Implementada\n1. Atualizada a interpolação do card em `frontend/js/app.js` de `f.cost_per_gram.toFixed(4)` para `f.cost_per_gram.toFixed(2)`.\n2. Adicionado teste automatizado em `tests/test_frontend_inputs.py` para assegurar conformidade do componente visual.",
+    "labels": [
+      "enhancement",
+      "frontend",
+      "ui"
+    ],
+    "created_at": "2026-09-23T18:10:28Z",
+    "closed_at": "2026-09-23T18:10:29Z"
+  },
+  {
+    "number": 4,
+    "title": "Input numérico decimal: digitação de vírgula limpa o valor no navegador",
+    "state": "closed",
+    "body": "### Descrição do Problema\nAo digitar uma vírgula em campos numéricos (`<input type=\"number\">`), listeners anteriores tentavam concatenar `.` diretamente na propriedade `.value` (`target.value += '.'`). Em navegadores como Google Chrome e Microsoft Edge, atribuir uma string terminada em ponto (como `56.`) a um `input[type=\"number\"]` viola o algoritmo de sanitização do padrão HTML5, resultando na limpeza imediata do campo (`value = \"\"`).\n\n### Causa Raiz\nNo padrão HTML5, `input[type=\"number\"].value` não aceita `.` sem dígitos subsequentes. A execução de fallback `target.value += '.'` nos listeners de `beforeinput` e `keydown` limpava o valor digitado pelo usuário.\n\n### Solução Implementada\n1. Implementada alternância dinâmica de modo de entrada: no evento `focusin`, o input transiciona para `type=\"text\"` com `inputMode=\"decimal\"`, permitindo digitação fluida de números, vírgula e ponto sem sanitização destrutiva do navegador.\n2. No evento `focusout`, o valor é normalizado via `parseLocaleFloat` e o tipo é restaurado com segurança para `number`.\n3. Adicionada função `normalizeNumericInputs()` chamada antes do salvamento de projetos, filamentos, impressoras e preferências.\n4. Coberto por testes unitários e de navegador real em `tests/test_frontend_inputs.py`.",
+    "labels": [
+      "bug",
+      "frontend",
+      "ux"
+    ],
+    "created_at": "2026-09-23T17:22:52Z",
+    "closed_at": "2026-09-23T17:22:53Z"
+  },
+  {
+    "number": 3,
+    "title": "Cadastrar impressora: vida útil em horas rejeita valores redondos (5000h)",
+    "state": "closed",
+    "body": "### Descrição do Problema\nAo cadastrar uma impressora 3D, o campo de vida útil estimada em horas rejeitava o valor padrão recomendado de 5000h (e outros valores redondos como 3000h), aceitando apenas valores com step mismatch (ex: 5001h, 3001h).\n\n### Causa Raiz\nO campo `<input type=\"number\" id=\"printer-lifespan\">` possuía `step=\"100\"` combinado com `min=\"1\"`. Como `(5000 - 1) % 100 = 99 != 0`, o valor 5000h gerava `stepMismatch`, enquanto valores incomuns como 5001h eram aceitos.\n\n### Solução Implementada\n1. Alterado `step=\"any\"` e `min=\"1\"` em `frontend/index.html`.\n2. Implementado `parseLocaleFloat` com fallback seguro para `5000` em `handleSavePrinter`.\n3. Verificado cálculo de taxa horária de depreciação `acquisition_cost / lifespan_hours` com valores decimais e redondos no motor de custos (`backend/engine.py`).\n4. Coberto por testes em `tests/test_api.py` e `tests/test_frontend_inputs.py`.",
+    "labels": [
+      "bug",
+      "frontend",
+      "printers"
+    ],
+    "created_at": "2026-09-23T17:22:49Z",
+    "closed_at": "2026-09-23T17:22:50Z"
+  },
+  {
+    "number": 2,
+    "title": "Cadastrar filamento: preço do carretel só aceita inteiros e bloqueia centavos (ex: 56,50)",
+    "state": "closed",
+    "body": "### Descrição do Problema\nO cadastro do filamento não aceitava valores com centavos (ex: R$ 56,50), forçando o preenchimento de números inteiros. Como se trata de precificação financeira, valores fracionários são fundamentais para o cálculo exato do custo por grama.\n\n### Causa Raiz\nO input HTML continha `step=\"1\"` (padrão de `<input type=\"number\">`), bloqueando decimais. Além disso, a inserção com vírgula ou no formato monetário brasileiro `56,50` ou `R$ 56,50` falhava no navegador.\n\n### Solução Implementada\n1. No HTML `frontend/index.html`, atualizado `filament-price` para `step=\"any\"`.\n2. No JavaScript `frontend/js/app.js`:\n   - Implementada função `parseLocaleFloat` com suporte completo a moeda brasileira (`R$ 56,50`, `56,50`, `1.200,50`) e internacional (`56.50`).\n   - Adicionado listener global `paste` com parsing monetário.\n3. No backend, schema e banco utilizam `float` com precisão adequada para centavos e custo por grama com alta precisão decimal.\n4. Coberto por testes unitários e de integração em `tests/test_api.py` e `tests/test_frontend_inputs.py`.",
+    "labels": [
+      "bug",
+      "frontend",
+      "financial"
+    ],
+    "created_at": "2026-09-23T17:22:45Z",
+    "closed_at": "2026-09-23T17:22:46Z"
+  },
+  {
+    "number": 1,
+    "title": "Cadastrar filamento: peso do carretel só aceita valores ímpares (ex: 1001) e rejeita 1000g",
+    "state": "closed",
+    "body": "### Descrição do Problema\nAo cadastrar um carretel de filamento, o campo de peso (em gramas) só aceitava valores ímpares como 1001g, rejeitando o valor padrão da indústria (1000g).\n\n### Causa Raiz\nO elemento `<input type=\"number\" id=\"filament-weight\">` no arquivo `frontend/index.html` possuía simultaneamente os atributos `min=\"1\"` e `step=\"50\"`. Pela especificação HTML5, o valor válido deve cumprir `(valor - min) % step === 0`. Portanto, `(1000 - 1) % 50 = 49 != 0` (inválido), enquanto `(1001 - 1) % 50 = 0` (válido).\n\n### Solução Implementada\n1. Alterado atributo no HTML para `step=\"any\"` e `min=\"1\"`.\n2. Implementada validação numérica flexível no frontend (`frontend/js/app.js`) e backend Pydantic (`backend/schemas.py`).\n3. Adicionada cobertura de testes automatizados em `tests/test_api.py` e `tests/test_frontend_inputs.py` para pesos comuns (250g, 500g, 1000g, 1001g).",
+    "labels": [
+      "bug",
+      "frontend",
+      "ux"
+    ],
+    "created_at": "2026-09-23T17:18:40Z",
+    "closed_at": "2026-09-23T17:18:41Z"
+  }
+]

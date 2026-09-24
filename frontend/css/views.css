@@ -1,0 +1,744 @@
+/* ==========================================================================
+   3D PRINT CALC PRO — VIEWS & VIEWPORT INTEGRATION STYLESHEET
+   File: frontend/css/views.css
+   Specification: Milestone 1 (M1.3)
+   Architecture: Dark Mode SaaS Premium (Views, Sidebar, Tables, Terminal, Catalogs)
+   ========================================================================== */
+
+/* ==========================================================================
+   1. MAIN APPLICATION LAYOUT & SIDEBAR NAVIGATION
+   ========================================================================== */
+
+/* Full-viewport Application Container */
+#app-layout {
+    display: flex;
+    min-height: 100vh;
+    height: 100vh;
+    background-color: var(--bg-canvas, #0b0f17);
+    color: var(--text-primary, #f8fafc);
+    overflow: hidden;
+    position: relative;
+}
+
+/* Sidebar Shell */
+aside {
+    width: 16rem; /* 256px */
+    background-color: var(--bg-surface, #111827) !important;
+    border-right: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06)) !important;
+    box-shadow: var(--shadow-lg, 0 12px 24px -4px rgba(0, 0, 0, 0.55));
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 30;
+    transition: width var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Sidebar Brand Header */
+aside .h-16 {
+    height: 4rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06)) !important;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+}
+
+aside .h-16 .rounded-xl {
+    box-shadow: 0 0 16px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Navigation Menu & Pills */
+aside nav {
+    padding: 0.75rem;
+}
+
+aside nav button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--radius-md, 0.5rem);
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 500;
+    color: var(--text-secondary, #94a3b8);
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    user-select: none;
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+    overflow: hidden;
+}
+
+/* Navigation Inactive Hover State */
+aside nav button:hover:not(.bg-blue-600) {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+    color: var(--text-primary, #f8fafc) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+    transform: translateX(2px);
+}
+
+aside nav button:hover:not(.bg-blue-600) i {
+    color: var(--brand-400, #60a5fa);
+    transform: scale(1.08);
+}
+
+/* Active Navigation Pill State */
+aside nav button.bg-blue-600,
+aside nav button.nav-active {
+    position: relative;
+    background: linear-gradient(90deg, rgba(37, 99, 235, 0.22) 0%, rgba(37, 99, 235, 0.08) 100%) !important;
+    border: 1px solid rgba(59, 130, 246, 0.40) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.20),
+                inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Micro-Active Indicator (Glow Bar on Left Edge) */
+aside nav button.bg-blue-600::before,
+aside nav button.nav-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 18%;
+    bottom: 18%;
+    width: 3px;
+    background: #60a5fa;
+    border-radius: 0 4px 4px 0;
+    box-shadow: 0 0 10px #3b82f6, 0 0 4px #60a5fa;
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+aside nav button i {
+    flex-shrink: 0;
+    transition: transform var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)),
+                color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+aside nav button.bg-blue-600 i,
+aside nav button.nav-active i {
+    color: #60a5fa !important;
+    transform: scale(1.08);
+}
+
+/* User Profile & Footer Area */
+aside .border-t {
+    border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06)) !important;
+    background-color: rgba(11, 15, 23, 0.50) !important;
+}
+
+#user-avatar {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(17, 24, 39, 0.8) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    color: #93c5fd;
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.15);
+}
+
+#user-display-name {
+    color: var(--text-primary, #f8fafc);
+}
+
+#user-display-company {
+    color: var(--text-muted, #64748b);
+}
+
+aside button[title*="Sair"]:hover {
+    color: var(--rose-400, #f87171) !important;
+    background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+aside button[title*="Sair"]:hover i {
+    transform: rotate(-10deg) scale(1.1);
+}
+
+
+/* ==========================================================================
+   2. STICKY TOPBAR & HEADER ACTIONS
+   ========================================================================== */
+
+main header.sticky {
+    background: var(--bg-glass, rgba(17, 24, 39, 0.75)) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06)) !important;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+    z-index: 20;
+}
+
+#view-title {
+    color: var(--text-primary, #f8fafc);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+#topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+
+/* ==========================================================================
+   3. DASHBOARD VIEW & OPERATIONAL STAT CARDS
+   ========================================================================== */
+
+#view-dashboard {
+    position: relative;
+}
+
+/* Dashboard Metric Cards Grid */
+#view-dashboard .grid > .card-dark {
+    position: relative;
+    padding: 1.25rem;
+    overflow: hidden;
+    cursor: default;
+}
+
+/* Metric Counter Numbers */
+#stat-projects-count,
+#stat-active-quotes,
+#stat-printers-count,
+#stat-filaments-count {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+}
+
+/* Card Metric Colored Icon Pods */
+#view-dashboard .card-dark .w-12.h-12 {
+    transition: transform var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+#view-dashboard .card-dark:hover .w-12.h-12 {
+    transform: scale(1.08) translateY(-2px);
+}
+
+/* Onboarding Clean Account Banner */
+#dashboard-empty-banner {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(17, 24, 39, 0.8) 100%) !important;
+    border: 1px solid rgba(59, 130, 246, 0.35) !important;
+    box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.50), 0 0 20px rgba(37, 99, 235, 0.15);
+}
+
+/* Recent Projects Table Container */
+#dashboard-recent-projects {
+    overflow-x: auto;
+    border-radius: var(--radius-lg, 0.75rem);
+}
+
+
+/* ==========================================================================
+   4. PROJECTS VIEW & TOOLBAR
+   ========================================================================== */
+
+#project-search-input {
+    min-width: 260px;
+    padding-left: 2.25rem !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'/%3e%3c/svg%3e");
+    background-position: left 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1rem 1rem;
+}
+
+#projects-table-container {
+    overflow-x: auto;
+    border-radius: var(--radius-lg, 0.75rem);
+    border: 1px solid var(--border-default, #243044);
+    background-color: var(--bg-card, #151d2e);
+    box-shadow: var(--shadow-md, 0 4px 12px -2px rgba(0, 0, 0, 0.45));
+}
+
+
+/* ==========================================================================
+   5. DATA TABLES STYLING (table, thead, th, tbody, tr, td)
+   ========================================================================== */
+
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: left;
+    font-size: var(--text-xs, 0.75rem);
+}
+
+/* Table Header */
+thead th {
+    background-color: rgba(17, 24, 39, 0.85) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--text-muted, #64748b) !important;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-default, #243044) !important;
+    white-space: nowrap;
+    user-select: none;
+}
+
+thead tr th:first-child {
+    border-top-left-radius: var(--radius-md, 0.5rem);
+}
+
+thead tr th:last-child {
+    border-top-right-radius: var(--radius-md, 0.5rem);
+}
+
+/* Table Body Rows */
+tbody tr {
+    transition: background-color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+tbody tr:hover {
+    background-color: rgba(37, 99, 235, 0.06) !important;
+}
+
+tbody td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+    vertical-align: middle;
+    color: var(--text-secondary, #94a3b8);
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Table Numeric & Currency Columns */
+td.font-numeric,
+td:has([id*="price"]),
+td:has([id*="cost"]),
+td:has([id*="time"]) {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Action Icon Buttons within Tables */
+td button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm, 0.375rem);
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+td button:hover {
+    transform: scale(1.12);
+}
+
+
+/* ==========================================================================
+   6. STICKY FINANCIAL SUMMARY TERMINAL CARD
+   ========================================================================== */
+
+/* Sticky Column Anchor: top offset accommodates 4rem topbar + 1.5rem gap */
+.lg\:col-span-4.sticky,
+div[class*="col-span-4"].sticky {
+    position: sticky;
+    top: 5.5rem;
+    z-index: 15;
+}
+
+/* Financial Terminal Card Container */
+.summary-panel-card,
+.sticky > .card-dark,
+.card-dark:has(#live-final-price) {
+    background: var(--bg-glass-card, rgba(21, 29, 46, 0.88)) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(59, 130, 246, 0.35) !important;
+    box-shadow: var(--shadow-xl, 0 24px 48px -12px rgba(0, 0, 0, 0.70)),
+                0 0 35px rgba(37, 99, 235, 0.16),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    border-radius: var(--radius-xl, 1rem);
+    position: relative;
+}
+
+/* Dual-Accent Top Hairline Bevel (Royal Blue to Emerald) */
+.summary-panel-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, #3b82f6 35%, #10b981 70%, transparent 100%);
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Summary Header & Real-Time Badge */
+.summary-panel-card h3,
+.card-dark:has(#live-final-price) h3 {
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+}
+
+.summary-panel-card span.font-mono,
+.card-dark:has(#live-final-price) span.font-mono {
+    background: rgba(30, 58, 138, 0.50) !important;
+    color: #93c5fd !important;
+    border: 1px solid rgba(59, 130, 246, 0.40) !important;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-xs, 0.25rem);
+    font-size: 0.625rem;
+    letter-spacing: 0.05em;
+}
+
+/* Live Numeric Breakdown Text Alignment */
+#live-weight,
+#live-time,
+#live-material-cost,
+#live-machine-cost,
+#live-bom-cost,
+#live-labor-cost,
+#live-overhead-cost,
+#live-base-cost,
+#live-suggested-price,
+#live-discount-amount,
+#live-shipping-amount,
+#live-tax-amount {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+/* Base Cost Total Line Highlight */
+div:has(> #live-base-cost) {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.35rem 0.5rem;
+    border-radius: var(--radius-sm, 0.375rem);
+    margin: 0.25rem -0.5rem 0;
+}
+
+#live-base-cost {
+    font-weight: 700;
+    color: #ffffff;
+}
+
+/* Final Price Hero Pod */
+.final-price-box,
+div:has(> #live-final-price) {
+    background: radial-gradient(circle at center, rgba(37, 99, 235, 0.22) 0%, rgba(15, 23, 42, 0.75) 100%) !important;
+    border: 1px solid rgba(59, 130, 246, 0.45) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15),
+                0 4px 20px rgba(37, 99, 235, 0.25) !important;
+    border-radius: var(--radius-lg, 0.75rem);
+    position: relative;
+    overflow: hidden;
+}
+
+.final-price-box::before,
+div:has(> #live-final-price)::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(96, 165, 250, 0.8) 50%, transparent 100%);
+    pointer-events: none;
+}
+
+/* Vibrant Emerald/Royal-Blue Gradient Typography */
+#live-final-price {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace) !important;
+    font-size: 1.875rem !important; /* text-3xl / 30px */
+    font-weight: 800 !important;
+    letter-spacing: -0.025em;
+    background: linear-gradient(135deg, #60a5fa 0%, #38bdf8 45%, #34d399 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.40));
+}
+
+/* Net Profit & Margin Indicator Pod */
+.net-profit-box,
+div:has(> #live-net-profit) {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 78, 59, 0.20) 100%) !important;
+    border: 1px solid rgba(16, 185, 129, 0.35) !important;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    border-radius: var(--radius-lg, 0.75rem);
+}
+
+#live-net-profit {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace) !important;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Profit Margin Pill Classes */
+.profit-margin-pill {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-variant-numeric: tabular-nums;
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Visual Cost Distribution Mini-Bar */
+.cost-distribution-bar {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.cost-distribution-bar > div {
+    height: 100%;
+    min-width: 2px;
+}
+
+/* Primary Save Button in Terminal */
+.btn-save-project {
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20);
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.btn-save-project:hover {
+    box-shadow: 0 6px 22px rgba(37, 99, 235, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.30);
+    transform: translateY(-1px);
+}
+
+.btn-save-project:active {
+    transform: scale(0.98);
+}
+
+
+/* ==========================================================================
+   7. CATALOG ITEMS: PRINTERS & MACHINE RATES
+   ========================================================================== */
+
+#printers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+#printers-grid .card-dark,
+.printer-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
+                border-color var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
+                box-shadow var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+#printers-grid .card-dark:hover,
+.printer-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.40) !important;
+    box-shadow: var(--shadow-lg, 0 12px 24px -4px rgba(0, 0, 0, 0.55)),
+                0 0 20px rgba(37, 99, 235, 0.15) !important;
+}
+
+/* Machine Rate Total Box */
+.printer-rate-box,
+#printers-grid .card-dark .bg-blue-950\/30 {
+    background: radial-gradient(circle at center, rgba(37, 99, 235, 0.18) 0%, rgba(15, 23, 42, 0.80) 100%) !important;
+    border: 1px solid rgba(59, 130, 246, 0.40) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                0 2px 10px rgba(37, 99, 235, 0.15) !important;
+    border-radius: var(--radius-lg, 0.75rem);
+    padding: 0.75rem;
+    text-align: center;
+}
+
+#printers-grid .card-dark .text-2xl.font-black {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-weight: 900;
+    color: #60a5fa;
+    letter-spacing: -0.02em;
+}
+
+/* Breakdown rows inside printer cards */
+#printers-grid .card-dark .space-y-2 > div span:last-child {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #f8fafc);
+}
+
+
+/* ==========================================================================
+   8. CATALOG ITEMS: FILAMENTS & COLOR SWATCHES
+   ========================================================================== */
+
+#filaments-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+#filaments-grid .card-dark,
+.filament-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
+                border-color var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
+                box-shadow var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+#filaments-grid .card-dark:hover,
+.filament-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(16, 185, 129, 0.40) !important;
+    box-shadow: var(--shadow-lg, 0 12px 24px -4px rgba(0, 0, 0, 0.55)),
+                0 0 20px rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Filament Swatch Outer Box */
+.filament-swatch,
+#filaments-grid .card-dark .w-10.h-10.rounded-xl {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15),
+                0 2px 8px rgba(0, 0, 0, 0.40);
+    transition: transform var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)),
+                box-shadow var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+#filaments-grid .card-dark:hover .w-10.h-10.rounded-xl {
+    transform: scale(1.10);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.30),
+                0 4px 12px rgba(0, 0, 0, 0.50);
+}
+
+/* Filament Inner Color Dot */
+.filament-swatch-dot,
+#filaments-grid .card-dark .w-4.h-4.rounded-full {
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.60),
+                inset 0 1px 1px rgba(255, 255, 255, 0.45);
+}
+
+/* Cost per Gram Box */
+.filament-cost-box,
+#filaments-grid .card-dark .bg-emerald-950\/30 {
+    background: radial-gradient(circle at center, rgba(16, 185, 129, 0.18) 0%, rgba(15, 23, 42, 0.80) 100%) !important;
+    border: 1px solid rgba(16, 185, 129, 0.40) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                0 2px 10px rgba(16, 185, 129, 0.15) !important;
+    border-radius: var(--radius-lg, 0.75rem);
+    padding: 0.75rem;
+    text-align: center;
+}
+
+#filaments-grid .card-dark .text-2xl.font-black.text-emerald-400 {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+}
+
+/* Filament Modal Dynamic Name Preview Box */
+#filament-name-preview-box {
+    background: rgba(12, 18, 30, 0.85);
+    border: 1px dashed var(--border-default, #243044);
+    border-radius: var(--radius-md, 0.5rem);
+    padding: 0.625rem 0.875rem;
+}
+
+
+/* ==========================================================================
+   9. MULTI-PLATE MANAGER & BOM INSUMOS
+   ========================================================================== */
+
+/* Plate Row Container */
+#plates-container .card-dark {
+    position: relative;
+    border-left: 3px solid var(--brand-500, #3b82f6) !important;
+}
+
+/* Bottom Add Plate Button (#btn-add-plate-bottom) */
+#btn-add-plate-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px dashed var(--border-default, #243044);
+    background: rgba(21, 29, 46, 0.40);
+    color: var(--brand-400, #60a5fa);
+    font-weight: 600;
+    font-size: var(--text-xs, 0.75rem);
+    border-radius: var(--radius-lg, 0.75rem);
+    cursor: pointer;
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+#btn-add-plate-bottom:hover {
+    border-color: var(--brand-500, #3b82f6);
+    background: rgba(37, 99, 235, 0.08);
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+
+/* BOM Add Button */
+.btn-add-bom-item,
+#btn-add-bom-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    background: rgba(30, 41, 59, 0.7);
+    color: var(--brand-400, #60a5fa);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: var(--radius-md, 0.5rem);
+    font-size: var(--text-xs, 0.75rem);
+    font-weight: 600;
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.btn-add-bom-item:hover,
+#btn-add-bom-item:hover {
+    background: rgba(37, 99, 235, 0.15);
+    border-color: var(--brand-500, #3b82f6);
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.25);
+    transform: translateY(-1px);
+}
+
+/* BOM Container Item Rows */
+#bom-container > div {
+    transition: background-color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+#bom-container > div:hover {
+    background-color: rgba(37, 99, 235, 0.04);
+}
+
+[id^="bom-subtotal-"] {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-weight: 700;
+    color: var(--text-primary, #f8fafc);
+}
+
+
+/* ==========================================================================
+   10. SETTINGS VIEW & RESPONSIVE REFINEMENTS
+   ========================================================================== */
+
+#form-settings .card-dark {
+    box-shadow: var(--shadow-md, 0 4px 12px -2px rgba(0, 0, 0, 0.45));
+}
+
+/* Responsive Sidebar Collapse on Narrow Displays */
+@media (max-width: 1024px) {
+    aside {
+        width: 4.5rem; /* 72px collapsed icon-only sidebar */
+    }
+    aside .h-16 div:last-child,
+    aside nav button span,
+    aside .border-t .min-w-0 {
+        display: none;
+    }
+    aside nav button {
+        justify-content: center;
+        padding: 0.75rem;
+    }
+}

@@ -22,7 +22,10 @@ def setup_test_database():
     Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
     yield
-    Base.metadata.drop_all(bind=test_engine)
+    try:
+        Base.metadata.drop_all(bind=test_engine)
+    except Exception:
+        pass
 
 @pytest.fixture
 def db():

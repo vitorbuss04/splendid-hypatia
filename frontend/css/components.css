@@ -1,0 +1,544 @@
+/* ==========================================================================
+   3D PRINT CALC PRO — COMPONENT STYLES & DEPTH ARCHITECTURE
+   File: frontend/css/components.css
+   Specification: Milestone 1 (M1.2)
+   ========================================================================== */
+
+/* ==========================================================================
+   1. CARDS & ELEVATED SURFACES (.card-dark)
+   ========================================================================== */
+
+.card-dark {
+    position: relative;
+    background: var(--bg-card, #151d2e);
+    border: 1px solid var(--border-default, #243044);
+    border-radius: var(--radius-lg, 0.75rem);
+    box-shadow: var(--shadow-md, 0 4px 12px -2px rgba(0, 0, 0, 0.45), 0 2px 4px -2px rgba(0, 0, 0, 0.35)),
+                var(--shadow-inner-glow, inset 0 1px 0 0 rgba(255, 255, 255, 0.08));
+    transition: transform var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
+                border-color var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
+                box-shadow var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1)),
+                background-color var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Subtle top hairline highlight simulating premium physical bevel */
+.card-dark::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.12) 50%, transparent 100%);
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.card-dark:hover {
+    border-color: var(--border-hover, #334155);
+    box-shadow: var(--shadow-lg, 0 12px 24px -4px rgba(0, 0, 0, 0.55), 0 4px 8px -2px rgba(0, 0, 0, 0.40)),
+                var(--shadow-inner-glow, inset 0 1px 0 0 rgba(255, 255, 255, 0.08));
+}
+
+/* Interactive Card Variant (for catalog grids, clickable cards) */
+.card-dark.card-interactive:hover,
+a.card-dark:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glow-card-hover, 0 8px 30px -4px rgba(0, 0, 0, 0.60), 0 0 16px -2px rgba(59, 130, 246, 0.15));
+    border-color: rgba(59, 130, 246, 0.40);
+}
+
+/* Glassmorphism Card Variant */
+.card-dark-glass {
+    background: var(--bg-glass-card, rgba(21, 29, 46, 0.85));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* Prominent / Featured Card Variant (e.g. Sticky Financial Summary) */
+.card-dark-featured,
+.summary-panel-card {
+    border-color: rgba(59, 130, 246, 0.35) !important;
+    box-shadow: var(--shadow-xl, 0 24px 48px -12px rgba(0, 0, 0, 0.70), 0 8px 16px -4px rgba(0, 0, 0, 0.50)),
+                0 0 25px rgba(37, 99, 235, 0.15),
+                var(--shadow-inner-glow, inset 0 1px 0 0 rgba(255, 255, 255, 0.08)) !important;
+}
+
+
+/* ==========================================================================
+   2. FORM CONTROLS (Inputs, Selects, Textareas)
+   ========================================================================== */
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="search"],
+select,
+textarea,
+.form-input-dark {
+    background-color: var(--bg-input, #0c121e) !important;
+    border: 1px solid var(--border-default, #243044) !important;
+    color: var(--text-primary, #f8fafc) !important;
+    border-radius: var(--radius-md, 0.5rem);
+    font-size: var(--text-sm, 0.875rem);
+    line-height: 1.25rem;
+    transition: border-color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)),
+                box-shadow var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)),
+                background-color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+input[type="search"]:focus,
+select:focus,
+textarea:focus,
+.form-input-dark:focus {
+    outline: none !important;
+    background-color: var(--bg-input-focus, #0f1726) !important;
+    border-color: var(--brand-500, #3b82f6) !important;
+    box-shadow: 0 0 0 3px var(--brand-glow, rgba(37, 99, 235, 0.25)),
+                var(--shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.35)) !important;
+}
+
+/* Tabular Numeric Styling for Currency, Quantities & Calculation Inputs */
+input[type="number"],
+input[inputmode="decimal"],
+.font-numeric,
+.tabular-nums {
+    font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+/* Placeholder Styling */
+input::placeholder,
+textarea::placeholder {
+    color: var(--text-muted, #64748b) !important;
+    opacity: 0.8;
+}
+
+/* Disabled Form Controls */
+input:disabled,
+select:disabled,
+textarea:disabled {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    background-color: rgba(12, 18, 30, 0.4) !important;
+    border-color: var(--border-subtle, rgba(255, 255, 255, 0.06)) !important;
+}
+
+/* Native Select Dropdown Chevron & Dropdown Options */
+select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.65rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25em 1.25em;
+    padding-right: 2.25rem !important;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+select option {
+    background-color: var(--bg-surface, #111827);
+    color: var(--text-primary, #f8fafc);
+    padding: 0.5rem;
+}
+
+/* Color Picker Control (#filament-color-hex) */
+input[type="color"] {
+    -webkit-appearance: none;
+    border: 1px solid var(--border-default, #243044) !important;
+    padding: 0;
+    border-radius: var(--radius-md, 0.5rem);
+    width: 2.5rem;
+    height: 2.5rem;
+    cursor: pointer;
+    background-color: transparent !important;
+    transition: transform var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)),
+                border-color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+input[type="color"]:hover {
+    border-color: var(--brand-500, #3b82f6) !important;
+    transform: scale(1.05);
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 2px;
+}
+
+input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: calc(var(--radius-md, 0.5rem) - 2px);
+}
+
+
+/* ==========================================================================
+   3. BUTTONS (.btn-*, button overrides)
+   ========================================================================== */
+
+/* Base Button Contract */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-family: var(--font-sans, inherit);
+    font-size: var(--text-xs, 0.75rem);
+    font-weight: 600;
+    line-height: 1rem;
+    border-radius: var(--radius-md, 0.5rem);
+    padding: 0.5rem 0.875rem;
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    text-decoration: none;
+    border: 1px solid transparent;
+}
+
+/* Primary Button: Royal Blue Gradient with Subtle Top Bevel */
+.btn-primary,
+button.bg-blue-600 {
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)) !important;
+}
+
+.btn-primary:hover,
+button.bg-blue-600:hover {
+    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%) !important;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.50),
+                inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    transform: translateY(-1px);
+}
+
+.btn-primary:active,
+button.bg-blue-600:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.40) !important;
+    background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%) !important;
+}
+
+/* Success Button: Emerald Gradient with Subtle Top Bevel */
+.btn-success,
+button.bg-emerald-600 {
+    background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)) !important;
+}
+
+.btn-success:hover,
+button.bg-emerald-600:hover {
+    background: linear-gradient(180deg, #34d399 0%, #059669 100%) !important;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.50),
+                inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    transform: translateY(-1px);
+}
+
+.btn-success:active,
+button.bg-emerald-600:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.40) !important;
+    background: linear-gradient(180deg, #059669 0%, #047857 100%) !important;
+}
+
+/* Secondary Button: Elevated Slate Surface with Subtle Border */
+.btn-secondary,
+button.bg-slate-800 {
+    background: #182234 !important;
+    border: 1px solid var(--border-default, #243044) !important;
+    color: var(--text-secondary, #94a3b8) !important;
+    box-shadow: var(--shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.35)),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)) !important;
+}
+
+.btn-secondary:hover,
+button.bg-slate-800:hover {
+    background: #202d44 !important;
+    border-color: var(--border-hover, #334155) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md, 0 4px 12px -2px rgba(0, 0, 0, 0.45)) !important;
+}
+
+.btn-secondary:active,
+button.bg-slate-800:active {
+    transform: translateY(0) scale(0.98);
+    background: #151d2e !important;
+}
+
+/* Ghost / Icon Action Button */
+.btn-ghost {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: var(--text-secondary, #94a3b8) !important;
+    box-shadow: none !important;
+}
+
+.btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #ffffff !important;
+}
+
+/* Universal Disabled State */
+button:disabled,
+.btn:disabled {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+    filter: grayscale(0.5);
+}
+
+
+/* ==========================================================================
+   4. BADGES (Status Pills & Material Tags)
+   ========================================================================== */
+
+/* Base Badge Pill Aesthetics */
+.badge-draft,
+.badge-quoted,
+.badge-approved,
+.badge-in_production,
+.badge-completed,
+.badge-cancelled,
+[class*="badge-mat-"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    border-radius: var(--radius-full, 9999px);
+    padding: 0.2rem 0.6rem;
+    line-height: 1rem;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Status Badges */
+.badge-draft {
+    background-color: rgba(148, 163, 184, 0.12) !important;
+    color: #94a3b8 !important;
+    border: 1px solid rgba(148, 163, 184, 0.25) !important;
+}
+
+.badge-quoted {
+    background-color: rgba(59, 130, 246, 0.14) !important;
+    color: #60a5fa !important;
+    border: 1px solid rgba(59, 130, 246, 0.35) !important;
+}
+
+.badge-approved {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+
+.badge-in_production {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+
+.badge-completed {
+    background-color: rgba(16, 185, 129, 0.20) !important;
+    color: #10b981 !important;
+    border: 1px solid rgba(16, 185, 129, 0.45) !important;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.18) !important;
+}
+
+.badge-cancelled {
+    background-color: rgba(239, 68, 68, 0.14) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.35) !important;
+}
+
+/* Material Badges */
+.badge-mat-pla {
+    background-color: rgba(30, 58, 138, 0.45) !important;
+    color: #93c5fd !important;
+    border: 1px solid rgba(59, 130, 246, 0.35) !important;
+}
+
+.badge-mat-petg {
+    background-color: rgba(6, 78, 59, 0.45) !important;
+    color: #6ee7b7 !important;
+    border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+
+.badge-mat-abs {
+    background-color: rgba(124, 45, 18, 0.45) !important;
+    color: #fdba74 !important;
+    border: 1px solid rgba(249, 115, 22, 0.35) !important;
+}
+
+.badge-mat-tpu {
+    background-color: rgba(88, 28, 135, 0.45) !important;
+    color: #d8b4fe !important;
+    border: 1px solid rgba(168, 85, 247, 0.35) !important;
+}
+
+.badge-mat-asa {
+    background-color: rgba(113, 63, 18, 0.45) !important;
+    color: #fde047 !important;
+    border: 1px solid rgba(234, 179, 8, 0.35) !important;
+}
+
+.badge-mat-resina {
+    background-color: rgba(13, 148, 136, 0.45) !important;
+    color: #5eead4 !important;
+    border: 1px solid rgba(20, 184, 166, 0.35) !important;
+    box-shadow: 0 0 10px rgba(20, 184, 166, 0.15) !important;
+}
+
+.badge-mat-other,
+.badge-mat-outro {
+    background-color: rgba(55, 65, 81, 0.45) !important;
+    color: #d1d5db !important;
+    border: 1px solid rgba(107, 114, 128, 0.35) !important;
+}
+
+
+/* ==========================================================================
+   5. INTERACTIVE DROPZONE
+   ========================================================================== */
+
+.dropzone {
+    border: 2px dashed var(--border-default, #334155);
+    background: linear-gradient(180deg, rgba(20, 28, 44, 0.5) 0%, rgba(12, 18, 30, 0.7) 100%);
+    border-radius: var(--radius-xl, 1rem);
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.dropzone:hover {
+    border-color: var(--brand-500, #3b82f6);
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.08) 0%, rgba(17, 24, 39, 0.7) 100%);
+    box-shadow: 0 0 25px rgba(37, 99, 235, 0.12);
+}
+
+.dropzone:hover i {
+    color: var(--brand-400, #60a5fa);
+    transform: translateY(-2px);
+    transition: transform var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)),
+                color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.dropzone.dragover {
+    border-color: #60a5fa !important;
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.20) 0%, rgba(17, 24, 39, 0.88) 100%) !important;
+    box-shadow: 0 0 35px rgba(37, 99, 235, 0.30),
+                inset 0 0 20px rgba(37, 99, 235, 0.15) !important;
+    transform: scale(1.015);
+}
+
+.dropzone.dragover i {
+    color: #60a5fa;
+    transform: scale(1.15) translateY(-4px);
+    transition: transform var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+
+/* ==========================================================================
+   6. MODALS & DIALOGS
+   ========================================================================== */
+
+#auth-modal,
+#modal-printer,
+#modal-filament,
+.modal-overlay {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background-color: rgba(4, 7, 13, 0.80) !important;
+    transition: opacity var(--transition-normal, 250ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Modal Inner Container Entrance */
+#auth-modal > .card-dark,
+#modal-printer > .card-dark,
+#modal-filament > .card-dark,
+.modal-dialog {
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85),
+                0 0 40px rgba(37, 99, 235, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    animation: modalScaleIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform-origin: center center;
+}
+
+
+/* ==========================================================================
+   7. DATA TABLES & TERMINAL MODULES
+   ========================================================================== */
+
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+thead th {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--text-muted, #64748b);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border-default, #243044);
+}
+
+tbody tr {
+    transition: background-color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+tbody tr:hover {
+    background-color: rgba(30, 41, 59, 0.45);
+}
+
+tbody td {
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+/* Sticky Financial Terminal Boxes */
+.final-price-box {
+    background: radial-gradient(circle at center, rgba(37, 99, 235, 0.20) 0%, rgba(17, 24, 39, 0.60) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 20px rgba(37, 99, 235, 0.25);
+    border-radius: var(--radius-lg, 0.75rem);
+}
+
+#live-final-price {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    text-shadow: 0 0 20px rgba(96, 165, 250, 0.6);
+}
+
+.net-profit-box {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+    border-radius: var(--radius-md, 0.5rem);
+}
+
+#live-net-profit {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
