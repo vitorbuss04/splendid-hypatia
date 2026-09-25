@@ -419,6 +419,7 @@ def duplicate_project(
             purge_weight_g=pl.purge_weight_g,
             failure_margin_percent=pl.failure_margin_percent,
             quantity=pl.quantity,
+            slicer_filament_profile=pl.slicer_filament_profile,
             notes=pl.notes,
         )
         db.add(c_plate)

@@ -11,9 +11,19 @@
     box-sizing: border-box;
 }
 
+html,
+body,
+main,
+.summary-panel-body,
+.overflow-y-auto,
+.overflow-x-auto,
+[class*="overflow-y-auto"],
+[class*="overflow-x-auto"] {
+    scroll-behavior: smooth;
+}
+
 html {
     color-scheme: dark;
-    scroll-behavior: smooth;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

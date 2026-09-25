@@ -38,6 +38,25 @@ function syncSelectTitle(sel) {
     sel.title = opt ? opt.text.trim() : '';
 }
 
+/**
+ * Cleans slicer profile names by removing embedded project/file references,
+ * e.g. "3D Prime PLA Basic(patolino-kratos.3mf)" -> "3D Prime PLA Basic"
+ */
+function cleanFilamentProfileName(profile, fileName = '') {
+    if (!profile || typeof profile !== 'string') return '';
+    let cleaned = profile.trim().replace(/^["']|["']$/g, '');
+    cleaned = cleaned.replace(/\s*[\(\[][^()\[\]]*\.[a-z0-9_-]{2,6}\s*[\)\]]/gi, '');
+    if (fileName && typeof fileName === 'string') {
+        const base = fileName.replace(/^.*[\\\/]/, '').replace(/\.(?:gcode\.3mf|3mf|gcode|stl|step|stp|obj)$/i, '').trim();
+        if (base && base.length >= 2) {
+            const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cleaned = cleaned.replace(new RegExp(`\\s*[\\(\\[]\\s*${escaped}(?:\\.[^()\\[\\]]+)?\\s*[\\)\\]]`, 'gi'), '');
+        }
+    }
+    cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+    return cleaned;
+}
+
 // Map filament color name or hex code to a native colored circle emoji
 function getFilamentColorDot(colorHex, colorName = '') {
     const hex = (colorHex || '').toLowerCase();
@@ -56,6 +75,78 @@ function getFilamentColorDot(colorHex, colorName = '') {
 
     return '🟢'; // default fallback
 }
+
+// Find best matching inventory filament for a plate based on profile, material, color, and name
+function findBestMatchingFilament(filaments, plateName = '', slicerProfile = '', filamentType = '', hexColor = '') {
+    if (!filaments || filaments.length === 0) return null;
+
+    const norm = (s) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+    const profNorm = norm(slicerProfile);
+    const nameNorm = norm(plateName);
+    const typeNorm = norm(filamentType);
+    const hexNorm = norm(hexColor);
+
+    const colorMatches = (fColor) => {
+        if (!fColor) return false;
+        const cNorm = norm(fColor);
+        if (cNorm && (cNorm.includes(nameNorm) || nameNorm.includes(cNorm))) return true;
+        const parts = String(fColor).toLowerCase().split(/[\s\-_]+/).map(p => norm(p)).filter(p => p.length >= 3);
+        return parts.some(p => nameNorm.includes(p));
+    };
+
+    // 1. Highest priority: Brand match + Material match + Color match (from plate name or hex)
+    for (const f of filaments) {
+        const fBrand = norm(f.brand);
+        const fMat = norm(f.material);
+        if (fBrand && fMat && (profNorm.includes(fBrand) || fBrand.includes(profNorm)) && (profNorm.includes(fMat) || typeNorm.includes(fMat))) {
+            if (colorMatches(f.color) || (hexNorm && norm(f.color_hex) === hexNorm)) {
+                return f;
+            }
+        }
+    }
+
+    // 2. Material + Color match (e.g. if brand in slicer doesn't match catalog brand, but material & color match)
+    for (const f of filaments) {
+        const fMat = norm(f.material);
+        if (fMat && (profNorm.includes(fMat) || typeNorm.includes(fMat))) {
+            if (colorMatches(f.color) || (hexNorm && norm(f.color_hex) === hexNorm)) {
+                return f;
+            }
+        }
+    }
+
+    // 3. Brand + Material match
+    for (const f of filaments) {
+        const fBrand = norm(f.brand);
+        const fMat = norm(f.material);
+        if (fBrand && fMat && (profNorm.includes(fBrand) || fBrand.includes(profNorm)) && (profNorm.includes(fMat) || typeNorm.includes(fMat))) {
+            return f;
+        }
+    }
+
+    // 4. Full profile name matches filament name or vice versa
+    for (const f of filaments) {
+        const fName = norm(f.name);
+        if (fName && (profNorm.includes(fName) || fName.includes(profNorm))) {
+            return f;
+        }
+    }
+
+    // 5. Material match
+    if (typeNorm) {
+        const types = filamentType.split(',').map(s => norm(s)).filter(Boolean);
+        for (const f of filaments) {
+            const fMat = norm(f.material);
+            if (fMat && types.includes(fMat)) {
+                return f;
+            }
+        }
+    }
+
+    // Fallback: first filament
+    return filaments[0];
+}
+
 
 // Wrap all <select> elements with .select-wrap so the CSS fade gradient works.
 // Skips selects already inside .select-wrap or .relative (filament dot wrapper).
@@ -371,6 +462,21 @@ function navigateTo(viewName) {
     const titleEl = document.getElementById('view-title');
     if (titleEl) titleEl.textContent = titles[viewName] || 'Painel';
 
+    const defaultTopTitle = document.getElementById('topbar-default-title');
+    const editorTopTitle = document.getElementById('topbar-editor-title');
+    if (defaultTopTitle && editorTopTitle) {
+        if (viewName === 'project-editor') {
+            defaultTopTitle.classList.add('hidden');
+            editorTopTitle.classList.remove('hidden');
+            editorTopTitle.classList.add('flex');
+            if (typeof refreshIcons === 'function') refreshIcons();
+        } else {
+            defaultTopTitle.classList.remove('hidden');
+            editorTopTitle.classList.add('hidden');
+            editorTopTitle.classList.remove('flex');
+        }
+    }
+
     // Reload views if needed
     if (viewName === 'dashboard') {
         loadDashboard();
@@ -393,6 +499,21 @@ function navigateTo(viewName) {
         renderFilamentsGrid();
     }
     if (viewName === 'settings') populateSettingsForm();
+    if (viewName === 'project-editor') {
+        if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame(() => updateSummaryPanelHeight());
+        } else {
+            updateSummaryPanelHeight();
+        }
+    }
+
+    if (typeof initSmoothScroll === 'function') {
+        initSmoothScroll();
+    }
+    const mainEl = typeof document.querySelector === 'function' ? document.querySelector('main') : null;
+    if (mainEl && typeof mainEl.scrollTo === 'function') {
+        mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     // Sync URL hash
     if (typeof window !== 'undefined' && window.location && typeof window.location.hash === 'string') {
@@ -1303,6 +1424,7 @@ function createDefaultPlate(idx = 1) {
         print_time_hours: 0,
         part_weight_g: 0,
         purge_weight_g: 0,
+        slicer_filament_profile: null,
         failure_margin_percent: (state.user?.default_failure_rate ?? 10),
         quantity: 1,
         notes: '',
@@ -1408,10 +1530,10 @@ function renderPlates() {
                     <i data-lucide="cpu" class="w-3.5 h-3.5 text-blue-400"></i> Configuração de Hardware & Setup
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
                     <!-- Printer Selector -->
-                    <div>
-                        <label class="block text-[11px] font-medium text-slate-300 mb-1">Impressora</label>
+                    <div class="plate-field-col">
+                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[11px] font-medium text-slate-300 leading-tight">Impressora</label></div>
                         <select onchange="updatePlatePrinter(${idx}, this.value)" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500">
                             <option value="">Personalizada (Manual)</option>
                             ${state.printers.map(p => `
@@ -1430,35 +1552,19 @@ function renderPlates() {
                         ` : ''}
                     </div>
 
-                    <!-- Nozzle Diameter -->
-                    <div>
-                        <label class="block text-[11px] font-medium text-slate-300 mb-1">Diâmetro do Bico</label>
-                        <select onchange="state.currentPlates[${idx}].nozzle_diameter = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 font-numeric">
-                            <option value="0.4" ${nozzle === '0.4' ? 'selected' : ''}>0.4 mm (Padrão)</option>
-                            <option value="0.2" ${nozzle === '0.2' ? 'selected' : ''}>0.2 mm (Alta Res.)</option>
-                            <option value="0.6" ${nozzle === '0.6' ? 'selected' : ''}>0.6 mm (Rápido)</option>
-                            <option value="0.8" ${nozzle === '0.8' ? 'selected' : ''}>0.8 mm (Industrial)</option>
-                        </select>
-                    </div>
-
-                    <!-- Bed Surface Type -->
-                    <div>
-                        <label class="block text-[11px] font-medium text-slate-300 mb-1">Superfície da Mesa</label>
-                        <select onchange="state.currentPlates[${idx}].bed_type = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500">
-                            <option value="Textured PEI" ${bed === 'Textured PEI' ? 'selected' : ''}>PEI Texturizada</option>
-                            <option value="Smooth PEI" ${bed === 'Smooth PEI' ? 'selected' : ''}>PEI Lisa</option>
-                            <option value="Glass" ${bed === 'Glass' ? 'selected' : ''}>Vidro Borossilicato</option>
-                            <option value="Engineering" ${bed === 'Engineering' ? 'selected' : ''}>Engenharia / Fixação</option>
-                            <option value="Garolite" ${bed === 'Garolite' ? 'selected' : ''}>Garolite / G10 (Nylon)</option>
-                        </select>
-                    </div>
-
                     <!-- Filament Selector with Dynamic Dot -->
-                    <div>
-                        <label class="block text-[11px] font-medium text-slate-300 mb-1 flex items-center justify-between">
-                            <span>Filamento</span>
-                            ${selFil ? `<span class="flex items-center gap-1 text-[10px] text-slate-400 font-normal"><span class="w-2 h-2 rounded-full inline-block border border-slate-600 shadow-sm" style="background-color: ${selFil.color_hex || '#10b981'};"></span> ${selFil.material} ${selFil.color || ''}</span>` : ''}
-                        </label>
+                    <div class="plate-field-col">
+                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1 w-full">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <label class="text-[11px] font-medium text-slate-300 leading-tight shrink-0">Filamento</label>
+                                ${plate.slicer_filament_profile ? `
+                                    <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors shrink-0 cursor-help" data-tooltip="Fatiado com: ${cleanFilamentProfileName(plate.slicer_filament_profile).replace(/"/g, '&quot;')}">
+                                        <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+                                    </span>
+                                ` : ''}
+                            </div>
+                            ${selFil ? `<span class="flex items-center gap-1 text-[10px] text-slate-400 font-normal shrink-0 max-w-[55%] truncate" title="${selFil.material} ${selFil.color || ''}"><span class="w-2 h-2 rounded-full inline-block border border-slate-600 shadow-sm shrink-0" style="background-color: ${selFil.color_hex || '#10b981'};"></span> <span class="truncate">${selFil.material} ${selFil.color || ''}</span></span>` : ''}
+                        </div>
                         <div class="relative flex items-center">
                             <span class="absolute left-2.5 w-3 h-3 rounded-full border border-white/20 pointer-events-none shadow-sm" style="background-color: ${selFil ? (selFil.color_hex || '#10b981') : '#64748b'};"></span>
                             <select onchange="updatePlateFilament(${idx}, this.value)" class="w-full pl-8 pr-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500">
@@ -1488,10 +1594,10 @@ function renderPlates() {
                     <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400"></i> Parâmetros do Fatiador & Físicos
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 plate-grid-aligned">
                     <!-- Print Time Dual Input (Hours & Minutes) -->
-                    <div class="col-span-2 sm:col-span-2 lg:col-span-2">
-                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Tempo (h : min)</label>
+                    <div class="col-span-2 plate-field-col">
+                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Tempo (h : min)</label></div>
                         <div class="flex items-center gap-1">
                             <div class="relative flex-1">
                                 <input type="number" min="0" step="1" id="plate-time-h-${idx}" value="${timeH}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full pl-2 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Horas">
@@ -1505,40 +1611,21 @@ function renderPlates() {
                         </div>
                     </div>
 
-                    <!-- Layer Height -->
-                    <div class="col-span-1">
-                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Camada (mm)</label>
-                        <select onchange="state.currentPlates[${idx}].layer_height = this.value" class="w-full px-2.5 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 font-numeric">
-                            <option value="0.08" ${layer === '0.08' ? 'selected' : ''}>0.08 mm</option>
-                            <option value="0.12" ${layer === '0.12' ? 'selected' : ''}>0.12 mm</option>
-                            <option value="0.16" ${layer === '0.16' ? 'selected' : ''}>0.16 mm</option>
-                            <option value="0.20" ${layer === '0.20' ? 'selected' : ''}>0.20 mm</option>
-                            <option value="0.24" ${layer === '0.24' ? 'selected' : ''}>0.24 mm</option>
-                            <option value="0.28" ${layer === '0.28' ? 'selected' : ''}>0.28 mm</option>
-                        </select>
-                    </div>
-
-                    <!-- Part Weight -->
-                    <div class="col-span-1">
-                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Peso Peça (g)</label>
+                    <!-- Total Filament Used Weight -->
+                    <div class="col-span-1 plate-field-col">
+                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Filamento usado (g)</label></div>
                         <input type="number" step="any" min="0" value="${plate.part_weight_g}" oninput="state.currentPlates[${idx}].part_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="0">
                     </div>
 
-                    <!-- Purge Weight -->
-                    <div class="col-span-1">
-                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Purga (g)</label>
-                        <input type="number" step="any" min="0" value="${plate.purge_weight_g}" oninput="state.currentPlates[${idx}].purge_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="0">
-                    </div>
-
                     <!-- Failure Margin -->
-                    <div class="col-span-1">
-                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Falha (%)</label>
+                    <div class="col-span-1 plate-field-col">
+                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Falha (%)</label></div>
                         <input type="number" step="any" min="0" value="${plate.failure_margin_percent}" oninput="state.currentPlates[${idx}].failure_margin_percent = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="10">
                     </div>
 
                     <!-- Quantity -->
-                    <div class="col-span-1">
-                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Qtd Cópias</label>
+                    <div class="col-span-1 plate-field-col">
+                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Qtd Cópias</label></div>
                         <input type="number" step="1" min="1" value="${plate.quantity}" oninput="state.currentPlates[${idx}].quantity = parseInt(this.value, 10) || 1; recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-bold font-numeric text-center focus:outline-none focus:border-blue-500" placeholder="1">
                     </div>
                 </div>
@@ -1928,6 +2015,7 @@ async function saveCurrentProject(navigateBack = true) {
             purge_weight_g: parseLocaleFloat(p.purge_weight_g, 0),
             failure_margin_percent: parseLocaleFloat(p.failure_margin_percent, 0),
             quantity: parseInt(p.quantity, 10) || 1,
+            slicer_filament_profile: p.slicer_filament_profile || null,
             notes: p.notes,
         })),
         bom_items: state.currentBOM.map(b => ({
@@ -2009,118 +2097,215 @@ function setupDropzone() {
 
     if (!dropzone || !fileInput) return;
 
-    dropzone.addEventListener('click', () => fileInput.click());
+    if (dropzone._dropzoneInitialized) return;
+    dropzone._dropzoneInitialized = true;
+
+    dropzone.addEventListener('click', (e) => {
+        if (e.target !== fileInput) {
+            fileInput.click();
+        }
+    });
+
+    fileInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
 
     ['dragenter', 'dragover'].forEach(eventName => {
         dropzone.addEventListener(eventName, (e) => {
             e.preventDefault();
+            e.stopPropagation();
             dropzone.classList.add('dragover');
         });
     });
 
-    ['dragleave', 'drop'].forEach(eventName => {
+    ['dragleave'].forEach(eventName => {
         dropzone.addEventListener(eventName, (e) => {
             e.preventDefault();
+            e.stopPropagation();
             dropzone.classList.remove('dragover');
         });
     });
 
     dropzone.addEventListener('drop', (e) => {
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            handleSlicerFile(e.dataTransfer.files[0]);
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleSlicerFiles(Array.from(e.dataTransfer.files));
         }
     });
 
     fileInput.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
-            handleSlicerFile(e.target.files[0]);
+            handleSlicerFiles(Array.from(e.target.files));
             // Reset so same file can be re-selected (issue #20)
             e.target.value = '';
+        }
+    });
+
+    // Window-level drag-and-drop fallback so dropping anywhere in project-editor imports files
+    window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+    window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (state.activeView === 'project-editor' && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            if (!dropzone.contains(e.target)) {
+                handleSlicerFiles(Array.from(e.dataTransfer.files));
+            }
         }
     });
 }
 
 async function handleSlicerFile(file) {
-    const name = file.name.toLowerCase();
-    showToast(`Processando metadados de ${file.name}...`, 'info');
+    return handleSlicerFiles([file]);
+}
 
-    try {
-        if (name.endsWith('.3mf') || name.endsWith('.gcode.3mf')) {
-            const extractedPlates = await parse3mfMetadata(file);
-            if (extractedPlates && extractedPlates.length > 0) {
-                const defaultPrinter = state.printers[0] || null;
+async function handleSlicerFiles(files) {
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files);
 
-                extractedPlates.forEach(p => {
-                    if (defaultPrinter) {
-                        p.printer_id = defaultPrinter.id;
-                        p.custom_printer_hourly_rate = null;
-                    } else {
-                        p.printer_id = null;
-                        p.custom_printer_hourly_rate = 2.50;
+    // Natural sort files by filename so plate_1, plate_2, ... plate_10 are processed in order
+    fileList.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
+
+    if (fileList.length === 1) {
+        showToast(`Processando metadados de ${fileList[0].name}...`, 'info');
+    } else {
+        showToast(`Processando lote de ${fileList.length} arquivos...`, 'info');
+    }
+
+    const defaultPrinter = state.printers[0] || null;
+    const allExtractedPlates = [];
+    let successCount = 0;
+
+    for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const name = (file.name || '').toLowerCase();
+        // Exact filename without extension
+        const cleanFileName = (file.name || `Placa ${allExtractedPlates.length + 1}`).replace(/^.*[\\\/]/, '').replace(/\.(?:gcode\.3mf|3mf|gcode)$/i, '').trim();
+
+        try {
+            if (name.endsWith('.3mf') || name.endsWith('.gcode.3mf')) {
+                const plates = await parse3mfMetadata(file);
+                if (plates && plates.length > 0) {
+                    // USER REQUIREMENT: Name of each plate MUST be the corresponding filename without extension
+                    if (cleanFileName) {
+                        if (plates.length === 1) {
+                            plates[0].name = cleanFileName;
+                        } else {
+                            plates.forEach((p, pIdx) => {
+                                p.name = `${cleanFileName} - Placa ${pIdx + 1}`;
+                            });
+                        }
                     }
 
-                    let matchedFilament = null;
-                    if (p.filament_type && state.filaments.length > 0) {
-                        const types = p.filament_type.toLowerCase().split(',').map(s => s.trim());
-                        matchedFilament = state.filaments.find(f => types.includes(f.material.toLowerCase()));
-                    }
-                    if (!matchedFilament && state.filaments.length > 0) {
-                        matchedFilament = state.filaments[0];
-                    }
+                    plates.forEach(p => {
+                        // Apply default printer
+                        if (defaultPrinter) {
+                            p.printer_id = defaultPrinter.id;
+                            p.custom_printer_hourly_rate = null;
+                        } else {
+                            p.printer_id = null;
+                            p.custom_printer_hourly_rate = 2.50;
+                        }
 
-                    if (matchedFilament) {
-                        p.filament_id = matchedFilament.id;
-                        p.custom_filament_cost_per_g = null;
-                    } else {
-                        p.filament_id = null;
-                        p.custom_filament_cost_per_g = 0.10;
-                    }
+                        // Match filament material & profile
+                        const matchedFilament = (typeof findBestMatchingFilament === 'function')
+                            ? findBestMatchingFilament(
+                                state.filaments,
+                                p.name || '',
+                                p.slicer_filament_profile || '',
+                                p.filament_type || '',
+                                p.filament_color_hex || ''
+                            )
+                            : (state.filaments?.find(f => (f.material || '').toLowerCase() === (p.filament_type || '').toLowerCase()) || null);
 
-                    p.failure_margin_percent = (state.user?.default_failure_rate ?? 10);
-                    p.quantity = p.quantity || 1;
-                    p.notes = p.notes || '';
-                });
+                        if (matchedFilament) {
+                            p.filament_id = matchedFilament.id;
+                            p.custom_filament_cost_per_g = null;
+                        } else {
+                            p.filament_id = null;
+                            p.custom_filament_cost_per_g = 0.10;
+                        }
 
-                // If only 1 empty plate exists, replace it, else append
-                if (state.currentPlates.length === 1 && state.currentPlates[0].print_time_hours === 0 && state.currentPlates[0].part_weight_g === 0) {
-                    state.currentPlates = extractedPlates;
-                } else {
-                    state.currentPlates = [...state.currentPlates, ...extractedPlates];
+                        p.nozzle_diameter = p.nozzle_diameter || '0.4';
+                        p.bed_type = p.bed_type || 'Textured PEI';
+                        p.layer_height = p.layer_height || '0.20';
+                        p.failure_margin_percent = (state.user?.default_failure_rate ?? 10);
+                        p.quantity = p.quantity || 1;
+                        p.notes = p.notes || '';
+                    });
+
+                    allExtractedPlates.push(...plates);
+                    successCount++;
                 }
-                const fileTypeLabel = name.endsWith('.gcode.3mf') ? '.gcode.3mf' : '3MF';
-                showToast(`Arquivo ${fileTypeLabel} lido! ${extractedPlates.length} placa(s) adicionada(s).`, 'success');
-            }
-        } else if (name.endsWith('.gcode')) {
-            const text = await file.text();
-            const meta = parseGcodeMetadata(text);
-            const newPlate = createDefaultPlate(state.currentPlates.length + 1);
-            newPlate.name = file.name.replace(/\.(?:gcode\.3mf|3mf|gcode)$/i, '');
-            newPlate.print_time_hours = meta.print_time_hours;
-            newPlate.part_weight_g = meta.part_weight_g;
+            } else if (name.endsWith('.gcode')) {
+                const text = await file.text();
+                const meta = parseGcodeMetadata(text);
+                const newPlate = {
+                    name: cleanFileName || `Placa ${allExtractedPlates.length + 1}`,
+                    printer_id: defaultPrinter ? defaultPrinter.id : null,
+                    filament_id: null,
+                    custom_printer_hourly_rate: defaultPrinter ? null : 2.50,
+                    custom_filament_cost_per_g: null,
+                    nozzle_diameter: '0.4',
+                    bed_type: 'Textured PEI',
+                    layer_height: '0.20',
+                    print_time_hours: meta.print_time_hours || 0,
+                    part_weight_g: meta.part_weight_g || 0,
+                    purge_weight_g: 0,
+                    slicer_filament_profile: cleanFilamentProfileName(meta.slicer_filament_profile, file.name) || null,
+                    failure_margin_percent: (state.user?.default_failure_rate ?? 10),
+                    quantity: 1,
+                    notes: '',
+                };
 
-            if (meta.filament_type && state.filaments.length > 0) {
-                const matched = state.filaments.find(f => f.material.toLowerCase() === meta.filament_type.toLowerCase());
-                if (matched) {
-                    newPlate.filament_id = matched.id;
+                const matchedFilament = (typeof findBestMatchingFilament === 'function')
+                    ? findBestMatchingFilament(
+                        state.filaments,
+                        newPlate.name || '',
+                        meta.slicer_filament_profile || '',
+                        meta.filament_type || '',
+                        meta.filament_color_hex || ''
+                    )
+                    : (state.filaments?.find(f => (f.material || '').toLowerCase() === (meta.filament_type || '').toLowerCase()) || null);
+
+                if (matchedFilament) {
+                    newPlate.filament_id = matchedFilament.id;
                     newPlate.custom_filament_cost_per_g = null;
+                } else {
+                    newPlate.filament_id = null;
+                    newPlate.custom_filament_cost_per_g = 0.10;
                 }
-            }
 
-            if (state.currentPlates.length === 1 && state.currentPlates[0].print_time_hours === 0 && state.currentPlates[0].part_weight_g === 0) {
-                state.currentPlates = [newPlate];
+                allExtractedPlates.push(newPlate);
+                successCount++;
             } else {
-                state.currentPlates.push(newPlate);
+                showToast(`Formato não suportado para "${file.name || 'arquivo'}". Utilize arquivos .3mf, .gcode ou .gcode.3mf.`, 'error');
             }
-            showToast(`G-Code lido com sucesso (${meta.print_time_hours}h, ${meta.part_weight_g}g)!`, 'success');
+        } catch (err) {
+            showToast(`Erro ao ler "${file.name || 'arquivo'}": ${err.message}`, 'error');
+        }
+    }
+
+    if (allExtractedPlates.length > 0) {
+        // If only 1 empty plate exists, replace it, else append
+        if (state.currentPlates.length === 1 && state.currentPlates[0].print_time_hours === 0 && state.currentPlates[0].part_weight_g === 0) {
+            state.currentPlates = allExtractedPlates;
         } else {
-            showToast('Formato não suportado. Utilize arquivos .3mf, .gcode ou .gcode.3mf.', 'error');
-            return;
+            state.currentPlates = [...state.currentPlates, ...allExtractedPlates];
+        }
+
+        if (fileList.length === 1) {
+            const firstName = (fileList[0].name || '').toLowerCase();
+            const fileTypeLabel = firstName.endsWith('.gcode.3mf') ? '.gcode.3mf' : firstName.endsWith('.gcode') ? 'G-Code' : '3MF';
+            showToast(`Arquivo ${fileTypeLabel} lido! ${allExtractedPlates.length} placa(s) adicionada(s).`, 'success');
+        } else {
+            showToast(`Lote concluído: ${successCount} arquivo(s) processado(s)! ${allExtractedPlates.length} placa(s) adicionada(s).`, 'success');
         }
 
         renderPlates();
         recalcLiveSummary();
-    } catch (err) {
-        showToast(`Erro ao ler arquivo: ${err.message}`, 'error');
     }
 }
 
@@ -2132,20 +2317,30 @@ async function handleSinglePlateFile(e, plateIdx) {
 
     try {
         const name = file.name.toLowerCase();
+        const cleanName = (file.name || '').replace(/\.(?:gcode\.3mf|3mf|gcode)$/i, '').trim();
         if (name.endsWith('.3mf') || name.endsWith('.gcode.3mf')) {
             const plates = await parse3mfMetadata(file);
             if (plates.length > 0) {
+                if (cleanName) {
+                    state.currentPlates[plateIdx].name = cleanName;
+                }
                 state.currentPlates[plateIdx].print_time_hours = plates[0].print_time_hours;
                 state.currentPlates[plateIdx].part_weight_g = plates[0].part_weight_g;
                 state.currentPlates[plateIdx].purge_weight_g = plates[0].purge_weight_g;
+                state.currentPlates[plateIdx].slicer_filament_profile = cleanFilamentProfileName(plates[0].slicer_filament_profile, file.name) || null;
 
-                if (plates[0].filament_type && state.filaments.length > 0) {
-                    const types = plates[0].filament_type.toLowerCase().split(',').map(s => s.trim());
-                    const matched = state.filaments.find(f => types.includes(f.material.toLowerCase()));
-                    if (matched) {
-                        state.currentPlates[plateIdx].filament_id = matched.id;
-                        state.currentPlates[plateIdx].custom_filament_cost_per_g = null;
-                    }
+                const matchedFilament = (typeof findBestMatchingFilament === 'function')
+                    ? findBestMatchingFilament(
+                        state.filaments,
+                        state.currentPlates[plateIdx].name || '',
+                        plates[0].slicer_filament_profile || '',
+                        plates[0].filament_type || '',
+                        plates[0].filament_color_hex || ''
+                    )
+                    : (state.filaments?.find(f => (f.material || '').toLowerCase() === (plates[0].filament_type || '').toLowerCase()) || null);
+                if (matchedFilament) {
+                    state.currentPlates[plateIdx].filament_id = matchedFilament.id;
+                    state.currentPlates[plateIdx].custom_filament_cost_per_g = null;
                 }
 
                 const fileTypeLabel = name.endsWith('.gcode.3mf') ? '.gcode.3mf' : '3MF';
@@ -2153,17 +2348,27 @@ async function handleSinglePlateFile(e, plateIdx) {
             }
         } else if (name.endsWith('.gcode')) {
             const text = await file.text();
-            const meta = parseGcodeMetadata(text);
+            const meta = parseGcodeMetadata(text, file.name);
+            if (cleanName) {
+                state.currentPlates[plateIdx].name = cleanName;
+            }
             state.currentPlates[plateIdx].print_time_hours = meta.print_time_hours;
             state.currentPlates[plateIdx].part_weight_g = meta.part_weight_g;
+            state.currentPlates[plateIdx].slicer_filament_profile = cleanFilamentProfileName(meta.slicer_filament_profile, file.name) || null;
 
-            if (meta.filament_type && state.filaments.length > 0) {
-                const matched = state.filaments.find(f => f.material.toLowerCase() === meta.filament_type.toLowerCase());
-                if (matched) {
-                    state.currentPlates[plateIdx].filament_id = matched.id;
+            const matchedFilament = (typeof findBestMatchingFilament === 'function')
+                ? findBestMatchingFilament(
+                    state.filaments,
+                    state.currentPlates[plateIdx].name || '',
+                    meta.slicer_filament_profile || '',
+                    meta.filament_type || '',
+                    meta.filament_color_hex || ''
+                )
+                : (state.filaments?.find(f => (f.material || '').toLowerCase() === (meta.filament_type || '').toLowerCase()) || null);
+                if (matchedFilament) {
+                    state.currentPlates[plateIdx].filament_id = matchedFilament.id;
                     state.currentPlates[plateIdx].custom_filament_cost_per_g = null;
                 }
-            }
 
             showToast(`Placa atualizada com dados do G-Code!`, 'success');
         } else {
@@ -2723,11 +2928,218 @@ async function handleSavePreferences(e) {
     }
 }
 
+// ================= SUMMARY PANEL STICKY HEIGHT ADAPTATION =================
+
+function updateSummaryPanelHeight() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (typeof document.querySelector !== 'function') return;
+    const card = document.querySelector('.summary-panel-card');
+    if (!card) return;
+    if (typeof window.innerWidth === 'number' && window.innerWidth < 1024) {
+        card.style.height = '';
+        card.style.maxHeight = '';
+        return;
+    }
+    const col = card.parentElement;
+    if (!col || typeof col.getBoundingClientRect !== 'function') return;
+    const colRect = col.getBoundingClientRect();
+    const stickyTop = 80; // 5rem = 80px (offset below header)
+    const currentTop = Math.max(colRect.top, stickyTop);
+    const bottomMargin = 20; // 20px padding from screen bottom
+    const availableHeight = Math.floor((window.innerHeight || 800) - currentTop - bottomMargin);
+    if (availableHeight > 320) {
+        card.style.height = `${availableHeight}px`;
+        card.style.maxHeight = `${availableHeight}px`;
+    }
+}
+
+function setupSummaryPanelStickyHeight() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const main = typeof document.querySelector === 'function' ? document.querySelector('main') : null;
+    if (main && typeof main.addEventListener === 'function') {
+        main.addEventListener('scroll', updateSummaryPanelHeight, { passive: true });
+    }
+    if (typeof window.addEventListener === 'function') {
+        window.addEventListener('resize', updateSummaryPanelHeight);
+    }
+    updateSummaryPanelHeight();
+    initSmoothScroll();
+}
+
+// ================= SMOOTH SCROLL ENGINE =================
+
+function initSmoothScroll() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    function attachSmoothScroll(element) {
+        if (!element || element._hasSmoothScroll || typeof element.addEventListener !== 'function') return;
+        element._hasSmoothScroll = true;
+
+        let targetY = element.scrollTop || 0;
+        let currentY = element.scrollTop || 0;
+        let isRunning = false;
+
+        function step() {
+            const diff = targetY - currentY;
+            if (Math.abs(diff) < 0.75) {
+                currentY = targetY;
+                element.scrollTop = Math.round(currentY);
+                isRunning = false;
+                return;
+            }
+
+            // Snappy and natural momentum easing (0.15)
+            currentY += diff * 0.15;
+            element.scrollTop = Math.round(currentY);
+            if (typeof requestAnimationFrame !== 'undefined') {
+                requestAnimationFrame(step);
+            } else {
+                isRunning = false;
+            }
+        }
+
+        element.addEventListener('wheel', (e) => {
+            // Ignore horizontal wheel, zoom gestures (ctrl/meta), or shift modifier
+            if (e.ctrlKey || e.metaKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+
+            // Sync position if user scrolled via scrollbar thumb or keyboard
+            if (!isRunning) {
+                currentY = element.scrollTop;
+                targetY = element.scrollTop;
+            }
+
+            // Normalize line vs pixel delta
+            let delta = e.deltaY;
+            if (e.deltaMode === 1) delta *= 33; // Line delta
+            else if (e.deltaMode === 2) delta *= (element.clientHeight || 500); // Page delta
+
+            const maxScroll = (element.scrollHeight || 0) - (element.clientHeight || 0);
+            if (maxScroll <= 0) return;
+
+            // Clamped target
+            const nextTarget = Math.max(0, Math.min(maxScroll, targetY + delta));
+            if (nextTarget === targetY) return;
+
+            targetY = nextTarget;
+            if (typeof e.preventDefault === 'function') {
+                e.preventDefault();
+            }
+
+            if (!isRunning) {
+                isRunning = true;
+                if (typeof requestAnimationFrame !== 'undefined') {
+                    requestAnimationFrame(step);
+                } else {
+                    element.scrollTop = targetY;
+                    isRunning = false;
+                }
+            }
+        }, { passive: false });
+
+        element.addEventListener('scroll', () => {
+            if (!isRunning) {
+                currentY = element.scrollTop;
+                targetY = element.scrollTop;
+            }
+        }, { passive: true });
+    }
+
+    const main = typeof document.querySelector === 'function' ? document.querySelector('main') : null;
+    if (main) attachSmoothScroll(main);
+
+    const panelBody = typeof document.querySelector === 'function' ? document.querySelector('.summary-panel-body') : null;
+    if (panelBody) attachSmoothScroll(panelBody);
+}
+
+// ================= COLLAPSIBLE SIDEBAR ENGINE =================
+
+function initSidebarState() {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined' || typeof document === 'undefined') return;
+    try {
+        const isCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+        const sidebar = document.getElementById('app-sidebar');
+        if (sidebar && isCollapsed) {
+            sidebar.classList.add('sidebar-collapsed');
+            updateSidebarToggleIcons(true);
+        }
+    } catch (e) {
+        // Restricted storage guard
+    }
+}
+window.initSidebarState = initSidebarState;
+
+function toggleSidebar() {
+    if (typeof document === 'undefined') return;
+    const sidebar = document.getElementById('app-sidebar');
+    if (!sidebar) return;
+
+    const isCollapsed = sidebar.classList.toggle('sidebar-collapsed');
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
+        }
+    } catch (e) {}
+
+    updateSidebarToggleIcons(isCollapsed);
+
+    if (typeof refreshIcons === 'function') {
+        refreshIcons();
+    }
+    if (typeof updateSummaryPanelHeight === 'function') {
+        setTimeout(updateSummaryPanelHeight, 310);
+    }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('sidebar:toggle', { detail: { isCollapsed } }));
+    }
+}
+window.toggleSidebar = toggleSidebar;
+
+function toggleSidebarIfCollapsed() {
+    if (typeof document === 'undefined') return;
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebar && sidebar.classList.contains('sidebar-collapsed')) {
+        toggleSidebar();
+    }
+}
+window.toggleSidebarIfCollapsed = toggleSidebarIfCollapsed;
+
+function updateSidebarToggleIcons(isCollapsed) {
+    if (typeof document === 'undefined') return;
+    const sidebarBtn = document.getElementById('sidebar-toggle-btn');
+    if (sidebarBtn) {
+        sidebarBtn.setAttribute('title', isCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral');
+        const icon = sidebarBtn.querySelector('i');
+        if (icon) {
+            icon.setAttribute('data-lucide', isCollapsed ? 'panel-left-open' : 'panel-left-close');
+        }
+    }
+    const brandInfo = document.querySelector('.brand-info');
+    if (brandInfo) {
+        brandInfo.setAttribute('title', isCollapsed ? 'Clique para expandir a barra lateral' : 'PrintCalc 3D');
+    }
+    if (typeof refreshIcons === 'function') {
+        refreshIcons();
+    }
+}
+window.updateSidebarToggleIcons = updateSidebarToggleIcons;
+
 // ================= INITIALIZATION =================
 
 window.addEventListener('DOMContentLoaded', async () => {
+    initSidebarState();
     refreshIcons();
     setupDropzone();
+    setupSummaryPanelStickyHeight();
+    initSmoothScroll();
+
+    const sidebar = typeof document.querySelector === 'function' ? document.getElementById('app-sidebar') : null;
+    if (sidebar && typeof sidebar.addEventListener === 'function') {
+        sidebar.addEventListener('transitionend', (e) => {
+            if (e.propertyName === 'width' && typeof updateSummaryPanelHeight === 'function') {
+                updateSummaryPanelHeight();
+            }
+        });
+    }
 
     // Issue #27: Dynamic phone masking for commercial phones and WhatsApp
     attachPhoneMask(document.getElementById('proj-client-phone'));

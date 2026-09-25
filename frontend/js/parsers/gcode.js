@@ -1,13 +1,39 @@
 /**
- * G-Code Metadata Extractor
- * Parses Cura, PrusaSlicer, SuperSlicer, Bambu Studio, OrcaSlicer, IdeaMaker, Creality Print, Klipper G-code headers and comments.
+ * Cleans slicer profile names by removing embedded project/file references,
+ * e.g. "3D Prime PLA Basic(patolino-kratos.3mf)" -> "3D Prime PLA Basic"
  */
-function parseGcodeMetadata(gcodeText) {
+function cleanFilamentProfileName(profile, fileName = '') {
+    if (!profile || typeof profile !== 'string') return '';
+    let cleaned = profile.trim().replace(/^["']|["']$/g, '');
+
+    // Remove file references in parentheses or brackets, e.g. (patolino-kratos.3mf), [part.gcode]
+    cleaned = cleaned.replace(/\s*[\(\[][^()\[\]]*\.[a-z0-9_-]{2,6}\s*[\)\]]/gi, '');
+
+    // If fileName is provided, remove parenthesized match of base filename if present
+    if (fileName && typeof fileName === 'string') {
+        const base = fileName.replace(/^.*[\\\/]/, '').replace(/\.(?:gcode\.3mf|3mf|gcode|stl|step|stp|obj)$/i, '').trim();
+        if (base && base.length >= 2) {
+            const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            cleaned = cleaned.replace(new RegExp(`\\s*[\\(\\[]\\s*${escaped}(?:\\.[^()\\[\\]]+)?\\s*[\\)\\]]`, 'gi'), '');
+        }
+    }
+
+    cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+    return cleaned;
+}
+
+if (typeof window !== 'undefined') {
+    window.cleanFilamentProfileName = cleanFilamentProfileName;
+}
+
+function parseGcodeMetadata(gcodeText, fileName = '') {
     let printTimeSeconds = 0;
     let printTimePriority = 0; // 0 = none, 1 = generic, 2 = authoritative (normal mode, total estimated time, cura TIME)
     let filamentGrams = 0;
     let filamentMillimeters = 0;
     let filamentType = null;
+    let filamentProfile = null;
+    let filamentVendor = null;
 
     const lines = gcodeText.split('\n');
     // Top 3000 and bottom 3000 lines
@@ -132,10 +158,10 @@ function parseGcodeMetadata(gcodeText) {
         }
 
         // 4. Filament Material (PLA, PETG, ABS, etc.)
-        // Prusa / Bambu / Orca: ; filament_type = PLA
-        const matMatch = line.match(/filament_type(?:\s*\[\d+\])?\s*=\s*([A-Za-z0-9_-]+)/i);
-        if (matMatch && !filamentType) {
-            filamentType = matMatch[1].trim();
+        // Prusa / Bambu / Orca: ; filament_type = PLA or ; filament_type = PLA;PLA;PLA;PETG
+        const matMatch = line.match(/^;\s*filament_type(?:\s*\[\d+\])?\s*=\s*(.+)/i);
+        if (matMatch && filamentTypeParts.length === 0) {
+            filamentTypeParts = matMatch[1].trim().split(';').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
         }
 
         // Cura: ;MATERIAL:PLA or ;MATERIAL_1:PLA
@@ -143,10 +169,65 @@ function parseGcodeMetadata(gcodeText) {
         if (curaMatMatch && !filamentType) {
             filamentType = curaMatMatch[1].trim();
         }
+
+        // 5. Active Filament Slot (Bambu Studio / OrcaSlicer e.g. ; filament: 2)
+        if (!activeSlot) {
+            const slotMatch = line.match(/^;\s*(?:filament|filament_slot|tray_id)\s*[:=]\s*(\d+)/i);
+            if (slotMatch) {
+                activeSlot = parseInt(slotMatch[1], 10);
+            }
+        }
+
+        // 6. Filament Settings / Profile / Vendor / Colour (Bambu Studio, OrcaSlicer, PrusaSlicer, Cura, etc.)
+        // e.g. ; filament_settings_id = "Bambu PLA Basic @BBL X1C"
+        const settingsMatch = line.match(/filament_settings_id(?:\s*\[\d+\])?\s*=\s*(.+)/i);
+        if (settingsMatch && filamentSettingsParts.length === 0) {
+            filamentSettingsParts = settingsMatch[1].trim().split(';').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+        }
+
+        // e.g. ; filament_vendor = "Bambu Lab"
+        const vendorMatch = line.match(/filament_vendor(?:\s*\[\d+\])?\s*=\s*(.+)/i);
+        if (vendorMatch && filamentVendorParts.length === 0) {
+            filamentVendorParts = vendorMatch[1].trim().split(';').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+        }
+
+        // e.g. ; filament_colour = #9D432C;#F72323
+        const colMatch = line.match(/filament_colou?r(?:\s*\[\d+\])?\s*=\s*(.+)/i);
+        if (colMatch && filamentColourParts.length === 0) {
+            filamentColourParts = colMatch[1].trim().split(';').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+        }
+
+        // Cura filament name: ;FILAMENT_NAME:Generic PLA
+        const curaNameMatch = line.match(/^;\s*filament_name(?:_\d+)?:\s*(.+)/i);
+        if (curaNameMatch && !filamentProfile) {
+            filamentProfile = curaNameMatch[1].trim().replace(/^["']|["']$/g, '');
+        }
     }
+
+    let activeSlot = null;
+    let filamentSettingsParts = [];
+    let filamentVendorParts = [];
+    let filamentTypeParts = [];
+    let filamentColourParts = [];
 
     for (const rawLine of candidateLines) {
         extractFromLine(rawLine);
+    }
+
+    // Resolve target slot index (0-based, while activeSlot is 1-based)
+    const targetIdx = (activeSlot && activeSlot > 0) ? (activeSlot - 1) : 0;
+    if (filamentSettingsParts.length > 0 && !filamentProfile) {
+        filamentProfile = filamentSettingsParts[targetIdx] || filamentSettingsParts[0];
+    }
+    if (filamentVendorParts.length > 0 && !filamentVendor) {
+        filamentVendor = filamentVendorParts[targetIdx] || filamentVendorParts[0];
+    }
+    if (filamentTypeParts.length > 0 && !filamentType) {
+        filamentType = filamentTypeParts[targetIdx] || filamentTypeParts[0];
+    }
+    let filamentColourHex = null;
+    if (filamentColourParts.length > 0) {
+        filamentColourHex = filamentColourParts[targetIdx] || filamentColourParts[0];
     }
 
     // Fallback: if either print time or filament weight not found, scan any comment line in full file
@@ -167,11 +248,30 @@ function parseGcodeMetadata(gcodeText) {
         filamentGrams = volumeCm3 * 1.24;
     }
 
+    let slicerFilamentProfile = null;
+    if (filamentProfile) {
+        slicerFilamentProfile = filamentProfile;
+        if (filamentVendor) {
+            const vWords = filamentVendor.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !['lab', 'labs', 'ltd', 'inc', 'corp', 'the', '3d'].includes(w));
+            const hasVendor = vWords.some(w => slicerFilamentProfile.toLowerCase().includes(w));
+            if (!hasVendor) {
+                slicerFilamentProfile = `${filamentVendor} ${slicerFilamentProfile}`;
+            }
+        }
+    } else if (filamentVendor && filamentType) {
+        slicerFilamentProfile = `${filamentVendor} ${filamentType}`;
+    } else if (filamentType) {
+        slicerFilamentProfile = filamentType;
+    }
+
     const printTimeHours = printTimeSeconds > 0 ? (printTimeSeconds / 3600) : 0;
 
     return {
         print_time_hours: parseFloat(printTimeHours.toFixed(2)),
         part_weight_g: parseFloat(filamentGrams.toFixed(2)),
         filament_type: filamentType,
+        slicer_filament_profile: cleanFilamentProfileName(slicerFilamentProfile, fileName) || null,
+        filament_color_hex: filamentColourHex || null,
+        filament_slot: activeSlot || null,
     };
 }

@@ -340,11 +340,11 @@ td button:hover {
    6. STICKY FINANCIAL SUMMARY TERMINAL CARD
    ========================================================================== */
 
-/* Sticky Column Anchor: top offset accommodates 4rem topbar + 1.5rem gap */
+/* Sticky Column Anchor: top offset accommodates 4rem topbar + 1rem gap */
 .lg\:col-span-4.sticky,
 div[class*="col-span-4"].sticky {
     position: sticky;
-    top: 5.5rem;
+    top: 5rem;
     z-index: 15;
 }
 
@@ -361,6 +361,60 @@ div[class*="col-span-4"].sticky {
         inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
     border-radius: var(--radius-xl, 1rem);
     position: relative;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+    .summary-panel-card {
+        max-height: calc(100vh - 6.5rem);
+    }
+}
+
+/* Summary Panel Vertical Sections: Fixed Top, Scrollable Body, Fixed Bottom */
+.summary-panel-top {
+    flex-shrink: 0;
+}
+
+.summary-panel-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.summary-panel-bottom {
+    flex-shrink: 0;
+}
+
+/* Custom Slim Cyber Scrollbar for Summary Panel */
+.summary-panel-body::-webkit-scrollbar,
+.custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+}
+
+.summary-panel-body::-webkit-scrollbar-track,
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 4px;
+}
+
+.summary-panel-body::-webkit-scrollbar-thumb,
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(59, 130, 246, 0.35);
+    border-radius: 4px;
+}
+
+.summary-panel-body::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(59, 130, 246, 0.65);
+}
+
+.summary-panel-body,
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.35) rgba(15, 23, 42, 0.5);
 }
 
 /* Dual-Accent Top Hairline Bevel (Royal Blue to Emerald) */
@@ -635,6 +689,75 @@ div:has(> #live-final-price)::before {
     letter-spacing: -0.02em;
 }
 
+/* ============================================================
+   Auto-Aligned Form Grids (Subgrid with Universal Flex Fallback)
+   Guarantees that input fields and helper texts stay 100%
+   horizontally aligned across columns regardless of how many
+   lines labels or notes wrap into (1, 2, 3, or more lines).
+   ============================================================ */
+
+.form-aligned-grid {
+    display: grid;
+    align-items: start;
+}
+
+.form-col-aligned {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.form-label-header {
+    min-height: 3.5rem; /* Fallback: accommodates up to 3-4 lines without shifting inputs */
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.25rem;
+    margin-bottom: 0.375rem;
+}
+
+.form-input-container {
+    width: 100%;
+}
+
+.form-helper-text {
+    min-height: 2.25rem; /* Fallback: accommodates up to 2 lines cleanly */
+    margin-top: 0.25rem;
+    display: block;
+}
+
+/* Modern Browsers: CSS Subgrid - dynamically sizes to tallest item per row */
+@supports (grid-template-rows: subgrid) {
+    .form-aligned-grid {
+        grid-auto-rows: auto;
+    }
+
+    .form-col-aligned {
+        display: grid;
+        grid-row: span 3;
+        grid-template-rows: subgrid;
+        row-gap: 0.375rem;
+    }
+
+    .form-label-header {
+        min-height: 0 !important;
+        margin-bottom: 0 !important;
+        align-self: start;
+    }
+
+    .form-input-container {
+        align-self: start;
+    }
+
+    .form-helper-text {
+        min-height: 0 !important;
+        margin-top: 0 !important;
+        align-self: start;
+    }
+}
+
+
+
 /* Filament Modal Dynamic Name Preview Box */
 #filament-name-preview-box {
     background: rgba(12, 18, 30, 0.85);
@@ -776,4 +899,65 @@ div:has(> #live-final-price)::before {
         height: 230px;
         max-height: 240px;
     }
-}
+}
+
+/* Plate Card Subgrid Alignment */
+.plate-grid-aligned {
+    display: grid;
+    align-items: end;
+}
+
+@supports (grid-template-rows: subgrid) {
+    .plate-grid-aligned {
+        grid-auto-rows: auto;
+    }
+
+    .plate-field-col {
+        display: grid !important;
+        grid-row: span 2;
+        grid-template-rows: subgrid;
+        row-gap: 0.25rem;
+        height: auto !important;
+    }
+
+    .plate-label-slot {
+        align-self: end !important;
+        min-height: 0 !important;
+        margin-bottom: 0 !important;
+    }
+
+    .plate-field-col > input,
+    .plate-field-col > select,
+    .plate-field-col > .relative,
+    .plate-field-col > .flex:not(.plate-label-slot) {
+        align-self: end !important;
+        margin-top: 0 !important;
+    }
+}
+
+/* Fallback for browsers without CSS subgrid */
+@supports not (grid-template-rows: subgrid) {
+    .plate-field-col {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        height: 100%;
+    }
+
+    .plate-label-slot {
+        min-height: 2.25rem;
+        display: flex;
+        align-items: flex-end;
+        margin-bottom: 0.25rem;
+    }
+
+    .plate-field-col > input,
+    .plate-field-col > select,
+    .plate-field-col > .relative,
+    .plate-field-col > .flex:not(.plate-label-slot) {
+        margin-top: auto;
+    }
+}
+
+
+

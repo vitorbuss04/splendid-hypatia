@@ -145,6 +145,7 @@ class PlateBase(BaseModel):
     purge_weight_g: float = Field(0.0, ge=0)
     failure_margin_percent: float = Field(10.0, ge=0)
     quantity: int = Field(1, ge=1)
+    slicer_filament_profile: Optional[str] = None
     notes: Optional[str] = None
 
 class PlateCreate(PlateBase):
@@ -161,6 +162,7 @@ class PlateUpdate(BaseModel):
     purge_weight_g: Optional[float] = Field(None, ge=0)
     failure_margin_percent: Optional[float] = Field(None, ge=0)
     quantity: Optional[int] = Field(None, ge=1)
+    slicer_filament_profile: Optional[str] = None
     notes: Optional[str] = None
 
 class PlateResponse(PlateBase):

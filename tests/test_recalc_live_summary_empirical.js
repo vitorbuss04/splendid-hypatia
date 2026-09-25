@@ -157,7 +157,7 @@ runTest('1.1 Completely empty project (0 plates, 0 BOM, 0 labor, 0 overhead)', (
     assert.strictEqual(getOrCreate('live-base-cost').textContent, formatCurrency(0), 'Base cost should be 0');
     assert.strictEqual(getOrCreate('live-suggested-price').textContent, formatCurrency(0), 'Suggested price should be 0');
     assert.strictEqual(getOrCreate('live-final-price').textContent, formatCurrency(0), 'Final price should be 0');
-    assert.strictEqual(getOrCreate('live-net-profit').textContent, `${formatCurrency(0)} (0.0%)`, 'Net profit should be 0');
+    assert.strictEqual(getOrCreate('live-net-profit').textContent, formatCurrency(0), 'Net profit should be 0');
     assert.strictEqual(getOrCreate('live-weight').textContent, '0.0 g');
     assert.strictEqual(getOrCreate('live-time').textContent, '0.0 h');
     assert.strictEqual(marginPill.textContent, '+0.0%');
@@ -193,7 +193,7 @@ runTest('1.3 Zero base cost with non-zero shipping cost', () => {
     recalcLiveSummary();
     assert.strictEqual(getOrCreate('live-base-cost').textContent, formatCurrency(0));
     assert.strictEqual(getOrCreate('live-final-price').textContent, formatCurrency(35.50));
-    assert.strictEqual(getOrCreate('live-net-profit').textContent, `${formatCurrency(0)} (0.0%)`);
+    assert.strictEqual(getOrCreate('live-net-profit').textContent, formatCurrency(0));
     assert.strictEqual(barMat.style.width, '20%');
 });
 
@@ -327,7 +327,7 @@ runTest('3.1 Discount = 0%', () => {
     assert.strictEqual(getOrCreate('live-suggested-price').textContent, formatCurrency(120));
     assert.strictEqual(getOrCreate('live-discount-amount').textContent, `- ${formatCurrency(0)}`);
     assert.strictEqual(getOrCreate('live-final-price').textContent, formatCurrency(120));
-    assert.strictEqual(getOrCreate('live-net-profit').textContent, `${formatCurrency(20)} (20.0%)`);
+    assert.strictEqual(getOrCreate('live-net-profit').textContent, formatCurrency(20));
     assert.ok(marginPill.className.includes('bg-emerald-500/15'), '20% should be emerald');
 });
 
@@ -339,8 +339,8 @@ runTest('3.2 Discount = 50%', () => {
     assert.strictEqual(getOrCreate('live-suggested-price').textContent, formatCurrency(120));
     assert.strictEqual(getOrCreate('live-discount-amount').textContent, `- ${formatCurrency(60)}`);
     assert.strictEqual(getOrCreate('live-final-price').textContent, formatCurrency(60));
-    // Net profit = 60 - 100 = -40 (-40.0%)
-    assert.strictEqual(getOrCreate('live-net-profit').textContent, `${formatCurrency(-40)} (-40.0%)`);
+    // Net profit = 60 - 100 = -40
+    assert.strictEqual(getOrCreate('live-net-profit').textContent, formatCurrency(-40));
     assert.ok(marginPill.className.includes('bg-rose-500/15'), 'Negative profit should be rose alert');
     assert.strictEqual(marginPill.textContent, '-40.0%');
 });
@@ -353,8 +353,8 @@ runTest('3.3 Discount = 100%', () => {
     assert.strictEqual(getOrCreate('live-suggested-price').textContent, formatCurrency(120));
     assert.strictEqual(getOrCreate('live-discount-amount').textContent, `- ${formatCurrency(120)}`);
     assert.strictEqual(getOrCreate('live-final-price').textContent, formatCurrency(0));
-    // Net profit = 0 - 100 = -100 (-100.0%)
-    assert.strictEqual(getOrCreate('live-net-profit').textContent, `${formatCurrency(-100)} (-100.0%)`);
+    // Net profit = 0 - 100 = -100
+    assert.strictEqual(getOrCreate('live-net-profit').textContent, formatCurrency(-100));
     assert.ok(marginPill.className.includes('bg-rose-500/15'));
     assert.strictEqual(marginPill.textContent, '-100.0%');
 });
@@ -376,8 +376,8 @@ runTest('4.1 Discount slightly exceeds margin -> negative net profit alert', () 
     getOrCreate('proj-margin').value = '10'; // suggested = 110
     getOrCreate('proj-discount').value = '15'; // 15% disc = 16.50 -> final = 93.50
     recalcLiveSummary();
-    // Net profit = 93.50 - 100 = -6.50 (-6.5%)
-    assert.strictEqual(getOrCreate('live-net-profit').textContent, `${formatCurrency(-6.50)} (-6.5%)`);
+    // Net profit = 93.50 - 100 = -6.50
+    assert.strictEqual(getOrCreate('live-net-profit').textContent, formatCurrency(-6.50));
     assert.ok(getOrCreate('live-net-profit').className.includes('text-rose-400'));
     assert.ok(marginPill.className.includes('bg-rose-500/15 text-rose-400'));
     assert.strictEqual(marginPill.textContent, '-6.5%');
@@ -391,8 +391,8 @@ runTest('4.2 High tax rate edge case: 90% tax rate', () => {
     recalcLiveSummary();
     assert.strictEqual(getOrCreate('live-suggested-price').textContent, formatCurrency(1100));
     assert.strictEqual(getOrCreate('live-tax-amount').textContent, formatCurrency(990));
-    // netRevenue = 1100 - 990 = 110. netProfit = 110 - 100 = 10 (10.0%)
-    assert.strictEqual(getOrCreate('live-net-profit').textContent, `${formatCurrency(10)} (10.0%)`);
+    // netRevenue = 1100 - 990 = 110. netProfit = 110 - 100 = 10
+    assert.strictEqual(getOrCreate('live-net-profit').textContent, formatCurrency(10));
     assert.ok(marginPill.className.includes('bg-amber-500/15'), '10% should be amber');
 });
 

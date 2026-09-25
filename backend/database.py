@@ -61,6 +61,10 @@ def init_db():
                     conn.execute(text(f"ALTER TABLE {prefix}projects ADD COLUMN payment_terms VARCHAR(500)"))
                 if "warranty_terms" not in proj_cols:
                     conn.execute(text(f"ALTER TABLE {prefix}projects ADD COLUMN warranty_terms VARCHAR(500)"))
+            if "plates" in tables:
+                plate_cols = [c["name"] for c in inspector.get_columns("plates", schema=DB_SCHEMA)]
+                if "slicer_filament_profile" not in plate_cols:
+                    conn.execute(text(f"ALTER TABLE {prefix}plates ADD COLUMN slicer_filament_profile VARCHAR(255)"))
             conn.commit()
     except Exception as e:
         pass

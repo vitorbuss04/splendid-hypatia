@@ -878,8 +878,6 @@ def test_payment_terms_and_warranty_browser_flow():
     finally:
         Path(temp_path).unlink(missing_ok=True)
 
-
-<<<<<<< HEAD
 def test_hash_routing_navigation_and_persistence():
     """Verify URL hash routing, route extraction, and navigation synchronization."""
     app_js_path = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
@@ -965,7 +963,8 @@ def test_hash_routing_navigation_and_persistence():
     res = subprocess.run(["node"], input=test_script, capture_output=True, text=True, encoding="utf-8")
     assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
     assert "success" in res.stdout
-=======
+
+
 def test_issues_17_to_22_full_suite():
     """
     Covers issues #17, #18, #19, #20, #21, #22 across both static template contracts
@@ -1438,7 +1437,249 @@ def test_issues_23_to_27_full_suite():
     finally:
         Path(temp_path).unlink(missing_ok=True)
 
->>>>>>> 61bf1ea142e634de36070e41f636f878d164bb3e
+
+def test_batch_file_upload_ui_contract_and_plate_generation():
+    """
+    Verifies batch file uploading:
+    1. index.html file-slicer-input has 'multiple' attribute.
+    2. app.js implements handleSlicerFiles and hooks both drop and change events.
+    3. Node simulation of uploading 7 .gcode.3mf files at once creates 7 plates,
+       replaces the blank initial plate, and sets individual times and weights accurately.
+    """
+    import subprocess
+    from pathlib import Path
+
+    html_path = Path(__file__).parent.parent / "frontend" / "index.html"
+    app_js_path = Path(__file__).parent.parent / "frontend" / "js" / "app.js"
+    html_content = html_path.read_text(encoding="utf-8")
+    app_js = app_js_path.read_text(encoding="utf-8")
+
+    # 1. Static Contract Checks
+    assert 'id="file-slicer-input"' in html_content
+    # Check multiple attribute
+    slicer_input_tag = [tag for tag in html_content.split("<input") if 'id="file-slicer-input"' in tag][0]
+    assert "multiple" in slicer_input_tag, "file-slicer-input must have 'multiple' attribute for batch file picking"
+    assert "Em Lote" in html_content or "Lote" in html_content, "dropzone must indicate batch upload support"
+
+    assert "function handleSlicerFiles" in app_js, "app.js must implement handleSlicerFiles"
+    assert "handleSlicerFiles(Array.from(e.dataTransfer.files))" in app_js, "dropzone drop event must pass all files to handleSlicerFiles"
+    assert "handleSlicerFiles(Array.from(e.target.files))" in app_js, "file input change event must pass all files to handleSlicerFiles"
+    assert "function handleSlicerFile" in app_js, "app.js must maintain handleSlicerFile for backwards compatibility"
+
+    # 2. Node Execution Simulation
+    node_test = f"""
+    const state = {{
+        printers: [{{ id: 10, name: 'Bambu Lab X1C' }}],
+        filaments: [
+            {{ id: 101, material: 'PLA', cost_per_gram: 0.12 }},
+            {{ id: 102, material: 'PETG', cost_per_gram: 0.15 }}
+        ],
+        currentPlates: [
+            {{ name: 'Placa 1', print_time_hours: 0, part_weight_g: 0, purge_weight_g: 0, printer_id: null, filament_id: null }}
+        ],
+        user: {{ default_failure_rate: 10 }}
+    }};
+
+    const toasts = [];
+    function showToast(msg, type) {{ toasts.push({{ msg, type }}); }}
+    let rendered = false;
+    function renderPlates() {{ rendered = true; }}
+    let recalculated = false;
+    function recalcLiveSummary() {{ recalculated = true; }}
+
+    // Mock parse3mfMetadata
+    async function parse3mfMetadata(file) {{
+        return [{{
+            name: file.name.replace(/\\.(?:gcode\\.3mf|3mf|gcode)$/i, ''),
+            print_time_hours: file._mockTime,
+            part_weight_g: file._mockWeight,
+            purge_weight_g: 0,
+            filament_type: file._mockMat,
+            failure_margin_percent: 10,
+            quantity: 1
+        }}];
+    }}
+
+    async function handleSlicerFiles(files) {{
+    {app_js.split('async function handleSlicerFiles(files) {')[1].split('\n}\n')[0]}
+    }}
+
+    async function run() {{
+        // Simulate dropping 7 files simultaneously
+        const files = [
+            {{ name: 'base.gcode.3mf', _mockTime: 1.5, _mockWeight: 35.0, _mockMat: 'PLA' }},
+            {{ name: 'tampa.gcode.3mf', _mockTime: 2.0, _mockWeight: 42.5, _mockMat: 'PETG' }},
+            {{ name: 'suporte_esq.gcode.3mf', _mockTime: 0.8, _mockWeight: 18.0, _mockMat: 'PLA' }},
+            {{ name: 'suporte_dir.gcode.3mf', _mockTime: 0.8, _mockWeight: 18.0, _mockMat: 'PLA' }},
+            {{ name: 'engrenagem.gcode.3mf', _mockTime: 3.2, _mockWeight: 65.0, _mockMat: 'PETG' }},
+            {{ name: 'eixo.gcode.3mf', _mockTime: 0.5, _mockWeight: 10.0, _mockMat: 'PLA' }},
+            {{ name: 'painel.gcode.3mf', _mockTime: 4.0, _mockWeight: 90.0, _mockMat: 'PLA' }}
+        ];
+
+        await handleSlicerFiles(files);
+
+        if (state.currentPlates.length !== 7) {{
+            throw new Error(`Expected exactly 7 plates created, got ${{state.currentPlates.length}}`);
+        }}
+
+        // Verify that default plate was replaced and each file has its plate
+        const expected = [
+            {{ name: 'base', time: 1.5, weight: 35.0, filId: 101 }},
+            {{ name: 'eixo', time: 0.5, weight: 10.0, filId: 101 }},
+            {{ name: 'engrenagem', time: 3.2, weight: 65.0, filId: 102 }},
+            {{ name: 'painel', time: 4.0, weight: 90.0, filId: 101 }},
+            {{ name: 'suporte_dir', time: 0.8, weight: 18.0, filId: 101 }},
+            {{ name: 'suporte_esq', time: 0.8, weight: 18.0, filId: 101 }},
+            {{ name: 'tampa', time: 2.0, weight: 42.5, filId: 102 }}
+        ]; // naturally sorted by filename
+
+        for (let i = 0; i < 7; i++) {{
+            const p = state.currentPlates[i];
+            const exp = expected[i];
+            if (p.name !== exp.name) throw new Error(`Plate ${{i}} name expected ${{exp.name}}, got ${{p.name}}`);
+            if (p.print_time_hours !== exp.time) throw new Error(`Plate ${{i}} time expected ${{exp.time}}, got ${{p.print_time_hours}}`);
+            if (p.part_weight_g !== exp.weight) throw new Error(`Plate ${{i}} weight expected ${{exp.weight}}, got ${{p.part_weight_g}}`);
+            if (p.filament_id !== exp.filId) throw new Error(`Plate ${{i}} filament_id expected ${{exp.filId}}, got ${{p.filament_id}}`);
+            if (p.printer_id !== 10) throw new Error(`Plate ${{i}} printer_id expected 10, got ${{p.printer_id}}`);
+        }}
+
+        if (!rendered) throw new Error('renderPlates was not called');
+        if (!recalculated) throw new Error('recalcLiveSummary was not called');
+
+        console.log(JSON.stringify({{ success: true, plateCount: state.currentPlates.length }}));
+    }}
+
+    run().catch(err => {{
+        console.error(err);
+        process.exit(1);
+    }});
+    """
+
+    res = subprocess.run(["node", "-e", node_test], capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_slicer_filament_profile_badge_rendering_and_selection_help():
+    """
+    Verifies that:
+    1. renderPlates renders an info-icon tooltip beside the 'Filamento' label with data-tooltip="Fatiado com: <perfil>"
+       using the help-circle icon and info-icon class, preventing vertical input misalignment.
+    2. When plate has no slicer_filament_profile, no tooltip icon is rendered.
+    3. Slicer files with filament profile smartly auto-match equivalent catalog filaments.
+    4. saveCurrentProject preserves slicer_filament_profile in the project plates payload.
+    """
+    import subprocess
+    import shutil
+    from pathlib import Path
+
+    app_js_path = (Path(__file__).parent.parent / "frontend" / "js" / "app.js").resolve().as_posix()
+    app_js = (Path(__file__).parent.parent / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+
+    # Contract assertions on app.js source code
+    assert "slicer_filament_profile" in app_js
+    assert "Fatiado com:" in app_js
+    assert "info-icon" in app_js
+    assert "help-circle" in app_js
+    assert "data-tooltip=" in app_js
+    assert "cleanFilamentProfileName" in app_js
+
+    # Real DOM simulation via Node.js
+    clean_profile_code = app_js.split("function cleanFilamentProfileName(profile, fileName = '') {")[1].split('\n}\n')[0]
+    render_plates_code = app_js.split('function renderPlates() {')[1].split('\n}\n')[0]
+    node_test = f"""
+    let innerHtml = '';
+    global.document = {{
+        getElementById: (id) => {{
+            if (id === 'plates-container') {{
+                return {{
+                    set innerHTML(val) {{ innerHtml = val; }},
+                    get innerHTML() {{ return innerHtml; }}
+                }};
+            }}
+            return null;
+        }}
+    }};
+    global.window = {{}};
+
+    function cleanFilamentProfileName(profile, fileName = '') {{
+        {clean_profile_code}
+    }}
+
+    global.state = {{
+        user: {{ default_failure_rate: 10 }},
+        printers: [{{ id: 1, name: 'Bambu X1C', machine_hourly_rate: 3.5 }}],
+        filaments: [
+            {{ id: 10, name: 'PLA Preto - 3D Prime', material: 'PLA', brand: '3D Prime', color: 'Preto', color_hex: '#10b981', cost_per_gram: 0.09 }},
+            {{ id: 20, name: '3D Prime PLA Basic - Branco', material: 'PLA', brand: '3D Prime', color: 'Branco', color_hex: '#ffffff', cost_per_gram: 0.12 }},
+            {{ id: 30, name: 'Prusament PETG - Laranja', material: 'PETG', brand: 'Prusa', color: 'Laranja', color_hex: '#f97316', cost_per_gram: 0.15 }}
+        ],
+        currentPlates: [
+            {{
+                name: 'Suporte',
+                printer_id: 1,
+                filament_id: 20,
+                slicer_filament_profile: '3D Prime PLA Basic(patolino-kratos.3mf)',
+                print_time_hours: 1.5,
+                part_weight_g: 45.0,
+                purge_weight_g: 0,
+                failure_margin_percent: 10,
+                quantity: 1
+            }},
+            {{
+                name: 'Base Manual',
+                printer_id: 1,
+                filament_id: 10,
+                slicer_filament_profile: null,
+                print_time_hours: 2.0,
+                part_weight_g: 60.0,
+                purge_weight_g: 0,
+                failure_margin_percent: 10,
+                quantity: 1
+            }}
+        ]
+    }};
+
+    global.formatCurrency = (v) => 'R$ ' + Number(v).toFixed(2);
+    global.parseLocaleFloat = (v, def) => parseFloat(v) || def;
+    global.refreshIcons = () => {{}};
+
+    // Extract renderPlates
+    function renderPlates() {{
+        {render_plates_code}
+    }}
+
+    renderPlates();
+
+    const html = document.getElementById('plates-container').innerHTML;
+
+    // 1. Plate 0 has slicer_filament_profile -> must show tooltip icon beside Filamento label
+    if (!html.includes('Fatiado com:')) throw new Error('Missing "Fatiado com:" tooltip text in plate card');
+    // Must strip (patolino-kratos.3mf) file reference and keep only filament profile
+    if (!html.includes('3D Prime PLA Basic')) throw new Error('Missing profile name "3D Prime PLA Basic"');
+    if (html.includes('patolino-kratos.3mf')) throw new Error('File reference "(patolino-kratos.3mf)" was not stripped from tooltip');
+    if (!html.includes('info-icon') || !html.includes('help-circle')) {{
+        throw new Error('Tooltip icon missing info-icon or help-circle element');
+    }}
+
+    // Check that old misaligned chip classes are not present
+    if (html.includes('text-[10px] text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60')) {{
+        throw new Error('Old chip classes still present under select - causing misalignment');
+    }}
+
+    // Count occurrences of "Fatiado com:" -> exactly 1 (only Plate 0, not Plate 1)
+    const matches = html.match(/Fatiado com:/g) || [];
+    if (matches.length !== 1) throw new Error(`Expected exactly 1 tooltip, got ${{matches.length}}`);
+
+    console.log(JSON.stringify({{ success: true, tooltipMatches: matches.length }}));
+    """
+
+    res = subprocess.run(["node", "-e", node_test], capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+
 
 
 
