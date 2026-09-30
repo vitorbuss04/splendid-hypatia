@@ -238,10 +238,25 @@ function matchesSearch(text, term) {
     return words.every(word => normText.includes(word));
 }
 
-// Issue #27: Dynamic phone masking for commercial phones and WhatsApp
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+window.escapeHtml = escapeHtml;
+
+// Issue #27 & #31: Dynamic phone masking for commercial phones and WhatsApp (with +55/55 DDI sanitization)
 function formatPhoneInput(value) {
     if (!value) return '';
-    const digits = String(value).replace(/\D/g, '').slice(0, 11);
+    let digits = String(value).replace(/\D/g, '');
+    if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+        digits = digits.slice(2);
+    }
+    digits = digits.slice(0, 11);
     if (digits.length <= 2) {
         return digits.length > 0 ? `(${digits}` : '';
     }
@@ -1104,11 +1119,11 @@ function renderRecentProjects() {
                                 <div class="w-7 h-7 rounded-lg bg-blue-600/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
                                     <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
                                 </div>
-                                <span class="font-semibold text-white group-hover:text-blue-400 transition-colors">${p.name}</span>
+                                <span class="font-semibold text-white group-hover:text-blue-400 transition-colors">${escapeHtml(p.name)}</span>
                             </div>
                         </td>
                         <td class="py-3 px-3 text-slate-300">
-                            ${p.client_name ? `<span class="flex items-center gap-1.5"><i data-lucide="user" class="w-3 h-3 text-slate-500"></i>${p.client_name}</span>` : '<span class="text-slate-500">—</span>'}
+                            ${p.client_name ? `<span class="flex items-center gap-1.5"><i data-lucide="user" class="w-3 h-3 text-slate-500"></i>${escapeHtml(p.client_name)}</span>` : '<span class="text-slate-500">—</span>'}
                         </td>
                         <td class="py-3 px-3 text-center">
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
@@ -1190,7 +1205,7 @@ function renderProjectsTable(filterText = null, statusFilter = '') {
                 </h4>
                 <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
                     ${hasFilters 
-                        ? (term ? `Nenhum projeto encontrado para "<strong class="text-white">${term}</strong>". Tente buscar por outros termos ou limpar os filtros.` : 'Não encontramos resultados para os filtros selecionados. Tente buscar por outros termos ou limpar os filtros.')
+                        ? (term ? `Nenhum projeto encontrado para "<strong class="text-white">${escapeHtml(term)}</strong>". Tente buscar por outros termos ou limpar os filtros.` : 'Não encontramos resultados para os filtros selecionados. Tente buscar por outros termos ou limpar os filtros.')
                         : 'Comece criando seu primeiro orçamento profissional com cálculo automático de custos e margem.'}
                 </p>
                 <div class="mt-4 flex items-center justify-center gap-2">
@@ -1233,7 +1248,7 @@ function renderProjectsTable(filterText = null, statusFilter = '') {
                                     <i data-lucide="box" class="w-4 h-4"></i>
                                 </div>
                                 <div class="min-w-0">
-                                    <p class="font-bold text-white group-hover:text-blue-400 transition-colors truncate">${p.name}</p>
+                                    <p class="font-bold text-white group-hover:text-blue-400 transition-colors truncate">${escapeHtml(p.name)}</p>
                                     <p class="text-[10px] text-slate-500 font-mono">#${p.id.toString().padStart(4, '0')}</p>
                                 </div>
                             </div>
@@ -1242,7 +1257,7 @@ function renderProjectsTable(filterText = null, statusFilter = '') {
                             ${p.client_name ? `
                                 <div class="flex items-center gap-1.5">
                                     <i data-lucide="user" class="w-3.5 h-3.5 text-slate-500 shrink-0"></i>
-                                    <span class="truncate">${p.client_name}</span>
+                                    <span class="truncate">${escapeHtml(p.client_name)}</span>
                                 </div>
                             ` : '<span class="text-slate-500">—</span>'}
                         </td>
@@ -1489,6 +1504,23 @@ function updatePlateTime(idx) {
 function renderPlates() {
     const container = document.getElementById('plates-container');
     if (!container) return;
+
+    if (!state.currentPlates || state.currentPlates.length === 0) {
+        container.innerHTML = `
+            <div class="p-8 rounded-xl bg-slate-900/40 border border-dashed border-slate-800/80 text-center flex flex-col items-center justify-center space-y-3">
+                <div class="w-12 h-12 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shadow-inner">
+                    <i data-lucide="layers" class="w-6 h-6"></i>
+                </div>
+                <p class="text-sm font-semibold text-white">Nenhuma placa de impressão configurada</p>
+                <p class="text-xs text-slate-400 max-w-sm">Adicione arquivos 3MF/G-code ou configure placas manualmente para calcular o tempo de máquina e filamento.</p>
+                <button type="button" onclick="addNewPlateRow()" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-md shadow-blue-600/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Adicionar Placa
+                </button>
+            </div>
+        `;
+        refreshIcons();
+        return;
+    }
 
     container.innerHTML = state.currentPlates.map((plate, idx) => {
         const selFil = state.filaments.find(f => f.id === plate.filament_id);
@@ -1889,15 +1921,17 @@ function recalcLiveSummary() {
     const shippingCost = parseLocaleFloat(document.getElementById('proj-shipping')?.value, 0);
 
     const taxDivisor = Math.max(0.01, 1.0 - (taxPercent / 100.0));
-    const suggestedPrice = baseCost > 0 ? ((baseCost * (1.0 + (marginPercent / 100.0))) / taxDivisor) : 0;
+    const suggestedPrice = baseCost > 0 
+        ? Math.round(((baseCost * (1.0 + (marginPercent / 100.0))) / taxDivisor) * 100) / 100 
+        : 0;
 
-    const discountAmount = suggestedPrice * (discountPercent / 100.0);
-    const subtotalAfterDiscount = suggestedPrice - discountAmount;
-    const taxAmount = subtotalAfterDiscount * (taxPercent / 100.0);
-    const netRevenue = subtotalAfterDiscount - taxAmount;
-    const netProfit = netRevenue - baseCost;
-    const effectiveMarginPercent = baseCost > 0 ? (netProfit / baseCost * 100.0) : 0;
-    const finalPriceToClient = subtotalAfterDiscount + shippingCost;
+    const discountAmount = Math.round(suggestedPrice * (discountPercent / 100.0) * 100) / 100;
+    const subtotalAfterDiscount = Math.round((suggestedPrice - discountAmount) * 100) / 100;
+    const taxAmount = Math.round(subtotalAfterDiscount * (taxPercent / 100.0) * 100) / 100;
+    const netRevenue = Math.round((subtotalAfterDiscount - taxAmount) * 100) / 100;
+    const netProfit = Math.round((netRevenue - baseCost) * 100) / 100;
+    const effectiveMarginPercent = baseCost > 0 ? Math.round((netProfit / baseCost * 100.0) * 100) / 100 : 0;
+    const finalPriceToClient = Math.round((subtotalAfterDiscount + shippingCost) * 100) / 100;
 
     // Update Live Summary DOM
     setText('live-weight', `${totalWeightGrams.toFixed(1)} g`);
@@ -1983,6 +2017,10 @@ async function saveCurrentProject(navigateBack = true) {
         showToast('Por favor, informe o título do projeto.', 'error');
         document.getElementById('proj-name').focus();
         return false;
+    }
+
+    if ((!state.currentPlates || state.currentPlates.length === 0) && (!state.currentBOM || state.currentBOM.length === 0)) {
+        showToast('Aviso: orçamento sem placas ou insumos configurados.', 'warning');
     }
 
     const payload = {
@@ -2072,6 +2110,10 @@ async function duplicateProject(id) {
         showToast('Projeto duplicado com sucesso!', 'success');
         await loadAllData();
         renderProjectsTable();
+        renderRecentProjects();
+        if (state.activeView === 'dashboard') {
+            renderDashboard();
+        }
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -2084,6 +2126,10 @@ async function deleteProject(id) {
         showToast('Projeto excluído com sucesso.', 'success');
         await loadAllData();
         renderProjectsTable();
+        renderRecentProjects();
+        if (state.activeView === 'dashboard') {
+            renderDashboard();
+        }
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -2354,6 +2400,7 @@ async function handleSinglePlateFile(e, plateIdx) {
             }
             state.currentPlates[plateIdx].print_time_hours = meta.print_time_hours;
             state.currentPlates[plateIdx].part_weight_g = meta.part_weight_g;
+            state.currentPlates[plateIdx].purge_weight_g = 0;
             state.currentPlates[plateIdx].slicer_filament_profile = cleanFilamentProfileName(meta.slicer_filament_profile, file.name) || null;
 
             const matchedFilament = (typeof findBestMatchingFilament === 'function')

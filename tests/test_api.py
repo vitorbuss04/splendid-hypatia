@@ -1025,6 +1025,113 @@ def test_bom_items_negative_validation_rejection(client, make_user):
     assert res_cost.status_code == 422
 
 
+def test_plate_cross_tenant_idor_prevention(client, make_user):
+    user_a = make_user(email="alice_idor@company.com")
+    user_b = make_user(email="bob_idor@company.com")
+
+    # User A creates proprietary printer and high-end filament with custom rates
+    prn_a = client.post("/api/printers", json={
+        "name": "Alice Industrial SLA",
+        "acquisition_cost": 25000.0,
+        "lifespan_hours": 2000.0,
+        "avg_power_watts": 500.0,
+        "energy_rate_kwh": 1.20,
+        "maintenance_cost_per_hour": 15.0
+    }, headers=user_a["headers"]).json()
+
+    fil_a = client.post("/api/filaments", json={
+        "name": "Alice Carbon PEEK",
+        "brand": "Specialty Polymer",
+        "material": "PEEK",
+        "color": "Preto",
+        "spool_weight_g": 500.0,
+        "spool_price": 750.0
+    }, headers=user_a["headers"]).json()
+
+    # User B creates a project
+    proj_b = client.post("/api/projects", json={
+        "name": "Bob Stealth Quote"
+    }, headers=user_b["headers"]).json()
+    proj_b_id = proj_b["id"]
+
+    # User B tries to associate Alice's printer_id and filament_id to a plate
+    add_plate_res = client.post(f"/api/projects/{proj_b_id}/plates", json={
+        "name": "Placa Maliciosa",
+        "printer_id": prn_a["id"],
+        "filament_id": fil_a["id"],
+        "print_time_hours": 2.0,
+        "part_weight_g": 50.0
+    }, headers=user_b["headers"])
+    assert add_plate_res.status_code == 201
+    plate_data = add_plate_res.json()
+
+    # The API must NOT associate Alice's foreign keys or leak Alice's proprietary machine rate and cost per gram
+    assert plate_data["printer_id"] is None
+    assert plate_data["filament_id"] is None
+    cost_breakdown = plate_data.get("cost_breakdown", {})
+    assert cost_breakdown.get("printer_name") != "Alice Industrial SLA"
+    assert cost_breakdown.get("filament_name") != "Alice Carbon PEEK"
+
+
+def test_project_update_with_deleted_printer_or_filament_no_crash(client, make_user):
+    user = make_user(email="deleted_fk@example.com")
+    headers = user["headers"]
+
+    # 1. Create a printer and filament
+    prn = client.post("/api/printers", json={"name": "Impressora Provisoria"}, headers=headers).json()
+    fil = client.post("/api/filaments", json={
+        "name": "Filamento Provisorio",
+        "brand": "Marca",
+        "material": "PLA",
+        "color": "Branco",
+        "spool_weight_g": 1000.0,
+        "spool_price": 100.0
+    }, headers=headers).json()
+
+    # 2. Create project referencing them
+    proj = client.post("/api/projects", json={
+        "name": "Projeto com FK",
+        "plates": [
+            {
+                "name": "Placa 1",
+                "printer_id": prn["id"],
+                "filament_id": fil["id"],
+                "print_time_hours": 1.0,
+                "part_weight_g": 20.0
+            }
+        ]
+    }, headers=headers).json()
+    proj_id = proj["id"]
+
+    # 3. Delete the printer and filament
+    del_prn = client.delete(f"/api/printers/{prn['id']}", headers=headers)
+    assert del_prn.status_code == 204
+    del_fil = client.delete(f"/api/filaments/{fil['id']}", headers=headers)
+    assert del_fil.status_code == 204
+
+    # 4. Updating the project referencing the deleted IDs must NOT crash with HTTP 500 IntegrityError
+    update_res = client.put(f"/api/projects/{proj_id}", json={
+        "name": "Projeto Atualizado",
+        "plates": [
+            {
+                "name": "Placa 1",
+                "printer_id": prn["id"],
+                "filament_id": fil["id"],
+                "print_time_hours": 1.5,
+                "part_weight_g": 25.0
+            }
+        ]
+    }, headers=headers)
+    assert update_res.status_code == 200
+    updated_proj = update_res.json()
+    assert updated_proj["name"] == "Projeto Atualizado"
+    assert len(updated_proj["plates"]) == 1
+    # Foreign keys gracefully sanitized to None
+    assert updated_proj["plates"][0]["printer_id"] is None
+    assert updated_proj["plates"][0]["filament_id"] is None
+
+
+
 
 
 

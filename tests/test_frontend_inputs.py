@@ -1679,6 +1679,528 @@ def test_slicer_filament_profile_badge_rendering_and_selection_help():
     assert "success" in res.stdout
 
 
+def test_phone_formatting_with_international_ddi_55():
+    """
+    Issue #31:
+    Verifies that pasting a phone number with international DDI (+55 or 55)
+    properly strips the country code and does not truncate the last digits or corrupt the area code.
+    """
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const vm = require('vm');
+    const sandbox = {
+        window: {},
+        document: { addEventListener() {}, removeEventListener() {} },
+        addEventListener() {},
+        removeEventListener() {},
+        String
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(appJs + '; this.formatPhoneInput = formatPhoneInput;', sandbox);
+
+    const fn = sandbox.formatPhoneInput;
+
+    const testCases = [
+        { input: '+55 11 98888-7777', expected: '(11) 98888-7777' },
+        { input: '+5511988887777', expected: '(11) 98888-7777' },
+        { input: '5511988887777', expected: '(11) 98888-7777' },
+        { input: '+55 11 3333-4444', expected: '(11) 3333-4444' },
+        { input: '551133334444', expected: '(11) 3333-4444' },
+        { input: '11988887777', expected: '(11) 98888-7777' },
+        { input: '(11) 98888-7777', expected: '(11) 98888-7777' },
+        { input: '1133334444', expected: '(11) 3333-4444' },
+        { input: '11', expected: '(11' },
+        { input: '', expected: '' }
+    ];
+
+    for (const tc of testCases) {
+        const actual = fn(tc.input);
+        if (actual !== tc.expected) {
+            throw new Error(`Input "${tc.input}": expected "${tc.expected}", got "${actual}"`);
+        }
+    }
+
+    console.log(JSON.stringify({ success: true, count: testCases.length }));
+    """
+
+    res = subprocess.run(["node", "-e", node_test], capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_escape_html_xss_protection_in_projects():
+    """
+    Issue #29:
+    Verifies that escapeHtml properly escapes HTML tags and prevents Stored XSS
+    and layout breaks in renderProjectsTable and renderRecentProjects.
+    """
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const vm = require('vm');
+    const elements = {};
+    function getOrCreate(id) {
+        if (!elements[id]) {
+            elements[id] = { id, textContent: '', innerHTML: '', innerText: '', value: '', classList: { add(){}, remove(){}, contains(){ return false; } }, style: {} };
+        }
+        return elements[id];
+    }
+    const sandbox = {
+        document: {
+            getElementById: getOrCreate,
+            querySelector: (sel) => getOrCreate(sel),
+            querySelectorAll: () => [],
+            addEventListener() {},
+            removeEventListener() {}
+        },
+        addEventListener() {},
+        removeEventListener() {},
+        console, Math, Number, String,
+        refreshIcons() {}
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    let code = appJs + '\nglobalThis.__app_state = state;\nglobalThis.__escapeHtml = escapeHtml;\nglobalThis.__renderRecentProjects = renderRecentProjects;\nglobalThis.__renderProjectsTable = renderProjectsTable;\nglobalThis.__formatCurrency = formatCurrency;\nglobalThis.__formatStatus = formatStatus;';
+    vm.runInContext(code, sandbox);
+
+    const state = sandbox.__app_state;
+    state.projects = [
+        {
+            id: 1,
+            name: 'Gabinete <V2> & <script>alert(1)</script>',
+            client_name: 'Cliente "Especial" & <img src=x onerror=1>',
+            plates_count: 2,
+            total_time_hours: 4.5,
+            base_cost: 50.0,
+            final_price_to_client: 120.0,
+            status: 'draft'
+        }
+    ];
+    state.projectStatusFilter = 'all';
+
+    // 1. Check escapeHtml directly
+    const esc = sandbox.__escapeHtml;
+    if (esc('<div>"hello" & \'world\'</div>') !== '&lt;div&gt;&quot;hello&quot; &amp; &#039;world&#039;&lt;/div&gt;') {
+        throw new Error('escapeHtml did not escape all characters properly');
+    }
+
+    // 2. Check renderRecentProjects
+    sandbox.__renderRecentProjects();
+    const recentHtml = elements['dashboard-recent-projects'].innerHTML;
+    if (recentHtml.includes('<script>') || recentHtml.includes('<V2>') || recentHtml.includes('<img')) {
+        throw new Error('Unescaped HTML tags present in dashboard recent projects');
+    }
+    if (!recentHtml.includes('&lt;script&gt;alert(1)&lt;/script&gt;') || !recentHtml.includes('&lt;V2&gt;')) {
+        throw new Error('Escaped entities missing in dashboard recent projects');
+    }
+
+    // 3. Check renderProjectsTable
+    sandbox.__renderProjectsTable();
+    const tableHtml = elements['projects-table-container'].innerHTML;
+    if (tableHtml.includes('<script>') || tableHtml.includes('<V2>') || tableHtml.includes('<img')) {
+        throw new Error('Unescaped HTML tags present in projects table');
+    }
+    if (!tableHtml.includes('&lt;script&gt;alert(1)&lt;/script&gt;') || !tableHtml.includes('&lt;V2&gt;')) {
+        throw new Error('Escaped entities missing in projects table');
+    }
+
+    console.log(JSON.stringify({ success: true }));
+    """
+
+    res = subprocess.run(["node", "-e", node_test], capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_gcode_import_resets_residual_purge_weight():
+    """
+    Issue #30:
+    Verifies that importing a G-code file into a plate that previously held
+    a multi-material 3MF with purge tower explicitly resets purge_weight_g to 0.
+    """
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const vm = require('vm');
+    const elements = {};
+    function getOrCreate(id) {
+        if (!elements[id]) {
+            elements[id] = { id, textContent: '', innerHTML: '', innerText: '', value: '', classList: { add(){}, remove(){}, contains(){ return false; } }, style: {}, appendChild(){}, remove(){} };
+        }
+        return elements[id];
+    }
+    const sandbox = {
+        document: {
+            getElementById: getOrCreate,
+            querySelector: (sel) => getOrCreate(sel),
+            querySelectorAll: () => [],
+            createElement: () => ({ className: '', innerHTML: '', innerText: '', textContent: '', style: {}, classList: { add(){}, remove(){}, contains(){ return false; } }, appendChild(){}, remove(){} }),
+            addEventListener() {},
+            removeEventListener() {}
+        },
+        addEventListener() {},
+        removeEventListener() {},
+        console, Math, Number, String, setTimeout, clearTimeout,
+        parseGcodeMetadata() {
+            return {
+                print_time_hours: 1.8,
+                part_weight_g: 40.0,
+                slicer_filament_profile: 'Generic PLA'
+            };
+        },
+        cleanFilamentProfileName(p) { return p; },
+        renderPlates() {},
+        recalcLiveSummary() {}
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    let code = appJs + '\nglobalThis.__app_state = state;\nglobalThis.__handleSinglePlateFile = handleSinglePlateFile;';
+    vm.runInContext(code, sandbox);
+
+    const state = sandbox.__app_state;
+    state.currentPlates = [
+        {
+            name: 'Peça Colorida',
+            print_time_hours: 3.5,
+            part_weight_g: 80.0,
+            purge_weight_g: 45.0,
+            filament_id: 1
+        }
+    ];
+    state.filaments = [];
+
+    async function test() {
+        const mockFile = {
+            name: 'suporte_simples.gcode',
+            text: async () => 'mock gcode content'
+        };
+
+        const event = {
+            target: {
+                files: [mockFile],
+                value: 'fakepath/suporte_simples.gcode'
+            }
+        };
+
+        await sandbox.__handleSinglePlateFile(event, 0);
+
+        const plate = state.currentPlates[0];
+        if (plate.purge_weight_g !== 0) {
+            throw new Error(`Expected purge_weight_g = 0, got ${plate.purge_weight_g}`);
+        }
+        if (plate.part_weight_g !== 40.0) {
+            throw new Error(`Expected part_weight_g = 40.0, got ${plate.part_weight_g}`);
+        }
+        if (plate.print_time_hours !== 1.8) {
+            throw new Error(`Expected print_time_hours = 1.8, got ${plate.print_time_hours}`);
+        }
+
+        console.log(JSON.stringify({ success: true, purge_weight_g: plate.purge_weight_g }));
+    }
+
+    test().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+
+    res = subprocess.run(["node", "-e", node_test], capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_recalc_live_summary_commercial_rounding_precision():
+    """
+    Issue #28:
+    Verifies that recalcLiveSummary computes intermediate pricing steps with 2-decimal-place
+    rounding, perfectly aligned with the backend calculation engine in engine.py.
+    """
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const vm = require('vm');
+    const elements = {};
+    function getOrCreate(id) {
+        if (!elements[id]) {
+            elements[id] = { id, textContent: '', innerHTML: '', innerText: '', value: '0', classList: { add(){}, remove(){}, contains(){ return false; } }, style: {}, appendChild(){}, remove(){} };
+        }
+        return elements[id];
+    }
+
+    const sandbox = {
+        document: {
+            getElementById: getOrCreate,
+            querySelector: (sel) => getOrCreate(sel),
+            querySelectorAll: () => [],
+            createElement: () => ({ className: '', innerHTML: '', innerText: '', textContent: '', style: {}, classList: { add(){}, remove(){}, contains(){ return false; } }, appendChild(){}, remove(){} }),
+            addEventListener() {},
+            removeEventListener() {}
+        },
+        addEventListener() {},
+        removeEventListener() {},
+        console, Math, Number, String, parseFloat, parseInt, isNaN, Intl, setTimeout, clearTimeout,
+        refreshIcons() {}
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    let code = appJs + '\nglobalThis.__app_state = state;\nglobalThis.__recalcLiveSummary = recalcLiveSummary;';
+    vm.runInContext(code, sandbox);
+
+    const state = sandbox.__app_state;
+    state.printers = [{ id: 1, machine_hourly_rate: 2.436 }];
+    state.filaments = [{ id: 1, spool_weight_g: 1000, spool_price: 135.0 }];
+    state.currentPlates = [
+        {
+            printer_id: 1,
+            filament_id: 1,
+            print_time_hours: 3.5,
+            part_weight_g: 120,
+            purge_weight_g: 0,
+            failure_margin_percent: 10,
+            quantity: 1
+        }
+    ];
+    state.currentBOM = [
+        { quantity: 2, unit_cost: 4.50 }
+    ];
+
+    getOrCreate('proj-cad-hours').value = '1.0';
+    getOrCreate('proj-cad-rate').value = '80.0';
+    getOrCreate('proj-margin').value = '40';
+    getOrCreate('proj-tax').value = '6';
+    getOrCreate('proj-discount').value = '5';
+    getOrCreate('proj-shipping').value = '25.0';
+
+    sandbox.__recalcLiveSummary();
+
+    const suggested = getOrCreate('live-suggested-price').textContent;
+    const finalPrice = getOrCreate('live-final-price').textContent;
+    const netProfit = getOrCreate('live-net-profit').textContent;
+
+    if (!finalPrice.includes('188,20')) {
+        throw new Error(`Expected final price to include 188,20, got ${finalPrice}`);
+    }
+    if (!suggested.includes('171,79')) {
+        throw new Error(`Expected suggested price to include 171,79, got ${suggested}`);
+    }
+    if (!netProfit.includes('38,06')) {
+        throw new Error(`Expected net profit to include 38,06, got ${netProfit}`);
+    }
+
+    console.log(JSON.stringify({ success: true, suggested, finalPrice, netProfit }));
+    """
+
+    res = subprocess.run(["node", "-e", node_test], capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_duplicate_and_delete_project_refreshes_dashboard():
+    """
+    Issue #32:
+    Verifies that duplicateProject and deleteProject call renderRecentProjects and renderDashboard.
+    """
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const vm = require('vm');
+    const elements = {};
+    function getOrCreate(id) {
+        if (!elements[id]) {
+            elements[id] = { id, textContent: '', innerHTML: '', innerText: '', value: '', classList: { add(){}, remove(){}, contains(){ return false; } }, style: {}, appendChild(){}, remove(){} };
+        }
+        return elements[id];
+    }
+    const sandbox = {
+        counts: { recent: 0, dash: 0 },
+        document: {
+            getElementById: getOrCreate,
+            querySelector: (sel) => getOrCreate(sel),
+            querySelectorAll: () => [],
+            createElement: () => ({ className: '', innerHTML: '', innerText: '', textContent: '', style: {}, classList: { add(){}, remove(){}, contains(){ return false; } }, appendChild(){}, remove(){} }),
+            addEventListener() {},
+            removeEventListener() {}
+        },
+        addEventListener() {},
+        removeEventListener() {},
+        console, Math, Number, String, setTimeout, clearTimeout,
+        confirm: () => true,
+        API: {
+            projects: {
+                duplicate: async () => ({ id: 2 }),
+                delete: async () => {}
+            }
+        }
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    let code = appJs + '\n' +
+        'globalThis.__app_state = state;\n' +
+        'globalThis.__duplicateProject = duplicateProject;\n' +
+        'globalThis.__deleteProject = deleteProject;\n' +
+        'loadAllData = async () => {};\n' +
+        'renderProjectsTable = () => {};\n' +
+        'renderRecentProjects = () => { counts.recent++; };\n' +
+        'renderDashboard = () => { counts.dash++; };\n';
+    vm.runInContext(code, sandbox);
+
+    const state = sandbox.__app_state;
+    state.activeView = 'dashboard';
+
+    async function run() {
+        await sandbox.__duplicateProject(1);
+        if (sandbox.counts.recent !== 1 || sandbox.counts.dash !== 1) {
+            throw new Error(`duplicateProject failed to refresh dashboard: recent=${sandbox.counts.recent}, dash=${sandbox.counts.dash}`);
+        }
+
+        await sandbox.__deleteProject(1);
+        if (sandbox.counts.recent !== 2 || sandbox.counts.dash !== 2) {
+            throw new Error(`deleteProject failed to refresh dashboard: recent=${sandbox.counts.recent}, dash=${sandbox.counts.dash}`);
+        }
+
+        console.log(JSON.stringify({ success: true, counts: sandbox.counts }));
+    }
+
+    run().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+
+    res = subprocess.run(["node", "-e", node_test], capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_render_plates_empty_state_and_warning():
+    """
+    Issue #35:
+    Verifies that:
+    1. renderPlates renders a dedicated empty state when state.currentPlates is empty.
+    2. saveCurrentProject shows a warning toast when plates and BOM are both empty.
+    """
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const vm = require('vm');
+    const elements = {};
+    function getOrCreate(id) {
+        if (!elements[id]) {
+            elements[id] = {
+                id,
+                textContent: '',
+                innerHTML: '',
+                innerText: '',
+                value: (id === 'proj-name' ? 'Projeto Vazio' : (id === 'proj-status' ? 'draft' : '0')),
+                classList: { add(){}, remove(){}, contains(){ return false; } },
+                style: {},
+                focus() {},
+                appendChild(){},
+                remove(){}
+            };
+        }
+        return elements[id];
+    }
+
+    const sandbox = {
+        toasts: [],
+        document: {
+            getElementById: getOrCreate,
+            querySelector: (sel) => getOrCreate(sel),
+            querySelectorAll: () => [],
+            createElement: () => ({ className: '', innerHTML: '', innerText: '', textContent: '', style: {}, classList: { add(){}, remove(){}, contains(){ return false; } }, appendChild(){}, remove(){} }),
+            addEventListener() {},
+            removeEventListener() {}
+        },
+        addEventListener() {},
+        removeEventListener() {},
+        console, Math, Number, String, setTimeout, clearTimeout,
+        refreshIcons() {},
+        normalizeNumericInputs() {},
+        updatePlateTime() {},
+        API: {
+            projects: {
+                create: async (p) => ({ id: 99, ...p })
+            }
+        }
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    let code = appJs + '\n' +
+        'globalThis.__app_state = state;\n' +
+        'globalThis.__renderPlates = renderPlates;\n' +
+        'globalThis.__saveCurrentProject = saveCurrentProject;\n' +
+        'loadAllData = async () => {};\n' +
+        'showToast = (msg, type) => { toasts.push({ msg, type }); };\n';
+    vm.runInContext(code, sandbox);
+
+    const state = sandbox.__app_state;
+    state.currentPlates = [];
+    state.currentBOM = [];
+
+    // 1. Test empty state HTML in renderPlates
+    sandbox.__renderPlates();
+    const platesDiv = elements['plates-container'];
+    if (!platesDiv.innerHTML.includes('Nenhuma placa de impressão configurada')) {
+        throw new Error('renderPlates did not display empty state message');
+    }
+    if (!platesDiv.innerHTML.includes('Adicionar Placa') || !platesDiv.innerHTML.includes('addNewPlateRow()')) {
+        throw new Error('renderPlates did not display "Adicionar Placa" button');
+    }
+
+    // 2. Test warning toast in saveCurrentProject
+    async function testSave() {
+        await sandbox.__saveCurrentProject(false);
+        const warning = sandbox.toasts.find(t => t.type === 'warning');
+        if (!warning || !warning.msg.includes('sem placas ou insumos')) {
+            throw new Error(`Expected warning toast for empty project, got ${JSON.stringify(sandbox.toasts)}`);
+        }
+        console.log(JSON.stringify({ success: true, toast: warning }));
+    }
+
+    testSave().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+
+    res = subprocess.run(["node", "-e", node_test], capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+
+
 
 
 

@@ -21,6 +21,32 @@ def get_user_project(project_id: int, user_id: int, db: Session) -> models.Proje
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projeto não encontrado.")
     return project
 
+def sanitize_plate_foreign_keys(plate_dict: dict, user_id: int, db: Session) -> dict:
+    cleaned = dict(plate_dict)
+    pr_id = cleaned.get("printer_id")
+    if pr_id is not None:
+        pr = db.query(models.Printer.id).filter(
+            models.Printer.id == pr_id,
+            models.Printer.user_id == user_id
+        ).first()
+        if not pr:
+            cleaned["printer_id"] = None
+            if not cleaned.get("custom_printer_hourly_rate"):
+                cleaned["custom_printer_hourly_rate"] = 2.0
+
+    fil_id = cleaned.get("filament_id")
+    if fil_id is not None:
+        fil = db.query(models.Filament.id).filter(
+            models.Filament.id == fil_id,
+            models.Filament.user_id == user_id
+        ).first()
+        if not fil:
+            cleaned["filament_id"] = None
+            if not cleaned.get("custom_filament_cost_per_g"):
+                cleaned["custom_filament_cost_per_g"] = 0.09
+
+    return cleaned
+
 def build_project_response(project: models.Project, db: Session) -> schemas.ProjectResponse:
     # Build maps of user printers and filaments for fast engine calculation
     printers = db.query(models.Printer).filter(models.Printer.user_id == project.user_id).all()
@@ -303,9 +329,10 @@ def create_project(
 
     if proj_in.plates:
         for p_data in proj_in.plates:
+            cleaned_p = sanitize_plate_foreign_keys(p_data.model_dump(), current_user.id, db)
             plate = models.Plate(
                 project_id=project.id,
-                **p_data.model_dump()
+                **cleaned_p
             )
             db.add(plate)
 
@@ -345,9 +372,10 @@ def update_project(
     if proj_update.plates is not None:
         project.plates.clear()
         for p_data in proj_update.plates:
+            cleaned_p = sanitize_plate_foreign_keys(p_data.model_dump(), current_user.id, db)
             plate = models.Plate(
                 project_id=project.id,
-                **p_data.model_dump()
+                **cleaned_p
             )
             db.add(plate)
 
@@ -407,13 +435,19 @@ def duplicate_project(
     db.flush()
 
     for pl in orig.plates:
+        cleaned_pl = sanitize_plate_foreign_keys({
+            "printer_id": pl.printer_id,
+            "filament_id": pl.filament_id,
+            "custom_printer_hourly_rate": pl.custom_printer_hourly_rate,
+            "custom_filament_cost_per_g": pl.custom_filament_cost_per_g,
+        }, current_user.id, db)
         c_plate = models.Plate(
             project_id=cloned.id,
             name=pl.name,
-            printer_id=pl.printer_id,
-            filament_id=pl.filament_id,
-            custom_printer_hourly_rate=pl.custom_printer_hourly_rate,
-            custom_filament_cost_per_g=pl.custom_filament_cost_per_g,
+            printer_id=cleaned_pl["printer_id"],
+            filament_id=cleaned_pl["filament_id"],
+            custom_printer_hourly_rate=cleaned_pl["custom_printer_hourly_rate"],
+            custom_filament_cost_per_g=cleaned_pl["custom_filament_cost_per_g"],
             print_time_hours=pl.print_time_hours,
             part_weight_g=pl.part_weight_g,
             purge_weight_g=pl.purge_weight_g,
@@ -449,16 +483,24 @@ def add_plate(
     db: Session = Depends(get_db)
 ):
     project = get_user_project(project_id, current_user.id, db)
+    cleaned_plate = sanitize_plate_foreign_keys(plate_in.model_dump(), current_user.id, db)
     plate = models.Plate(
         project_id=project.id,
-        **plate_in.model_dump()
+        **cleaned_plate
     )
     db.add(plate)
     db.commit()
     db.refresh(plate)
 
-    printer = db.query(models.Printer).filter(models.Printer.id == plate.printer_id).first() if plate.printer_id else None
-    filament = db.query(models.Filament).filter(models.Filament.id == plate.filament_id).first() if plate.filament_id else None
+    printer = db.query(models.Printer).filter(
+        models.Printer.id == plate.printer_id,
+        models.Printer.user_id == current_user.id
+    ).first() if plate.printer_id else None
+
+    filament = db.query(models.Filament).filter(
+        models.Filament.id == plate.filament_id,
+        models.Filament.user_id == current_user.id
+    ).first() if plate.filament_id else None
     c_breakdown = calculate_plate_cost(plate, printer=printer, filament=filament)
 
     res = schemas.PlateResponse.model_validate(plate)
@@ -481,14 +523,22 @@ def update_plate(
     if not plate:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Placa não encontrada.")
 
-    for field, value in plate_update.model_dump(exclude_unset=True).items():
+    cleaned_update = sanitize_plate_foreign_keys(plate_update.model_dump(exclude_unset=True), current_user.id, db)
+    for field, value in cleaned_update.items():
         setattr(plate, field, value)
 
     db.commit()
     db.refresh(plate)
 
-    printer = db.query(models.Printer).filter(models.Printer.id == plate.printer_id).first() if plate.printer_id else None
-    filament = db.query(models.Filament).filter(models.Filament.id == plate.filament_id).first() if plate.filament_id else None
+    printer = db.query(models.Printer).filter(
+        models.Printer.id == plate.printer_id,
+        models.Printer.user_id == current_user.id
+    ).first() if plate.printer_id else None
+
+    filament = db.query(models.Filament).filter(
+        models.Filament.id == plate.filament_id,
+        models.Filament.user_id == current_user.id
+    ).first() if plate.filament_id else None
     c_breakdown = calculate_plate_cost(plate, printer=printer, filament=filament)
 
     res = schemas.PlateResponse.model_validate(plate)
