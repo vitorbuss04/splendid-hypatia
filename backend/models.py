@@ -138,6 +138,9 @@ class Plate(Base):
     failure_margin_percent = Column(Float, default=10.0)
     quantity = Column(Integer, default=1)  # Number of times this plate is printed
     slicer_filament_profile = Column(String(255), nullable=True)  # Profile name from slicer G-code / 3MF
+    nozzle_diameter = Column(String(50), nullable=True, default="0.4")
+    bed_type = Column(String(100), nullable=True, default="Textured PEI")
+    layer_height = Column(String(50), nullable=True, default="0.20")
     notes = Column(Text, nullable=True)
 
     project = relationship("Project", back_populates="plates")

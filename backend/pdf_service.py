@@ -430,7 +430,8 @@ def build_pdf_document(
             Paragraph("Placa", style_cell_header),
             Paragraph("Impressora", style_cell_header),
             Paragraph("Material", style_cell_header),
-            Paragraph("Tempo Unit.", style_cell_header_right),
+            Paragraph("Setup Fab.", style_cell_header),
+            Paragraph("Tempo Un.", style_cell_header_right),
             Paragraph("Peso Peça", style_cell_header_right),
             Paragraph("Purga", style_cell_header_right),
             Paragraph("Qtd", style_cell_header_right),
@@ -441,10 +442,15 @@ def build_pdf_document(
             mat_name = html.escape(str(extract_clean_material(p)))
             p_name = html.escape(str(p.get('name', 'Placa')))
             printer_name = html.escape(str(p.get("printer_name", "Padrão")))
+            nozzle = html.escape(str(p.get('nozzle_diameter') or '0.4'))
+            bed = html.escape(str(p.get('bed_type') or 'Textured PEI'))
+            layer = html.escape(str(p.get('layer_height') or '0.20'))
+            setup_desc = f"{nozzle}mm / {layer}mm<br/><font color='#64748b' size='7'>{bed}</font>"
             tech_table_data.append([
                 Paragraph(f"<b>{p_name}</b>", style_cell),
                 Paragraph(printer_name, style_cell),
                 Paragraph(mat_name, style_cell),
+                Paragraph(setup_desc, style_cell),
                 Paragraph(f"{p.get('unit_print_time_hours', 0.0):.1f} h", style_cell_right),
                 Paragraph(f"{p.get('part_weight_g', p.get('unit_raw_weight_g', 0.0)):.1f} g", style_cell_right),
                 Paragraph(f"{p.get('purge_weight_g', 0.0):.1f} g", style_cell_right),
@@ -452,7 +458,7 @@ def build_pdf_document(
                 Paragraph(f"{p.get('total_time_hours', 0.0):.1f} h", style_cell_right),
             ])
 
-        tech_table = Table(tech_table_data, colWidths=[36*mm, 28*mm, 28*mm, 18*mm, 18*mm, 16*mm, 14*mm, 24*mm])
+        tech_table = Table(tech_table_data, colWidths=[28*mm, 24*mm, 22*mm, 32*mm, 15*mm, 15*mm, 14*mm, 12*mm, 20*mm])
         tech_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), PRIMARY),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 3),

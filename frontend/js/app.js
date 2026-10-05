@@ -515,6 +515,8 @@ function navigateTo(viewName) {
         if (inp) inp.value = '';
         const mat = document.getElementById('filament-material-filter');
         if (mat) mat.value = '';
+        const st = document.getElementById('filament-status-filter');
+        if (st) st.value = 'all';
         renderFilamentsGrid();
     }
     if (viewName === 'settings') populateSettingsForm();
@@ -1177,8 +1179,8 @@ function renderRecentProjects() {
                         <td class="py-3 px-3 font-mono text-slate-300">${p.total_time_hours.toFixed(1)} h</td>
                         <td class="py-3 px-3 font-mono font-bold text-blue-400">${formatCurrency(p.final_price_to_client)}</td>
                         <td class="py-3 px-3 text-center">
-                            <span class="badge-${p.status}">
-                                ${formatStatus(p.status)}
+                            <span class="badge-${escapeHtml(p.status || 'draft')}">
+                                ${escapeHtml(formatStatus(p.status))}
                             </span>
                         </td>
                         <td class="py-3 px-3 text-right">
@@ -1408,8 +1410,8 @@ function renderProjectsTable(filterText = null, statusFilter = '') {
                         <td class="py-3.5 px-4 font-mono text-slate-400">${formatCurrency(p.base_cost)}</td>
                         <td class="py-3.5 px-4 font-mono font-bold text-blue-400 text-sm">${formatCurrency(p.final_price_to_client)}</td>
                         <td class="py-3.5 px-4 text-center">
-                            <span class="badge-${p.status}">
-                                ${formatStatus(p.status)}
+                            <span class="badge-${escapeHtml(p.status || 'draft')}">
+                                ${escapeHtml(formatStatus(p.status))}
                             </span>
                         </td>
                         <td class="py-3.5 px-4 text-right">
@@ -1549,7 +1551,7 @@ async function editProject(id) {
         document.getElementById('proj-tax').value = proj.tax_rate_percent ?? 6;
         document.getElementById('proj-discount').value = proj.discount_percent ?? 0;
         document.getElementById('proj-shipping').value = proj.shipping_cost ?? 0;
-        document.getElementById('proj-delivery-days').value = proj.delivery_days ?? 3;
+        document.getElementById('proj-delivery-days').value = proj.delivery_days != null ? proj.delivery_days : '';
         const defPay = (u.default_payment_terms || '').trim();
         const defWar = (u.default_warranty_terms || '').trim();
         document.getElementById('proj-payment-terms').placeholder = defPay 
@@ -1771,6 +1773,21 @@ function renderPlates() {
                                 <span class="text-[10px] text-slate-400">/g</span>
                             </div>
                         ` : ''}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2.5 border-t border-slate-800/60">
+                    <div class="plate-field-col">
+                        <label class="text-[10px] font-medium text-slate-400 mb-1 block">Bico (Diâmetro)</label>
+                        <input type="text" value="${esc(nozzle)}" oninput="state.currentPlates[${idx}].nozzle_diameter = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500" placeholder="0.4">
+                    </div>
+                    <div class="plate-field-col">
+                        <label class="text-[10px] font-medium text-slate-400 mb-1 block">Camada (Altura)</label>
+                        <input type="text" value="${esc(layer)}" oninput="state.currentPlates[${idx}].layer_height = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500" placeholder="0.20">
+                    </div>
+                    <div class="plate-field-col">
+                        <label class="text-[10px] font-medium text-slate-400 mb-1 block">Tipo de Mesa</label>
+                        <input type="text" value="${esc(bed)}" oninput="state.currentPlates[${idx}].bed_type = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500" placeholder="Textured PEI">
                     </div>
                 </div>
             </div>
@@ -2216,7 +2233,12 @@ async function saveCurrentProject(navigateBack = true) {
         tax_rate_percent: Math.max(0, Math.min(99, parseLocaleFloat(document.getElementById('proj-tax').value, 0))),
         discount_percent: Math.max(0, Math.min(100, parseLocaleFloat(document.getElementById('proj-discount').value, 0))),
         shipping_cost: Math.max(0, parseLocaleFloat(document.getElementById('proj-shipping').value, 0)),
-        delivery_days: (() => { const d = parseInt(document.getElementById('proj-delivery-days')?.value, 10); return isNaN(d) || d < 0 ? 3 : d; })(),
+        delivery_days: (() => {
+            const raw = document.getElementById('proj-delivery-days')?.value.trim();
+            if (!raw) return null;
+            const d = parseInt(raw, 10);
+            return isNaN(d) || d < 0 ? null : d;
+        })(),
         payment_terms: document.getElementById('proj-payment-terms')?.value.trim() || null,
         warranty_terms: document.getElementById('proj-warranty-terms')?.value.trim() || null,
         notes: document.getElementById('proj-notes').value.trim(),
@@ -2229,6 +2251,9 @@ async function saveCurrentProject(navigateBack = true) {
                 filament_id: pValidFilament ? p.filament_id : null,
                 custom_printer_hourly_rate: pValidPrinter ? null : (p.custom_printer_hourly_rate != null ? Math.max(0, parseLocaleFloat(p.custom_printer_hourly_rate, 2.50)) : 2.50),
                 custom_filament_cost_per_g: pValidFilament ? null : (p.custom_filament_cost_per_g != null ? Math.max(0, parseLocaleFloat(p.custom_filament_cost_per_g, 0.10)) : 0.10),
+                nozzle_diameter: p.nozzle_diameter || '0.4',
+                bed_type: p.bed_type || 'Textured PEI',
+                layer_height: p.layer_height || '0.20',
                 print_time_hours: Math.max(0, parseLocaleFloat(p.print_time_hours, 0)),
                 part_weight_g: Math.max(0, parseLocaleFloat(p.part_weight_g, 0)),
                 purge_weight_g: Math.max(0, parseLocaleFloat(p.purge_weight_g, 0)),
@@ -2678,6 +2703,8 @@ function openPrinterModal(printer = null) {
         document.getElementById('printer-power').value = printer.avg_power_watts;
         document.getElementById('printer-maintenance').value = printer.maintenance_cost_per_hour;
         document.getElementById('printer-energy').value = printer.energy_rate_kwh;
+        const activeEl = document.getElementById('printer-active');
+        if (activeEl) activeEl.value = printer.is_active !== false ? 'true' : 'false';
     } else {
         title.innerHTML = `<i data-lucide="printer" class="w-5 h-5 text-blue-400"></i> Cadastrar Impressora`;
         document.getElementById('printer-id').value = '';
@@ -2688,6 +2715,8 @@ function openPrinterModal(printer = null) {
         document.getElementById('printer-power').value = '150';
         document.getElementById('printer-maintenance').value = '1.0';
         document.getElementById('printer-energy').value = (state.user?.default_energy_rate ?? 0.85);
+        const activeEl = document.getElementById('printer-active');
+        if (activeEl) activeEl.value = 'true';
     }
     refreshIcons();
 }
@@ -2709,6 +2738,10 @@ async function handleSavePrinter(e) {
         maintenance_cost_per_hour: parseLocaleFloat(document.getElementById('printer-maintenance').value, 1.0),
         energy_rate_kwh: parseLocaleFloat(document.getElementById('printer-energy').value, 0.85),
     };
+    const activeEl = document.getElementById('printer-active');
+    if (activeEl) {
+        payload.is_active = activeEl.value !== 'false';
+    }
 
     try {
         if (id) {
@@ -2725,6 +2758,18 @@ async function handleSavePrinter(e) {
         showToast(err.message, 'error');
     }
 }
+
+async function duplicatePrinter(id) {
+    try {
+        await API.printers.duplicate(id);
+        showToast('Impressora duplicada com sucesso!', 'success');
+        await loadAllData();
+        renderPrintersGrid();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+window.duplicatePrinter = duplicatePrinter;
 
 async function deletePrinter(id) {
     if (!confirm('Deseja realmente remover esta impressora?')) return;
@@ -2817,12 +2862,20 @@ function renderPrintersGrid(filterTerm = null, filterStatus = null) {
                 <div>
                     <div class="flex items-start justify-between">
                         <div>
-                            <h4 class="font-bold text-white text-base">${esc(p.name)}</h4>
+                            <div class="flex items-center gap-2">
+                                <h4 class="font-bold text-white text-base">${esc(p.name)}</h4>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${p.is_active !== false ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40' : 'bg-red-950/40 text-red-400 border border-red-800/40'}">
+                                    ${p.is_active !== false ? 'Ativa' : 'Inativa'}
+                                </span>
+                            </div>
                             <p class="text-xs text-slate-400">${esc(p.model || 'FDM')}</p>
                         </div>
                         <div class="flex items-center gap-1">
                             <button onclick="editPrinter(${p.id})" class="p-1 text-slate-400 hover:text-white transition-colors" title="Editar">
                                 <i data-lucide="edit-2" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="duplicatePrinter(${p.id})" class="p-1 text-slate-400 hover:text-blue-400 transition-colors" title="Duplicar">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
                             </button>
                             <button onclick="deletePrinter(${p.id})" class="p-1 text-slate-400 hover:text-red-400 transition-colors" title="Excluir">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -2927,6 +2980,8 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-density').value = filament.density_g_cm3 != null ? filament.density_g_cm3 : (MATERIAL_DENSITIES[filament.material] || 1.24);
         document.getElementById('filament-weight').value = filament.spool_weight_g;
         document.getElementById('filament-price').value = filament.spool_price;
+        const activeEl = document.getElementById('filament-active');
+        if (activeEl) activeEl.value = filament.is_active !== false ? 'true' : 'false';
         if (colorInput) colorInput.placeholder = 'Ex: Preto';
     } else if (filament && isDuplicate) {
         title.textContent = 'Cadastrar Filamento (Duplicar)';
@@ -2938,6 +2993,8 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-density').value = filament.density_g_cm3 != null ? filament.density_g_cm3 : (MATERIAL_DENSITIES[filament.material] || 1.24);
         document.getElementById('filament-weight').value = filament.spool_weight_g;
         document.getElementById('filament-price').value = filament.spool_price;
+        const activeEl = document.getElementById('filament-active');
+        if (activeEl) activeEl.value = filament.is_active !== false ? 'true' : 'false';
         if (colorInput) {
             colorInput.placeholder = 'Digite a nova cor...';
             try {
@@ -2961,6 +3018,8 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-density').value = '1.24';
         document.getElementById('filament-weight').value = '1000';
         document.getElementById('filament-price').value = '95.00';
+        const activeEl = document.getElementById('filament-active');
+        if (activeEl) activeEl.value = 'true';
         if (colorInput) colorInput.placeholder = 'Ex: Preto';
     }
     updateFilamentNamePreview();
@@ -3004,6 +3063,10 @@ async function handleSaveFilament(e) {
         spool_weight_g: parseLocaleFloat(document.getElementById('filament-weight').value, 1000),
         spool_price: parseLocaleFloat(document.getElementById('filament-price').value, 90),
     };
+    const activeEl = document.getElementById('filament-active');
+    if (activeEl) {
+        payload.is_active = activeEl.value !== 'false';
+    }
 
     try {
         if (id) {
@@ -3033,12 +3096,14 @@ async function deleteFilament(id) {
     }
 }
 
-// Issue #22 & #25: Real-time search/filter for filaments grid (search term + material filter)
+// Issue #22 & #25: Real-time search/filter for filaments grid (search term + material filter + status filter)
 function clearFilamentFilters() {
     const inp = document.getElementById('filament-search-input');
     if (inp) inp.value = '';
     const mat = document.getElementById('filament-material-filter');
     if (mat) mat.value = '';
+    const st = document.getElementById('filament-status-filter');
+    if (st) st.value = 'all';
     filterFilaments();
 }
 window.clearFilamentFilters = clearFilamentFilters;
@@ -3046,19 +3111,26 @@ window.clearFilamentFilters = clearFilamentFilters;
 function filterFilaments() {
     const term = (document.getElementById('filament-search-input')?.value || '').trim();
     const material = (document.getElementById('filament-material-filter')?.value || '').trim();
-    renderFilamentsGrid(term, material);
+    const status = (document.getElementById('filament-status-filter')?.value || 'all').trim();
+    renderFilamentsGrid(term, material, status);
 }
 window.filterFilaments = filterFilaments;
 
-function renderFilamentsGrid(filterTerm = null, filterMaterial = null) {
+function renderFilamentsGrid(filterTerm = null, filterMaterial = null, filterStatus = null) {
     const esc = (typeof escapeHtml === 'function') ? escapeHtml : (str => (str == null ? '' : String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')));
     const grid = document.getElementById('filaments-grid');
     if (!grid) return;
 
     const term = (filterTerm !== null && filterTerm !== undefined ? filterTerm : (document.getElementById('filament-search-input')?.value || '')).trim();
     const material = (filterMaterial !== null && filterMaterial !== undefined ? filterMaterial : (document.getElementById('filament-material-filter')?.value || '')).trim();
+    const status = (filterStatus !== null && filterStatus !== undefined ? filterStatus : (document.getElementById('filament-status-filter')?.value || 'all')).trim();
 
     let filaments = state.filaments;
+    if (status === 'active') {
+        filaments = filaments.filter(f => f.is_active !== false);
+    } else if (status === 'inactive') {
+        filaments = filaments.filter(f => f.is_active === false);
+    }
     if (material) {
         filaments = filaments.filter(f => (f.material || '').toUpperCase() === material.toUpperCase());
     }
@@ -3083,10 +3155,12 @@ function renderFilamentsGrid(filterTerm = null, filterMaterial = null) {
         return;
     }
 
-    if (filaments.length === 0 && (term || material)) {
+    if (filaments.length === 0 && (term || material || status !== 'all')) {
+        const statusLabel = status === 'active' ? 'ativos' : (status === 'inactive' ? 'inativos/esgotados' : '');
         const filterDesc = [
             term ? `busca "<strong class="text-white">${esc(term)}</strong>"` : '',
-            material ? `material "<strong class="text-white">${esc(material)}</strong>"` : ''
+            material ? `material "<strong class="text-white">${esc(material)}</strong>"` : '',
+            statusLabel ? `status "<strong class="text-white">${esc(statusLabel)}</strong>"` : ''
         ].filter(Boolean).join(' e ');
 
         grid.innerHTML = `
@@ -3104,23 +3178,27 @@ function renderFilamentsGrid(filterTerm = null, filterMaterial = null) {
 
     grid.innerHTML = filaments.map(f => {
         const matLower = (f.material || 'other').toLowerCase();
+        const safeHex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3}|[A-Fa-f0-9]{8})$/.test(f.color_hex || '') ? f.color_hex : '#10b981';
         return `
             <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between">
                 <div>
                     <div class="flex items-start justify-between">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl border border-slate-700/60 flex items-center justify-center relative shadow-sm" style="background-color: ${f.color_hex || '#10b981'}22;">
-                                <span class="w-4 h-4 rounded-full border border-white/30 shadow-sm" style="background-color: ${f.color_hex || '#10b981'};"></span>
+                            <div class="w-10 h-10 rounded-xl border border-slate-700/60 flex items-center justify-center relative shadow-sm" style="background-color: ${safeHex}22;">
+                                <span class="w-4 h-4 rounded-full border border-white/30 shadow-sm" style="background-color: ${safeHex};"></span>
                             </div>
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider badge-mat-${matLower}">
                                         ${esc(f.material)}
                                     </span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${f.is_active !== false ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40' : 'bg-red-950/40 text-red-400 border border-red-800/40'}">
+                                        ${f.is_active !== false ? 'Ativo' : 'Inativo'}
+                                    </span>
                                     <h4 class="font-bold text-white text-sm">${esc(f.name)}</h4>
                                 </div>
                                 <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-                                    <span class="inline-block w-2.5 h-2.5 rounded-full border border-white/20 shadow-sm" style="background-color: ${esc(f.color_hex || '#10b981')};"></span>
+                                    <span class="inline-block w-2.5 h-2.5 rounded-full border border-white/20 shadow-sm" style="background-color: ${safeHex};"></span>
                                     <span>${esc(f.brand || 'Genérico')} • ${esc(f.color || 'Cor padrão')}</span>
                                 </p>
                             </div>
@@ -3142,7 +3220,7 @@ function renderFilamentsGrid(filterTerm = null, filterMaterial = null) {
                     <div class="mt-4 p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-center">
                         <span class="text-[10px] uppercase font-semibold text-emerald-300 tracking-wider">Custo por Grama</span>
                         <div class="text-2xl font-black text-emerald-400 mt-0.5">
-                            R$ ${f.cost_per_gram.toFixed(2)}<span class="text-xs font-normal text-slate-400">/g</span>
+                            R$ ${f.cost_per_gram != null ? f.cost_per_gram.toFixed(2) : '0.00'}<span class="text-xs font-normal text-slate-400">/g</span>
                         </div>
                     </div>
                 </div>

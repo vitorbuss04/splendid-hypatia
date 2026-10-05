@@ -56,7 +56,7 @@ class TokenResponse(BaseModel):
 # ----------------- Printer Schemas -----------------
 
 class PrinterBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     model: Optional[str] = None
     acquisition_cost: float = Field(0.0, ge=0)
     lifespan_hours: float = Field(5000.0, gt=0)
@@ -66,11 +66,18 @@ class PrinterBase(BaseModel):
     is_active: bool = True
     notes: Optional[str] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("O nome não pode ser vazio ou conter apenas espaços em branco.")
+        return v.strip() if v else v
+
 class PrinterCreate(PrinterBase):
     pass
 
 class PrinterUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1)
     model: Optional[str] = None
     acquisition_cost: Optional[float] = Field(None, ge=0)
     lifespan_hours: Optional[float] = Field(None, gt=0)
@@ -79,6 +86,13 @@ class PrinterUpdate(BaseModel):
     energy_rate_kwh: Optional[float] = Field(None, ge=0)
     is_active: Optional[bool] = None
     notes: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("O nome não pode ser vazio ou conter apenas espaços em branco.")
+        return v.strip() if v else v
 
 class PrinterResponse(PrinterBase):
     id: int
@@ -93,35 +107,49 @@ class PrinterResponse(PrinterBase):
 # ----------------- Filament Schemas -----------------
 
 class FilamentBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     brand: Optional[str] = None
     material: str = "PLA"
     color: Optional[str] = None
-    color_hex: Optional[str] = "#10b981"
+    color_hex: Optional[str] = Field("#10b981", pattern=r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3}|[A-Fa-f0-9]{8})$")
     spool_weight_g: float = Field(1000.0, gt=0)
     spool_price: float = Field(90.0, ge=0)
     density_g_cm3: float = Field(1.24, gt=0)
     is_active: bool = True
     notes: Optional[str] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("O nome não pode ser vazio ou conter apenas espaços em branco.")
+        return v.strip() if v else v
+
 class FilamentCreate(FilamentBase):
     pass
 
 class FilamentUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1)
     brand: Optional[str] = None
     material: Optional[str] = None
     color: Optional[str] = None
-    color_hex: Optional[str] = None
+    color_hex: Optional[str] = Field(None, pattern=r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3}|[A-Fa-f0-9]{8})$")
     spool_weight_g: Optional[float] = Field(None, gt=0)
     spool_price: Optional[float] = Field(None, ge=0)
     density_g_cm3: Optional[float] = Field(None, gt=0)
     is_active: Optional[bool] = None
     notes: Optional[str] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("O nome não pode ser vazio ou conter apenas espaços em branco.")
+        return v.strip() if v else v
+
 class FilamentDuplicate(BaseModel):
     color: Optional[str] = None
-    color_hex: Optional[str] = None
+    color_hex: Optional[str] = Field(None, pattern=r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3}|[A-Fa-f0-9]{8})$")
 
 class FilamentResponse(FilamentBase):
     id: int
@@ -138,8 +166,11 @@ class PlateBase(BaseModel):
     name: str = Field("Placa 1", min_length=1)
     printer_id: Optional[int] = None
     filament_id: Optional[int] = None
-    custom_printer_hourly_rate: Optional[float] = None
-    custom_filament_cost_per_g: Optional[float] = None
+    custom_printer_hourly_rate: Optional[float] = Field(None, ge=0)
+    custom_filament_cost_per_g: Optional[float] = Field(None, ge=0)
+    nozzle_diameter: Optional[str] = "0.4"
+    bed_type: Optional[str] = "Textured PEI"
+    layer_height: Optional[str] = "0.20"
     print_time_hours: float = Field(0.0, ge=0)
     part_weight_g: float = Field(0.0, ge=0)
     purge_weight_g: float = Field(0.0, ge=0)
@@ -162,8 +193,11 @@ class PlateUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1)
     printer_id: Optional[int] = None
     filament_id: Optional[int] = None
-    custom_printer_hourly_rate: Optional[float] = None
-    custom_filament_cost_per_g: Optional[float] = None
+    custom_printer_hourly_rate: Optional[float] = Field(None, ge=0)
+    custom_filament_cost_per_g: Optional[float] = Field(None, ge=0)
+    nozzle_diameter: Optional[str] = None
+    bed_type: Optional[str] = None
+    layer_height: Optional[str] = None
     print_time_hours: Optional[float] = Field(None, ge=0)
     part_weight_g: Optional[float] = Field(None, ge=0)
     purge_weight_g: Optional[float] = Field(None, ge=0)
@@ -231,11 +265,11 @@ class BOMItemResponse(BOMItemBase):
 # ----------------- Project Schemas -----------------
 
 class ProjectBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     client_name: Optional[str] = None
     client_email: Optional[str] = None
     client_phone: Optional[str] = None
-    status: str = "draft"
+    status: str = Field("draft", pattern=r"^(draft|quoted|approved|in_production|completed|cancelled)$")
     cad_hours: float = Field(0.0, ge=0)
     cad_hourly_rate: float = Field(0.0, ge=0)
     post_process_hours: float = Field(0.0, ge=0)
@@ -250,16 +284,23 @@ class ProjectBase(BaseModel):
     warranty_terms: Optional[str] = None
     notes: Optional[str] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("O nome não pode ser vazio ou conter apenas espaços em branco.")
+        return v.strip() if v else v
+
 class ProjectCreate(ProjectBase):
     plates: Optional[List[PlateCreate]] = None
     bom_items: Optional[List[BOMItemCreate]] = None
 
 class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1)
     client_name: Optional[str] = None
     client_email: Optional[str] = None
     client_phone: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[str] = Field(None, pattern=r"^(draft|quoted|approved|in_production|completed|cancelled)$")
     cad_hours: Optional[float] = Field(None, ge=0)
     cad_hourly_rate: Optional[float] = Field(None, ge=0)
     post_process_hours: Optional[float] = Field(None, ge=0)
@@ -275,6 +316,13 @@ class ProjectUpdate(BaseModel):
     notes: Optional[str] = None
     plates: Optional[List[PlateCreate]] = None
     bom_items: Optional[List[BOMItemCreate]] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("O nome não pode ser vazio ou conter apenas espaços em branco.")
+        return v.strip() if v else v
 
 class ProjectListItem(BaseModel):
     id: int

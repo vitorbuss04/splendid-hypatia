@@ -67,10 +67,9 @@ def calculate_plate_cost(
         filament_material = str(get_attr(filament, "material", "PLA"))
     else:
         custom_g = get_attr(plate, "custom_filament_cost_per_g", None)
-        if custom_g is not None:
-            cost_per_gram = max(0.0, float(custom_g or 0.0))
-            filament_name = "Personalizado"
-            filament_material = "Personalizado"
+        cost_per_gram = max(0.0, float(custom_g)) if custom_g is not None else 0.10
+        filament_name = "Personalizado"
+        filament_material = "Personalizado"
 
     # Total filament weight per unit and failure multiplier
     unit_raw_weight = part_weight_g + purge_weight_g
@@ -97,10 +96,8 @@ def calculate_plate_cost(
         printer_name = str(get_attr(printer, "name", "Impressora"))
     else:
         custom_hr = get_attr(plate, "custom_printer_hourly_rate", None)
-        if custom_hr is not None:
-            rate = max(0.0, float(custom_hr or 0.0))
-            machine_rate_details["machine_hourly_rate"] = rate
-            printer_name = "Personalizada"
+        machine_rate_details["machine_hourly_rate"] = max(0.0, float(custom_hr)) if custom_hr is not None else 2.50
+        printer_name = "Personalizada"
 
     machine_hourly_rate = machine_rate_details["machine_hourly_rate"]
     unit_machine_cost = print_time_hours * machine_hourly_rate

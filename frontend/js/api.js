@@ -124,6 +124,7 @@ const API = {
         create: (data) => API.request("/api/printers", { method: "POST", body: JSON.stringify(data) }),
         update: (id, data) => API.request(`/api/printers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
         delete: (id) => API.request(`/api/printers/${id}`, { method: "DELETE" }),
+        duplicate: (id) => API.request(`/api/printers/${id}/duplicate`, { method: "POST" }),
     },
 
     // Filaments endpoints

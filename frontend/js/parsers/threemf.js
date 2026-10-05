@@ -204,12 +204,12 @@ async function parse3mfMetadata(file) {
                     filamentType = filamentTypes.join(", ");
                 }
 
-                // Combine total filament (part + purge/flush) into part_weight_g
+                // Calculate part weight and purge weight
                 let totalWeight = weightGrams;
                 if (totalFilamentGrams > 0) {
                     totalWeight = totalFilamentGrams;
-                } else if (purgeGrams > 0) {
-                    totalWeight = weightGrams + purgeGrams;
+                } else if (purgeGrams > 0 && weightGrams > purgeGrams) {
+                    totalWeight = weightGrams - purgeGrams;
                 }
 
                 const printTimeHours = predictionSeconds > 0 ? (predictionSeconds / 3600) : 0;
@@ -232,7 +232,7 @@ async function parse3mfMetadata(file) {
                     plate_index: index,
                     print_time_hours: parseFloat(printTimeHours.toFixed(2)),
                     part_weight_g: parseFloat(totalWeight.toFixed(2)),
-                    purge_weight_g: 0.0,
+                    purge_weight_g: parseFloat(purgeGrams.toFixed(2)),
                     filament_type: filamentType,
                     slicer_filament_profile: cleanFilamentProfileName(plateFilamentProfile, file ? file.name : '') || null,
                     filament_slot: plateFilamentSlot || null,

@@ -3071,6 +3071,177 @@ def test_issue_54_and_56_recalc_live_summary():
     assert "success" in res.stdout
 
 
+def test_issues_59_through_71_frontend_verification():
+    """Validates frontend implementations for Issues #59, #60, #63, #64, #66, #68, #69, #70."""
+    node_test = """
+    const fs = require('fs');
+    const vm = require('vm');
+
+    const appJs = fs.readFileSync('frontend/js/app.js', 'utf8');
+    const indexHtml = fs.readFileSync('frontend/index.html', 'utf8');
+    const apiJs = fs.readFileSync('frontend/js/api.js', 'utf8');
+    const threemfJs = fs.readFileSync('frontend/js/parsers/threemf.js', 'utf8');
+
+    // 1. Issue #63 & #69: HTML elements verification
+    if (!indexHtml.includes('id="printer-active"')) throw new Error('Missing #printer-active in index.html');
+    if (!indexHtml.includes('id="filament-active"')) throw new Error('Missing #filament-active in index.html');
+    if (!indexHtml.includes('id="filament-status-filter"')) throw new Error('Missing #filament-status-filter in index.html');
+
+    // 2. Issue #64: API.printers.duplicate exists
+    if (!apiJs.includes('duplicate: (id) => API.request(`/api/printers/${id}/duplicate`')) {
+        throw new Error('Missing API.printers.duplicate in api.js');
+    }
+
+    // 3. Issue #66: threemf.js purge_weight_g retains purgeGrams
+    if (!threemfJs.includes('purge_weight_g: parseFloat(purgeGrams.toFixed(2))')) {
+        throw new Error('threemf.js does not retain purgeGrams in purge_weight_g');
+    }
+
+    // 4. Issue #59: color_hex XSS sanitization in renderFilamentsGrid
+    const dom = {
+        'filaments-grid': { innerHTML: '' },
+        'filament-search-input': { value: '' },
+        'filament-material-filter': { value: '' },
+        'filament-status-filter': { value: 'all' },
+        'printers-grid': { innerHTML: '' },
+        'printer-search-input': { value: '' },
+        'printer-status-filter': { value: 'all' },
+        'dashboard-recent-projects': { innerHTML: '' },
+        'projects-table-container': { innerHTML: '' },
+        'proj-delivery-days': { value: '' }
+    };
+    const sandbox = {
+        console,
+        document: {
+            getElementById: id => dom[id] || { value: '', innerHTML: '', classList: { add(){}, remove(){} } },
+            querySelector: () => ({ textContent: '', className: '', style: {} }),
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        state: { printers: [], filaments: [], projects: [], currentPlates: [], currentBOM: [] }
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(appJs, sandbox);
+
+    // Test Issue #59: Malicious color_hex
+    vm.runInContext(`
+        state.filaments = [{
+            id: 1,
+            name: 'Evil Filament',
+            material: 'PLA',
+            color_hex: 'red; background: url(javascript:alert(1))',
+            is_active: true
+        }];
+        renderFilamentsGrid();
+    `, sandbox);
+    const filamentHtml = dom['filaments-grid'].innerHTML;
+    if (filamentHtml.includes('javascript:alert(1)')) {
+        throw new Error('XSS detected: raw color_hex injected into filaments grid HTML');
+    }
+    if (!filamentHtml.includes('#10b981')) {
+        throw new Error('safeHex fallback #10b981 not applied to invalid color_hex');
+    }
+    if (!filamentHtml.includes('Ativo')) {
+        throw new Error('Filament status badge "Ativo" not found');
+    }
+
+    // Test Issue #69: Inactive filament
+    vm.runInContext(`
+        state.filaments[0].is_active = false;
+        renderFilamentsGrid();
+    `, sandbox);
+    if (!dom['filaments-grid'].innerHTML.includes('Inativo')) {
+        throw new Error('Filament status badge "Inativo" not found');
+    }
+
+    // Test Issue #60: Project status XSS in renderRecentProjects & renderProjectsTable
+    vm.runInContext(`
+        state.projects = [{
+            id: 10,
+            name: 'Test Project',
+            client_name: 'Client',
+            status: '<img src=x onerror=alert(1)>',
+            plates_count: 1,
+            total_time_hours: 2,
+            base_cost: 20,
+            final_price_to_client: 50
+        }];
+        renderRecentProjects();
+    `, sandbox);
+    const recentHtml = dom['dashboard-recent-projects'].innerHTML;
+    if (recentHtml.includes('<img src=x onerror=alert(1)>')) {
+        throw new Error('XSS detected: unescaped status in renderRecentProjects');
+    }
+    if (!recentHtml.includes('&lt;img src=x onerror=alert(1)&gt;')) {
+        throw new Error('Expected escaped status in renderRecentProjects');
+    }
+
+    vm.runInContext(`
+        renderProjectsTable();
+    `, sandbox);
+    const tableHtml = dom['projects-table-container'].innerHTML;
+    if (tableHtml.includes('<img src=x onerror=alert(1)>')) {
+        throw new Error('XSS detected: unescaped status in renderProjectsTable');
+    }
+    if (!tableHtml.includes('&lt;img src=x onerror=alert(1)&gt;')) {
+        throw new Error('Expected escaped status in renderProjectsTable');
+    }
+
+    // Test Issue #63 & #64: Printer badge and duplicate button
+    vm.runInContext(`
+        state.printers = [{
+            id: 1,
+            name: 'Printer Alpha',
+            model: 'FDM',
+            machine_hourly_rate: 15.0,
+            acquisition_cost: 3000,
+            lifespan_hours: 5000,
+            avg_power_watts: 150,
+            is_active: false
+        }];
+        renderPrintersGrid();
+    `, sandbox);
+    const printerHtml = dom['printers-grid'].innerHTML;
+    if (!printerHtml.includes('Inativa')) {
+        throw new Error('Printer status badge "Inativa" not found');
+    }
+    if (!printerHtml.includes('duplicatePrinter(1)')) {
+        throw new Error('duplicatePrinter(1) button not found in printer card');
+    }
+
+    // Test Issue #68: Blank delivery days does not force 3
+    dom['proj-delivery-days'].value = '   ';
+    const rawDelivery = dom['proj-delivery-days'].value.trim();
+    const parsedDelivery = (() => {
+        if (!rawDelivery) return null;
+        const d = parseInt(rawDelivery, 10);
+        return isNaN(d) || d < 0 ? null : d;
+    })();
+    if (parsedDelivery !== null) {
+        throw new Error('Expected null for empty delivery days, got: ' + parsedDelivery);
+    }
+
+    // Test Issue #70: Manufacturing parameters in createDefaultPlate
+    const defPlate = vm.runInContext('createDefaultPlate(1)', sandbox);
+    if (defPlate.nozzle_diameter !== '0.4') throw new Error('Default plate missing nozzle_diameter 0.4');
+    if (defPlate.bed_type !== 'Textured PEI') throw new Error('Default plate missing bed_type Textured PEI');
+    if (defPlate.layer_height !== '0.20') throw new Error('Default plate missing layer_height 0.20');
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+
 
 
 

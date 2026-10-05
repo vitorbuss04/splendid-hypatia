@@ -1493,6 +1493,238 @@ def test_issue_56_orphaned_foreign_key_fallbacks_2_50_and_0_10(client, make_user
     assert plate["custom_filament_cost_per_g"] == 0.10
 
 
+def test_issue_59_color_hex_pattern_validation(client, make_user):
+    """Issue #59: color_hex must conform to hex pattern #RGB, #RRGGBB, #RRGGBBAA."""
+    user = make_user(email="hex_test@example.com")
+    headers = user["headers"]
+
+    # Valid hex formats
+    for hex_val in ["#fff", "#10b981", "#AABBCC", "#10b981AA"]:
+        resp = client.post("/api/filaments", json={
+            "name": f"Filamento {hex_val}",
+            "material": "PLA",
+            "color_hex": hex_val
+        }, headers=headers)
+        assert resp.status_code == 201
+
+    # Invalid hex formats
+    for bad_hex in ["red", "10b981", "#gggggg", "javascript:alert(1)", "#12", "#12345"]:
+        resp = client.post("/api/filaments", json={
+            "name": "Filamento Invalido",
+            "material": "PLA",
+            "color_hex": bad_hex
+        }, headers=headers)
+        assert resp.status_code == 422
+
+
+def test_issue_60_project_status_pattern_validation(client, make_user):
+    """Issue #60: project status must only accept authorized enum values."""
+    user = make_user(email="status_pattern@example.com")
+    headers = user["headers"]
+
+    valid_statuses = ["draft", "quoted", "approved", "in_production", "completed", "cancelled"]
+    for st in valid_statuses:
+        resp = client.post("/api/projects", json={
+            "name": f"Projeto {st}",
+            "status": st
+        }, headers=headers)
+        assert resp.status_code == 201
+
+    invalid_statuses = ["pending", "finished", "DRAFT", "<script>alert(1)</script>", "foo"]
+    for bad_st in invalid_statuses:
+        resp = client.post("/api/projects", json={
+            "name": "Projeto Invalido",
+            "status": bad_st
+        }, headers=headers)
+        assert resp.status_code == 422
+
+
+def test_issue_61_empty_whitespace_name_rejected(client, make_user):
+    """Issue #61: whitespace-only or empty names must be rejected."""
+    user = make_user(email="blank_name_test@example.com")
+    headers = user["headers"]
+
+    for blank in ["", "   ", "\t\n"]:
+        # Printer
+        p_resp = client.post("/api/printers", json={"name": blank}, headers=headers)
+        assert p_resp.status_code == 422
+
+        # Filament
+        f_resp = client.post("/api/filaments", json={"name": blank, "material": "PLA"}, headers=headers)
+        assert f_resp.status_code == 422
+
+        # Project
+        pr_resp = client.post("/api/projects", json={"name": blank}, headers=headers)
+        assert pr_resp.status_code == 422
+
+
+def test_issue_62_and_71_dashboard_stats_realized_projects_filtering(client, make_user):
+    """
+    Issue #62 & #71:
+    - Top projects ranking (#62) must only include realized projects (approved, in_production, completed).
+    - Monthly print_hours (#71) must only sum realized projects.
+    """
+    user = make_user(email="stats_filtering@example.com")
+    headers = user["headers"]
+
+    # 1. Draft project: 10h, R$ 500
+    client.post("/api/projects", json={
+        "name": "Projeto Rascunho",
+        "status": "draft",
+        "plates": [{
+            "name": "Placa Draft",
+            "print_time_hours": 10.0,
+            "part_weight_g": 100.0,
+            "custom_printer_hourly_rate": 10.0,
+            "custom_filament_cost_per_g": 0.50
+        }]
+    }, headers=headers)
+
+    # 2. Approved project: 5h, R$ 250
+    client.post("/api/projects", json={
+        "name": "Projeto Aprovado",
+        "status": "approved",
+        "plates": [{
+            "name": "Placa Approved",
+            "print_time_hours": 5.0,
+            "part_weight_g": 50.0,
+            "custom_printer_hourly_rate": 10.0,
+            "custom_filament_cost_per_g": 0.50
+        }]
+    }, headers=headers)
+
+    resp = client.get("/api/projects/dashboard-stats", headers=headers)
+    assert resp.status_code == 200
+    stats = resp.json()
+
+    # Issue #62: top_projects must only contain "Projeto Aprovado"
+    top_names = [p["name"] for p in stats["top_projects"]]
+    assert "Projeto Aprovado" in top_names
+    assert "Projeto Rascunho" not in top_names
+
+    # Issue #71: monthly timeline print_hours must equal 5.0 (not 15.0)
+    import datetime
+    current_month_key = datetime.datetime.now().strftime("%Y-%m")
+    current_month_item = next((m for m in stats["monthly_timeline"] if m["month_key"] == current_month_key), None)
+    assert current_month_item is not None
+    assert current_month_item["print_hours"] == 5.0
+
+
+def test_issue_64_printer_duplication_endpoint(client, make_user):
+    """Issue #64: POST /api/printers/{id}/duplicate duplicates printer with (Cópia)."""
+    user = make_user(email="printer_dup@example.com")
+    headers = user["headers"]
+
+    orig = client.post("/api/printers", json={
+        "name": "Prusa MK4",
+        "model": "i3 Style",
+        "acquisition_cost": 4500.0,
+        "avg_power_watts": 120.0,
+        "is_active": True
+    }, headers=headers).json()
+
+    dup_res = client.post(f"/api/printers/{orig['id']}/duplicate", headers=headers)
+    assert dup_res.status_code == 201
+    dup = dup_res.json()
+    assert dup["id"] != orig["id"]
+    assert dup["name"] == "Prusa MK4 (Cópia)"
+    assert dup["model"] == "i3 Style"
+    assert dup["acquisition_cost"] == 4500.0
+    assert dup["is_active"] is True
+
+    # 404 for unknown printer
+    assert client.post("/api/printers/99999/duplicate", headers=headers).status_code == 404
+
+
+def test_issue_65_plate_negative_custom_rates_rejected(client, make_user):
+    """Issue #65: negative custom_printer_hourly_rate or custom_filament_cost_per_g must be rejected."""
+    user = make_user(email="plate_rates_neg@example.com")
+    headers = user["headers"]
+
+    # Negative hourly rate
+    r1 = client.post("/api/projects", json={
+        "name": "Projeto Neg Rates",
+        "plates": [{
+            "name": "P1",
+            "custom_printer_hourly_rate": -5.0
+        }]
+    }, headers=headers)
+    assert r1.status_code == 422
+
+    # Negative cost per gram
+    r2 = client.post("/api/projects", json={
+        "name": "Projeto Neg Rates 2",
+        "plates": [{
+            "name": "P1",
+            "custom_filament_cost_per_g": -0.10
+        }]
+    }, headers=headers)
+    assert r2.status_code == 422
+
+
+def test_issue_67_engine_plate_cost_fallback_when_printer_and_filament_none():
+    """Issue #67: calculate_plate_cost must use 2.50/h and 0.10/g fallbacks when printer and filament are None."""
+    from backend.engine import calculate_plate_cost
+    from backend.models import Plate
+
+    plate = Plate(
+        name="Placa Teste Fallback",
+        printer_id=None,
+        filament_id=None,
+        custom_printer_hourly_rate=None,
+        custom_filament_cost_per_g=None,
+        print_time_hours=2.0,
+        part_weight_g=50.0,
+        purge_weight_g=10.0,
+        failure_margin_percent=0.0,
+        quantity=1
+    )
+
+    cost = calculate_plate_cost(plate, printer=None, filament=None)
+    # Machine rate fallback 2.50 * 2h = 5.00
+    assert cost["machine_hourly_rate"] == 2.50
+    assert cost["total_machine_cost"] == 5.00
+    # Filament cost fallback 0.10 * 60g = 6.00
+    assert cost["cost_per_gram"] == 0.10
+    assert cost["total_material_cost"] == 6.00
+    assert cost["total_cost"] == 11.00
+
+
+def test_issue_70_plate_manufacturing_parameters_and_technical_pdf(client, make_user):
+    """
+    Issue #70:
+    - Plate models and schemas accept nozzle_diameter, bed_type, and layer_height.
+    - Technical PDF includes manufacturing parameters.
+    """
+    user = make_user(email="manuf_params@example.com")
+    headers = user["headers"]
+
+    proj_res = client.post("/api/projects", json={
+        "name": "Projeto Setup Fab",
+        "plates": [{
+            "name": "Placa 0.6mm High Speed",
+            "nozzle_diameter": "0.6",
+            "bed_type": "Smooth PEI",
+            "layer_height": "0.28",
+            "print_time_hours": 3.0,
+            "part_weight_g": 80.0
+        }]
+    }, headers=headers)
+    assert proj_res.status_code == 201
+    proj_data = proj_res.json()
+    p = proj_data["plates"][0]
+    assert p["nozzle_diameter"] == "0.6"
+    assert p["bed_type"] == "Smooth PEI"
+    assert p["layer_height"] == "0.28"
+
+    # Export technical PDF
+    pdf_res = client.get(f"/api/projects/{proj_data['id']}/pdf?type=technical", headers=headers)
+    assert pdf_res.status_code == 200
+    assert pdf_res.headers["content-type"] == "application/pdf"
+    assert pdf_res.content.startswith(b"%PDF")
+
+
+
 
 
 

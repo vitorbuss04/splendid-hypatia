@@ -250,18 +250,19 @@ def get_dashboard_stats(
             monthly_data[month_key]["revenue"] = round(monthly_data[month_key]["revenue"] + (final_price if is_realized else 0.0), 2)
             monthly_data[month_key]["base_cost"] = round(monthly_data[month_key]["base_cost"] + (base_cost if is_realized else 0.0), 2)
             monthly_data[month_key]["net_profit"] = round(monthly_data[month_key]["net_profit"] + (net_profit if is_realized else 0.0), 2)
-            monthly_data[month_key]["print_hours"] = round(monthly_data[month_key]["print_hours"] + hours, 2)
+            monthly_data[month_key]["print_hours"] = round(monthly_data[month_key]["print_hours"] + (hours if is_realized else 0.0), 2)
             monthly_data[month_key]["projects_count"] += 1
 
-            project_items.append(schemas.TopProjectItem(
-                id=proj.id,
-                name=proj.name,
-                client_name=proj.client_name,
-                status=proj.status,
-                final_price=round(final_price, 2),
-                net_profit=round(net_profit, 2),
-                print_hours=round(hours, 2),
-            ))
+            if is_realized:
+                project_items.append(schemas.TopProjectItem(
+                    id=proj.id,
+                    name=proj.name,
+                    client_name=proj.client_name,
+                    status=proj.status,
+                    final_price=round(final_price, 2),
+                    net_profit=round(net_profit, 2),
+                    print_hours=round(hours, 2),
+                ))
 
     # Pad with recent months up to 6 months
     now = datetime.datetime.now()

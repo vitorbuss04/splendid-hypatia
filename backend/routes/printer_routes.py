@@ -80,6 +80,36 @@ def update_printer(
     db.refresh(printer)
     return enrich_printer_response(printer)
 
+@router.post("/{printer_id}/duplicate", response_model=schemas.PrinterResponse, status_code=status.HTTP_201_CREATED)
+def duplicate_printer(
+    printer_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    original = db.query(models.Printer).filter(
+        models.Printer.id == printer_id,
+        models.Printer.user_id == current_user.id
+    ).first()
+    if not original:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Impressora não encontrada.")
+
+    new_printer = models.Printer(
+        user_id=current_user.id,
+        name=f"{original.name} (Cópia)",
+        model=original.model,
+        acquisition_cost=original.acquisition_cost,
+        lifespan_hours=original.lifespan_hours,
+        avg_power_watts=original.avg_power_watts,
+        energy_rate_kwh=original.energy_rate_kwh,
+        maintenance_cost_per_hour=original.maintenance_cost_per_hour,
+        is_active=original.is_active,
+        notes=original.notes
+    )
+    db.add(new_printer)
+    db.commit()
+    db.refresh(new_printer)
+    return enrich_printer_response(new_printer)
+
 @router.delete("/{printer_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_printer(
     printer_id: int,
