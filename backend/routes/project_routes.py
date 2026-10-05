@@ -221,44 +221,45 @@ def get_dashboard_stats(
             margins_sum += eff_margin
             margins_count += 1
 
-        material_cost += float(summary.get("total_material_cost", 0.0) or 0.0)
-        machine_energy_cost += float(summary.get("total_machine_cost", 0.0) or 0.0) + float(summary.get("total_energy_cost", 0.0) or 0.0)
-        labor_cost += float(summary.get("total_labor_cost", 0.0) or 0.0)
-        bom_cost += float(summary.get("total_bom_cost", 0.0) or 0.0)
-        overhead_cost += float(summary.get("overhead_cost", 0.0) or 0.0)
-        profit_acc += max(0.0, net_profit)
+        if st != "cancelled":
+            material_cost += float(summary.get("total_material_cost", 0.0) or 0.0)
+            machine_energy_cost += float(summary.get("total_machine_cost", 0.0) or 0.0)
+            labor_cost += float(summary.get("total_labor_cost", 0.0) or 0.0)
+            bom_cost += float(summary.get("total_bom_cost", 0.0) or 0.0)
+            overhead_cost += float(summary.get("overhead_cost", 0.0) or 0.0)
+            profit_acc += max(0.0, net_profit)
 
-        created_dt = proj.created_at or datetime.datetime.now()
-        month_key = created_dt.strftime("%Y-%m")
-        pt_m = MONTH_NAMES_PT.get(created_dt.month, str(created_dt.month))
-        year_short = created_dt.strftime("%y")
-        month_label = f"{pt_m}/{year_short}"
+            created_dt = proj.created_at or datetime.datetime.now()
+            month_key = created_dt.strftime("%Y-%m")
+            pt_m = MONTH_NAMES_PT.get(created_dt.month, str(created_dt.month))
+            year_short = created_dt.strftime("%y")
+            month_label = f"{pt_m}/{year_short}"
 
-        if month_key not in monthly_data:
-            monthly_data[month_key] = {
-                "month_key": month_key,
-                "month_label": month_label,
-                "revenue": 0.0,
-                "base_cost": 0.0,
-                "net_profit": 0.0,
-                "print_hours": 0.0,
-                "projects_count": 0,
-            }
-        monthly_data[month_key]["revenue"] = round(monthly_data[month_key]["revenue"] + final_price, 2)
-        monthly_data[month_key]["base_cost"] = round(monthly_data[month_key]["base_cost"] + base_cost, 2)
-        monthly_data[month_key]["net_profit"] = round(monthly_data[month_key]["net_profit"] + net_profit, 2)
-        monthly_data[month_key]["print_hours"] = round(monthly_data[month_key]["print_hours"] + hours, 2)
-        monthly_data[month_key]["projects_count"] += 1
+            if month_key not in monthly_data:
+                monthly_data[month_key] = {
+                    "month_key": month_key,
+                    "month_label": month_label,
+                    "revenue": 0.0,
+                    "base_cost": 0.0,
+                    "net_profit": 0.0,
+                    "print_hours": 0.0,
+                    "projects_count": 0,
+                }
+            monthly_data[month_key]["revenue"] = round(monthly_data[month_key]["revenue"] + (final_price if st in ["approved", "in_production", "completed"] else 0.0), 2)
+            monthly_data[month_key]["base_cost"] = round(monthly_data[month_key]["base_cost"] + base_cost, 2)
+            monthly_data[month_key]["net_profit"] = round(monthly_data[month_key]["net_profit"] + (net_profit if st in ["approved", "in_production", "completed"] else 0.0), 2)
+            monthly_data[month_key]["print_hours"] = round(monthly_data[month_key]["print_hours"] + hours, 2)
+            monthly_data[month_key]["projects_count"] += 1
 
-        project_items.append(schemas.TopProjectItem(
-            id=proj.id,
-            name=proj.name,
-            client_name=proj.client_name,
-            status=proj.status,
-            final_price=round(final_price, 2),
-            net_profit=round(net_profit, 2),
-            print_hours=round(hours, 2),
-        ))
+            project_items.append(schemas.TopProjectItem(
+                id=proj.id,
+                name=proj.name,
+                client_name=proj.client_name,
+                status=proj.status,
+                final_price=round(final_price, 2),
+                net_profit=round(net_profit, 2),
+                print_hours=round(hours, 2),
+            ))
 
     # Pad with recent months up to 6 months
     now = datetime.datetime.now()

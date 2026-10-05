@@ -20,10 +20,12 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_
 
 @pytest.fixture(autouse=True)
 def setup_test_database():
+    test_engine.dispose()
     Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
     yield
     try:
+        test_engine.dispose()
         Base.metadata.drop_all(bind=test_engine)
     except Exception:
         pass

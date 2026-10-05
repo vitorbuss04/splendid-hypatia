@@ -148,12 +148,13 @@ def build_pdf_document(
     story = []
 
     # 1. Header with Company & Document Info
-    company_name = user_data.get("company_name") or user_data.get("full_name") or "Serviços de Impressão 3D"
+    raw_company = user_data.get("company_name") or user_data.get("full_name") or "Serviços de Impressão 3D"
+    company_name = html.escape(str(raw_company))
     contact_parts = []
     if user_data.get("phone"):
-        contact_parts.append(f"Tel: {user_data['phone']}")
+        contact_parts.append(f"Tel: {html.escape(str(user_data['phone']))}")
     if user_data.get("email"):
-        contact_parts.append(f"E-mail: {user_data['email']}")
+        contact_parts.append(f"E-mail: {html.escape(str(user_data['email']))}")
     contact_text = " | ".join(contact_parts) if contact_parts else "Projetos e Prototipagem Rápida em Manufatura Aditiva"
 
     doc_name = "ORÇAMENTO COMERCIAL" if doc_type == "client" else "FICHA TÉCNICA DE PRODUÇÃO"
@@ -189,10 +190,11 @@ def build_pdf_document(
     story.append(HRFlowable(width="100%", thickness=1.5, color=ACCENT, spaceAfter=8))
 
     # 2. Client & Project Details Box
-    client_name = project_data.get("client_name") or "Cliente não informado"
-    client_email = project_data.get("client_email") or "—"
-    client_phone = project_data.get("client_phone") or "—"
-    project_title = project_data.get("name") or "Projeto sem título"
+    client_name = html.escape(str(project_data.get("client_name") or "Cliente não informado"))
+    client_email = html.escape(str(project_data.get("client_email") or "—"))
+    client_phone = html.escape(str(project_data.get("client_phone") or "—"))
+    project_title = html.escape(str(project_data.get("name") or "Projeto sem título"))
+    status_text = html.escape(str(project_data.get('status', 'draft')).upper())
 
     info_data = [
         [
@@ -200,7 +202,7 @@ def build_pdf_document(
             Paragraph(f"<b>Cliente:</b> {client_name}", style_cell),
         ],
         [
-            Paragraph(f"<b>Status:</b> {project_data.get('status', 'draft').upper()}", style_cell),
+            Paragraph(f"<b>Status:</b> {status_text}", style_cell),
             Paragraph(f"<b>Contato:</b> {client_phone} | {client_email}", style_cell),
         ]
     ]
@@ -242,9 +244,10 @@ def build_pdf_document(
             ])
         else:
             for p in plates_details:
-                mat_name = extract_clean_material(p)
+                mat_name = html.escape(str(extract_clean_material(p)))
+                p_name = html.escape(str(p.get('name', 'Placa')))
                 plate_table_data.append([
-                    Paragraph(f"<b>{p.get('name', 'Placa')}</b>", style_cell),
+                    Paragraph(f"<b>{p_name}</b>", style_cell),
                     Paragraph(mat_name, style_cell),
                     Paragraph(str(p.get("quantity", 1)), style_cell_right),
                     Paragraph(f"{p.get('total_time_hours', 0.0):.1f} h", style_cell_right),
@@ -273,9 +276,11 @@ def build_pdf_document(
                 Paragraph("Subtotal", style_cell_header_right),
             ]]
             for b in bom_details:
+                b_name = html.escape(str(b.get("name", "Componente")))
+                b_cat = html.escape(str(b.get("category", "Geral")))
                 bom_table_data.append([
-                    Paragraph(b.get("name", "Componente"), style_cell),
-                    Paragraph(b.get("category", "Geral"), style_cell),
+                    Paragraph(b_name, style_cell),
+                    Paragraph(b_cat, style_cell),
                     Paragraph(str(b.get("quantity", 1)), style_cell_right),
                     Paragraph(f"R$ {b.get('subtotal', 0.0):.2f}", style_cell_right),
                 ])
@@ -433,10 +438,12 @@ def build_pdf_document(
         ]]
 
         for p in plates_details:
-            mat_name = extract_clean_material(p)
+            mat_name = html.escape(str(extract_clean_material(p)))
+            p_name = html.escape(str(p.get('name', 'Placa')))
+            printer_name = html.escape(str(p.get("printer_name", "Padrão")))
             tech_table_data.append([
-                Paragraph(f"<b>{p.get('name', 'Placa')}</b>", style_cell),
-                Paragraph(p.get("printer_name", "Padrão"), style_cell),
+                Paragraph(f"<b>{p_name}</b>", style_cell),
+                Paragraph(printer_name, style_cell),
                 Paragraph(mat_name, style_cell),
                 Paragraph(f"{p.get('unit_print_time_hours', 0.0):.1f} h", style_cell_right),
                 Paragraph(f"{p.get('part_weight_g', p.get('unit_raw_weight_g', 0.0)):.1f} g", style_cell_right),
@@ -468,9 +475,11 @@ def build_pdf_document(
                 Paragraph("Conferência [ OK ]", style_cell_header_right),
             ]]
             for b in bom_details:
+                b_name = html.escape(str(b.get("name", "Item")))
+                b_cat = html.escape(str(b.get("category", "Geral")))
                 chk_table_data.append([
-                    Paragraph(b.get("name", "Item"), style_cell),
-                    Paragraph(b.get("category", "Geral"), style_cell),
+                    Paragraph(b_name, style_cell),
+                    Paragraph(b_cat, style_cell),
                     Paragraph(str(b.get("quantity", 1)), style_cell_right),
                     Paragraph("[  ] Conferido", style_cell_right),
                 ])
@@ -523,7 +532,8 @@ def build_pdf_document(
     story.append(Spacer(1, 6 * mm))
     notes_txt = project_data.get("notes")
     if notes_txt:
-        notes_p = Paragraph(f"<b>Observações do Projeto:</b><br/>{notes_txt}", style_cell)
+        safe_notes = html.escape(str(notes_txt)).replace('\n', '<br/>')
+        notes_p = Paragraph(f"<b>Observações do Projeto:</b><br/>{safe_notes}", style_cell)
         story.append(notes_p)
         story.append(Spacer(1, 3 * mm))
 

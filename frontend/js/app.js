@@ -12,6 +12,8 @@ const state = {
     currentBOM: [],
     activeView: 'dashboard',
     dashboardStats: null,
+    projectSortField: 'id',
+    projectSortAsc: false,
     charts: {
         statusFunnel: null,
         financialTimeline: null,
@@ -379,7 +381,9 @@ function showToast(message, type = 'info') {
 
     const toast = document.createElement('div');
     toast.className = `p-3 rounded-lg border shadow-lg text-xs font-semibold flex items-center gap-2 pointer-events-auto transition-all transform duration-300 translate-y-2 opacity-0 ${colors[type] || colors.info}`;
-    toast.innerHTML = `<span>${message}</span>`;
+    const textSpan = document.createElement('span');
+    textSpan.textContent = String(message ?? '');
+    toast.appendChild(textSpan);
     container.appendChild(toast);
 
     setTimeout(() => {
@@ -625,10 +629,16 @@ async function handleRegister(e) {
 }
 
 function updateUserUI() {
-    if (!state.user) return;
     const nameEl = document.getElementById('user-display-name');
     const compEl = document.getElementById('user-display-company');
     const avatarEl = document.getElementById('user-avatar');
+
+    if (!state.user) {
+        if (nameEl) nameEl.textContent = '';
+        if (compEl) compEl.textContent = '';
+        if (avatarEl) avatarEl.textContent = '';
+        return;
+    }
 
     const displayName = state.user.full_name || state.user.email.split('@')[0];
     if (nameEl) nameEl.textContent = displayName;
@@ -680,6 +690,39 @@ function destroyDashboardCharts() {
         }
     }
 }
+
+function clearUserData() {
+    state.user = null;
+    state.projects = [];
+    state.printers = [];
+    state.filaments = [];
+    state.currentProject = null;
+    state.currentPlates = [];
+    state.currentBOM = [];
+    state.dashboardStats = null;
+
+    if (typeof destroyDashboardCharts === 'function') {
+        destroyDashboardCharts();
+    }
+
+    updateUserUI();
+
+    const projContainer = document.getElementById('projects-table-container');
+    if (projContainer) projContainer.innerHTML = '';
+    const recentTable = document.querySelector('#view-dashboard table tbody');
+    if (recentTable) recentTable.innerHTML = '';
+    const recentProjects = document.getElementById('dashboard-recent-projects');
+    if (recentProjects) recentProjects.innerHTML = '';
+    const printersGrid = document.getElementById('printers-grid');
+    if (printersGrid) printersGrid.innerHTML = '';
+    const filamentsGrid = document.getElementById('filaments-grid');
+    if (filamentsGrid) filamentsGrid.innerHTML = '';
+
+    if (typeof renderDashboard === 'function') {
+        renderDashboard();
+    }
+}
+window.clearUserData = clearUserData;
 
 function renderDashboard() {
     const stats = state.dashboardStats;
@@ -935,8 +978,9 @@ function renderDashboardCharts(stats) {
             cb.machine_energy_cost || 0,
             cb.labor_cost || 0,
             cb.bom_cost || 0,
+            cb.overhead_cost || 0,
             cb.net_profit || 0
-        ] : [0, 0, 0, 0, 0];
+        ] : [0, 0, 0, 0, 0, 0];
 
         const hasCostData = cbValues.some(v => v > 0);
 
@@ -947,8 +991,8 @@ function renderDashboardCharts(stats) {
             costCanvas.classList.remove('hidden');
             costEmpty.classList.add('hidden');
 
-            const cbLabels = ['Filamento', 'Máquina & Energia', 'Mão de Obra', 'Insumos BOM', 'Lucro Líquido'];
-            const cbColors = ['#8b5cf6', '#3b82f6', '#f59e0b', '#64748b', '#10b981'];
+            const cbLabels = ['Filamento', 'Máquina & Energia', 'Mão de Obra', 'Insumos BOM', 'Custos Indiretos (Overhead)', 'Lucro Líquido'];
+            const cbColors = ['#8b5cf6', '#3b82f6', '#f59e0b', '#64748b', '#ec4899', '#10b981'];
 
             state.charts.costBreakdown = new Chart(costCanvas, {
                 type: 'doughnut',
@@ -1224,18 +1268,112 @@ function renderProjectsTable(filterText = null, statusFilter = '') {
         return;
     }
 
+    // Sort items
+    const sortField = state.projectSortField || 'id';
+    const sortAsc = state.projectSortAsc ?? false;
+
+    items = [...items].sort((a, b) => {
+        let valA, valB;
+        switch (sortField) {
+            case 'name':
+                valA = (a.name || '').toLowerCase();
+                valB = (b.name || '').toLowerCase();
+                break;
+            case 'client_name':
+                valA = (a.client_name || '').toLowerCase();
+                valB = (b.client_name || '').toLowerCase();
+                break;
+            case 'plates_count':
+                valA = a.plates_count || 0;
+                valB = b.plates_count || 0;
+                break;
+            case 'total_time_hours':
+                valA = a.total_time_hours || 0;
+                valB = b.total_time_hours || 0;
+                break;
+            case 'base_cost':
+                valA = a.base_cost || 0;
+                valB = b.base_cost || 0;
+                break;
+            case 'final_price_to_client':
+                valA = a.final_price_to_client || 0;
+                valB = b.final_price_to_client || 0;
+                break;
+            case 'status':
+                valA = (a.status || '').toLowerCase();
+                valB = (b.status || '').toLowerCase();
+                break;
+            case 'id':
+            default:
+                valA = a.id || 0;
+                valB = b.id || 0;
+                break;
+        }
+
+        if (typeof valA === 'string') {
+            const cmp = valA.localeCompare(valB, 'pt-BR');
+            return sortAsc ? cmp : -cmp;
+        } else {
+            return sortAsc ? (valA - valB) : (valB - valA);
+        }
+    });
+
+    function getSortIcon(field) {
+        if (state.projectSortField !== field) {
+            return '<i data-lucide="arrow-up-down" class="w-3 h-3 text-slate-500 opacity-60 group-hover:opacity-100 transition-opacity"></i>';
+        }
+        return state.projectSortAsc
+            ? '<i data-lucide="arrow-up" class="w-3 h-3 text-blue-400"></i>'
+            : '<i data-lucide="arrow-down" class="w-3 h-3 text-blue-400"></i>';
+    }
+
     // Render modern SaaS Dark Mode Table
     container.innerHTML = `
         <table class="w-full text-left text-xs">
             <thead>
                 <tr class="border-b border-slate-800 bg-slate-900/70 text-slate-400 uppercase tracking-wider font-semibold text-[11px]">
-                    <th class="py-3 px-4">Projeto & Referência</th>
-                    <th class="py-3 px-4">Cliente</th>
-                    <th class="py-3 px-4 text-center">Placas</th>
-                    <th class="py-3 px-4">Tempo Total</th>
-                    <th class="py-3 px-4">Custo Base</th>
-                    <th class="py-3 px-4">Preço de Venda</th>
-                    <th class="py-3 px-4 text-center">Status</th>
+                    <th class="py-3 px-4 cursor-pointer select-none hover:text-white transition-colors group" onclick="setProjectSort('name')" title="Ordenar por Nome">
+                        <div class="flex items-center gap-1.5">
+                            <span>Projeto & Referência</span>
+                            ${getSortIcon('name')}
+                        </div>
+                    </th>
+                    <th class="py-3 px-4 cursor-pointer select-none hover:text-white transition-colors group" onclick="setProjectSort('client_name')" title="Ordenar por Cliente">
+                        <div class="flex items-center gap-1.5">
+                            <span>Cliente</span>
+                            ${getSortIcon('client_name')}
+                        </div>
+                    </th>
+                    <th class="py-3 px-4 text-center cursor-pointer select-none hover:text-white transition-colors group" onclick="setProjectSort('plates_count')" title="Ordenar por Placas">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <span>Placas</span>
+                            ${getSortIcon('plates_count')}
+                        </div>
+                    </th>
+                    <th class="py-3 px-4 cursor-pointer select-none hover:text-white transition-colors group" onclick="setProjectSort('total_time_hours')" title="Ordenar por Tempo Total">
+                        <div class="flex items-center gap-1.5">
+                            <span>Tempo Total</span>
+                            ${getSortIcon('total_time_hours')}
+                        </div>
+                    </th>
+                    <th class="py-3 px-4 cursor-pointer select-none hover:text-white transition-colors group" onclick="setProjectSort('base_cost')" title="Ordenar por Custo Base">
+                        <div class="flex items-center gap-1.5">
+                            <span>Custo Base</span>
+                            ${getSortIcon('base_cost')}
+                        </div>
+                    </th>
+                    <th class="py-3 px-4 cursor-pointer select-none hover:text-white transition-colors group" onclick="setProjectSort('final_price_to_client')" title="Ordenar por Preço de Venda">
+                        <div class="flex items-center gap-1.5">
+                            <span>Preço de Venda</span>
+                            ${getSortIcon('final_price_to_client')}
+                        </div>
+                    </th>
+                    <th class="py-3 px-4 text-center cursor-pointer select-none hover:text-white transition-colors group" onclick="setProjectSort('status')" title="Ordenar por Status">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <span>Status</span>
+                            ${getSortIcon('status')}
+                        </div>
+                    </th>
                     <th class="py-3 px-4 text-right">Ações</th>
                 </tr>
             </thead>
@@ -1303,6 +1441,17 @@ function renderProjectsTable(filterText = null, statusFilter = '') {
         </div>
     `;
     refreshIcons();
+}
+
+function setProjectSort(field) {
+    if (state.projectSortField === field) {
+        state.projectSortAsc = !state.projectSortAsc;
+    } else {
+        state.projectSortField = field;
+        state.projectSortAsc = (field === 'name' || field === 'client_name' || field === 'status');
+    }
+    const input = document.getElementById('project-search-input');
+    renderProjectsTable(input ? input.value : '', state.projectStatusFilter || 'all');
 }
 
 function filterProjects() {
@@ -1495,6 +1644,9 @@ window.removePlate = removePlateRow;
 function updatePlateTime(idx) {
     const hElem = document.getElementById(`plate-time-h-${idx}`);
     const mElem = document.getElementById(`plate-time-m-${idx}`);
+    if (!hElem && !mElem) {
+        return; // Preserva o print_time_hours já existente se os inputs não existirem no DOM
+    }
     const h = Math.max(0, parseInt(hElem?.value, 10) || 0);
     const m = Math.max(0, parseInt(mElem?.value, 10) || 0);
     state.currentPlates[idx].print_time_hours = Number((h + (m / 60)).toFixed(4));
@@ -1626,7 +1778,7 @@ function renderPlates() {
                     <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400"></i> Parâmetros do Fatiador & Físicos
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 plate-grid-aligned">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 plate-grid-aligned">
                     <!-- Print Time Dual Input (Hours & Minutes) -->
                     <div class="col-span-2 plate-field-col">
                         <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Tempo (h : min)</label></div>
@@ -1647,6 +1799,12 @@ function renderPlates() {
                     <div class="col-span-1 plate-field-col">
                         <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Filamento usado (g)</label></div>
                         <input type="number" step="any" min="0" value="${plate.part_weight_g}" oninput="state.currentPlates[${idx}].part_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="0">
+                    </div>
+
+                    <!-- Purge Weight (g) -->
+                    <div class="col-span-1 plate-field-col">
+                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Purga (g)</label></div>
+                        <input type="number" step="any" min="0" value="${plate.purge_weight_g || 0}" oninput="state.currentPlates[${idx}].purge_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="0">
                     </div>
 
                     <!-- Failure Margin -->
@@ -1731,9 +1889,23 @@ function removeBomRow(index) {
     recalcLiveSummary();
 }
 
+function duplicateBomRow(idx) {
+    const orig = state.currentBOM[idx];
+    if (!orig) return;
+    const cloned = JSON.parse(JSON.stringify(orig));
+    delete cloned.id;
+    cloned.name = `${orig.name || 'Insumo'} (Cópia)`;
+    state.currentBOM.splice(idx + 1, 0, cloned);
+    renderBOM();
+    recalcLiveSummary();
+    showToast('Insumo duplicado com sucesso!', 'success');
+}
+
 // Casing aliases to ensure total runtime resilience
 window.addNewBOMRow = addNewBomRow;
 window.removeBOMRow = removeBomRow;
+window.duplicateBomRow = duplicateBomRow;
+window.duplicateBOMRow = duplicateBomRow;
 
 function renderBOM() {
     const container = document.getElementById('bom-container');
@@ -1808,8 +1980,11 @@ function renderBOM() {
                         ${formatCurrency((item.quantity || 1) * (item.unit_cost || 0))}
                     </div>
 
-                    <!-- Delete Button Action -->
-                    <div class="sm:col-span-1 flex justify-center items-center pt-1 sm:pt-0">
+                    <!-- Action Buttons (Duplicate & Delete) -->
+                    <div class="sm:col-span-1 flex justify-center items-center gap-1 pt-1 sm:pt-0">
+                        <button type="button" onclick="duplicateBomRow(${idx})" class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-md transition-all" title="Duplicar Insumo">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        </button>
                         <button type="button" onclick="removeBomRow(${idx})" class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all" title="Remover Insumo">
                             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                         </button>
@@ -2042,8 +2217,8 @@ async function saveCurrentProject(navigateBack = true) {
         payment_terms: document.getElementById('proj-payment-terms')?.value.trim() || null,
         warranty_terms: document.getElementById('proj-warranty-terms')?.value.trim() || null,
         notes: document.getElementById('proj-notes').value.trim(),
-        plates: state.currentPlates.map(p => ({
-            name: p.name,
+        plates: state.currentPlates.map((p, idx) => ({
+            name: (p.name || '').trim() || `Placa ${idx + 1}`,
             printer_id: p.printer_id,
             filament_id: p.filament_id,
             custom_printer_hourly_rate: p.printer_id ? null : (p.custom_printer_hourly_rate != null ? parseLocaleFloat(p.custom_printer_hourly_rate, 2.50) : 2.50),
@@ -2056,8 +2231,8 @@ async function saveCurrentProject(navigateBack = true) {
             slicer_filament_profile: p.slicer_filament_profile || null,
             notes: p.notes,
         })),
-        bom_items: state.currentBOM.map(b => ({
-            name: b.name,
+        bom_items: state.currentBOM.map((b, idx) => ({
+            name: (b.name || '').trim() || `Insumo ${idx + 1}`,
             category: b.category,
             quantity: Math.max(1, parseInt(b.quantity, 10) || 1),
             unit_cost: Math.max(0, parseLocaleFloat(b.unit_cost, 0)),
@@ -2368,7 +2543,7 @@ async function handleSinglePlateFile(e, plateIdx) {
             const plates = await parse3mfMetadata(file);
             if (plates.length > 0) {
                 if (cleanName) {
-                    state.currentPlates[plateIdx].name = cleanName;
+                    state.currentPlates[plateIdx].name = plates.length > 1 ? `${cleanName} - Placa 1` : cleanName;
                 }
                 state.currentPlates[plateIdx].print_time_hours = plates[0].print_time_hours;
                 state.currentPlates[plateIdx].part_weight_g = plates[0].part_weight_g;
@@ -2389,8 +2564,55 @@ async function handleSinglePlateFile(e, plateIdx) {
                     state.currentPlates[plateIdx].custom_filament_cost_per_g = null;
                 }
 
-                const fileTypeLabel = name.endsWith('.gcode.3mf') ? '.gcode.3mf' : '3MF';
-                showToast(`Placa atualizada com dados do ${fileTypeLabel}!`, 'success');
+                if (plates.length > 1) {
+                    const additionalPlates = plates.slice(1).map((p, sliceIdx) => {
+                        const plateNum = sliceIdx + 2;
+                        const plateName = cleanName ? `${cleanName} - Placa ${plateNum}` : `Placa ${plateIdx + plateNum}`;
+                        const basePrinterId = state.currentPlates[plateIdx].printer_id ?? (state.printers?.[0]?.id || null);
+                        const newP = {
+                            name: plateName,
+                            printer_id: basePrinterId,
+                            filament_id: null,
+                            custom_printer_hourly_rate: basePrinterId ? null : (state.currentPlates[plateIdx].custom_printer_hourly_rate ?? 2.50),
+                            custom_filament_cost_per_g: null,
+                            nozzle_diameter: p.nozzle_diameter || state.currentPlates[plateIdx].nozzle_diameter || '0.4',
+                            bed_type: p.bed_type || state.currentPlates[plateIdx].bed_type || 'Textured PEI',
+                            layer_height: p.layer_height || state.currentPlates[plateIdx].layer_height || '0.20',
+                            print_time_hours: p.print_time_hours || 0,
+                            part_weight_g: p.part_weight_g || 0,
+                            purge_weight_g: p.purge_weight_g || 0,
+                            slicer_filament_profile: cleanFilamentProfileName(p.slicer_filament_profile, file.name) || null,
+                            failure_margin_percent: (state.user?.default_failure_rate ?? 10),
+                            quantity: p.quantity || 1,
+                            notes: p.notes || '',
+                        };
+
+                        const matched = (typeof findBestMatchingFilament === 'function')
+                            ? findBestMatchingFilament(
+                                state.filaments,
+                                newP.name || '',
+                                p.slicer_filament_profile || '',
+                                p.filament_type || '',
+                                p.filament_color_hex || ''
+                            )
+                            : (state.filaments?.find(f => (f.material || '').toLowerCase() === (p.filament_type || '').toLowerCase()) || null);
+
+                        if (matched) {
+                            newP.filament_id = matched.id;
+                            newP.custom_filament_cost_per_g = null;
+                        } else {
+                            newP.filament_id = null;
+                            newP.custom_filament_cost_per_g = 0.10;
+                        }
+                        return newP;
+                    });
+
+                    state.currentPlates.splice(plateIdx + 1, 0, ...additionalPlates);
+                    showToast(`Placa atualizada e ${plates.length - 1} nova(s) placa(s) adicionada(s) a partir do arquivo 3MF!`, 'success');
+                } else {
+                    const fileTypeLabel = name.endsWith('.gcode.3mf') ? '.gcode.3mf' : '3MF';
+                    showToast(`Placa atualizada com dados do ${fileTypeLabel}!`, 'success');
+                }
             }
         } else if (name.endsWith('.gcode')) {
             const text = await file.text();
@@ -3209,31 +3431,34 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
 
     window.addEventListener('auth:unauthorized', () => {
-        document.getElementById('auth-modal').classList.remove('hidden');
+        clearUserData();
+        document.getElementById('auth-modal')?.classList.remove('hidden');
     });
 
     window.addEventListener('auth:logout', () => {
-        state.user = null;
+        clearUserData();
         if (typeof window !== 'undefined' && window.location && typeof window.location.hash === 'string') {
             window.location.hash = '#/dashboard';
         }
-        document.getElementById('auth-modal').classList.remove('hidden');
+        document.getElementById('auth-modal')?.classList.remove('hidden');
     });
 
     const token = API.getToken();
     if (token) {
         try {
             state.user = await API.auth.getMe();
-            document.getElementById('auth-modal').classList.add('hidden');
+            document.getElementById('auth-modal')?.classList.add('hidden');
             updateUserUI();
             await loadAllData();
             const route = getRouteFromHash();
             await applyRoute(route);
         } catch (err) {
             API.clearSession();
-            document.getElementById('auth-modal').classList.remove('hidden');
+            clearUserData();
+            document.getElementById('auth-modal')?.classList.remove('hidden');
         }
     } else {
-        document.getElementById('auth-modal').classList.remove('hidden');
+        clearUserData();
+        document.getElementById('auth-modal')?.classList.remove('hidden');
     }
 });

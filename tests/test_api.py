@@ -1130,6 +1130,273 @@ def test_project_update_with_deleted_printer_or_filament_no_crash(client, make_u
     assert updated_proj["plates"][0]["printer_id"] is None
     assert updated_proj["plates"][0]["filament_id"] is None
 
+def test_pdf_generation_with_special_characters_and_tags(client, make_user):
+    user = make_user(email="special_chars_pdf@example.com")
+    headers = user["headers"]
+
+    # Update preferences with special characters
+    pref_res = client.put("/api/auth/preferences", json={
+        "company_name": "Maker Studio <3D> & CIA",
+        "phone": "+55 (11) 98765-4321",
+        "pix_key": "pix<key>&admin@maker.com",
+        "default_payment_terms": "50% entrada & 50% entrega <balcão>",
+        "default_warranty_terms": "Garantia <90 dias> contra empenamento & delaminação"
+    }, headers=headers)
+    assert pref_res.status_code == 200
+
+    # Create project with technical/HTML-like characters: <V2>, &, <A>, <Inox>
+    proj_payload = {
+        "name": "Suporte <V2> Náutico & Especial",
+        "client_name": "Alpha & Omega Engenharia <Ltda>",
+        "client_email": "contato@alphaomega.com.br",
+        "client_phone": "11988887777",
+        "notes": "Tolerâncias críticas < 0.2mm & acabamento sem marcas.\nLinha 2 com <b> e <custom_tag>.",
+        "status": "approved",
+        "delivery_days": 4,
+        "cad_hours": 1.5,
+        "cad_hourly_rate": 80.0,
+        "post_process_hours": 0.5,
+        "post_process_hourly_rate": 40.0,
+        "overhead_cost": 15.0,
+        "profit_margin_percent": 40.0,
+        "tax_rate_percent": 6.0,
+        "discount_percent": 5.0,
+        "shipping_cost": 25.0,
+        "plates": [
+            {
+                "name": "Base Inferior <A>",
+                "print_time_hours": 3.5,
+                "part_weight_g": 145.0,
+                "purge_weight_g": 12.0,
+                "failure_margin_percent": 10.0,
+                "quantity": 2
+            }
+        ],
+        "bom_items": [
+            {
+                "name": "Parafuso M3x16 <Inox> & Porca",
+                "category": "Fixadores <Aço>",
+                "quantity": 8,
+                "unit_cost": 0.85,
+                "notes": "Aço inox 316 & arruela"
+            }
+        ]
+    }
+    create_res = client.post("/api/projects", json=proj_payload, headers=headers)
+    assert create_res.status_code == 201
+    proj_id = create_res.json()["id"]
+
+    # 1. Test Client PDF generation
+    pdf_client = client.get(f"/api/projects/{proj_id}/pdf?type=client", headers=headers)
+    assert pdf_client.status_code == 200
+    assert pdf_client.headers["content-type"] == "application/pdf"
+    assert len(pdf_client.content) > 1000
+
+    # 2. Test Technical PDF generation
+    pdf_tech = client.get(f"/api/projects/{proj_id}/pdf?type=technical", headers=headers)
+    assert pdf_tech.status_code == 200
+    assert pdf_tech.headers["content-type"] == "application/pdf"
+    assert len(pdf_tech.content) > 1000
+
+
+def test_dashboard_stats_machine_energy_no_double_counting(client, make_user):
+    user = make_user(email="energy_check@example.com")
+    headers = user["headers"]
+
+    # 1. Create printer with known parameters:
+    # 350W power, energy R$ 0.95/kWh, acquisition 6000 R$, lifespan 6000h, maint 1.50 R$/h
+    # hourly rate = 1.0 (depr) + 1.5 (maint) + (350/1000 * 0.95 = 0.3325 energy) = 2.8325 R$/h
+    p_resp = client.post("/api/printers", json={
+        "name": "Bambu Lab X1C",
+        "acquisition_cost": 6000.0,
+        "lifespan_hours": 6000.0,
+        "avg_power_watts": 350.0,
+        "maintenance_cost_per_hour": 1.50,
+        "energy_rate_kwh": 0.95
+    }, headers=headers)
+    assert p_resp.status_code == 201
+    printer_id = p_resp.json()["id"]
+
+    f_resp = client.post("/api/filaments", json={
+        "name": "PLA Preto",
+        "spool_price": 100.0,
+        "spool_weight_g": 1000.0
+    }, headers=headers)
+    assert f_resp.status_code == 201
+    filament_id = f_resp.json()["id"]
+
+    # Create project with 10h of printing
+    create_res = client.post("/api/projects", json={
+        "name": "Peça de Teste Energia",
+        "status": "approved",
+        "plates": [
+            {
+                "name": "Placa 1",
+                "printer_id": printer_id,
+                "filament_id": filament_id,
+                "print_time_hours": 10.0,
+                "part_weight_g": 100.0,
+                "quantity": 1
+            }
+        ]
+    }, headers=headers)
+    assert create_res.status_code == 201
+    proj_data = create_res.json()
+    proj_summary = proj_data["summary"]
+
+    expected_machine_cost = round(proj_summary["total_machine_cost"], 2)
+    expected_energy_cost = round(proj_summary["total_energy_cost"], 2)
+    assert expected_energy_cost > 0.0
+
+    # Query dashboard stats
+    stats_res = client.get("/api/projects/dashboard-stats", headers=headers)
+    assert stats_res.status_code == 200
+    stats = stats_res.json()
+    cb = stats["cost_breakdown"]
+
+    # machine_energy_cost should equal total_machine_cost (already including energy), NOT total_machine_cost + total_energy_cost
+    assert cb["machine_energy_cost"] == expected_machine_cost
+    assert cb["machine_energy_cost"] < round(expected_machine_cost + expected_energy_cost, 2)
+
+
+def test_dashboard_stats_excludes_cancelled_from_monthly_timeline(client, make_user):
+    user = make_user(email="cancelled_stats@example.com")
+    headers = user["headers"]
+
+    # Create cancelled project with high value
+    cancelled_res = client.post("/api/projects", json={
+        "name": "Projeto Cancelado Grande",
+        "client_name": "Cliente Cancelou",
+        "status": "cancelled",
+        "plates": [
+            {
+                "name": "Placa Cara",
+                "print_time_hours": 20.0,
+                "part_weight_g": 500.0,
+                "quantity": 1
+            }
+        ]
+    }, headers=headers)
+    assert cancelled_res.status_code == 201
+
+    stats_res = client.get("/api/projects/dashboard-stats", headers=headers)
+    assert stats_res.status_code == 200
+    stats = stats_res.json()
+
+    # Cancelled project should not add to total revenue approved
+    assert stats["total_revenue_approved"] == 0.0
+    assert stats["total_net_profit"] == 0.0
+    assert stats["status_counts"]["cancelled"] == 1
+
+    # In monthly timeline, revenue, base_cost, net_profit, and print_hours must all be 0
+    timeline = stats["monthly_timeline"]
+    total_timeline_rev = sum(t["revenue"] for t in timeline)
+    total_timeline_profit = sum(t["net_profit"] for t in timeline)
+    total_timeline_hours = sum(t["print_hours"] for t in timeline)
+    assert total_timeline_rev == 0.0
+    assert total_timeline_profit == 0.0
+    assert total_timeline_hours == 0.0
+
+
+def test_plate_and_bom_empty_name_validation(client, make_user):
+    """Issue #47: Ensure empty or whitespace-only names for plates and BOM items are rejected with 422."""
+    user = make_user(email="empty_names@example.com")
+    headers = user["headers"]
+
+    # 1. Project with empty plate name
+    res_empty_plate = client.post("/api/projects", json={
+        "name": "Projeto Teste",
+        "plates": [
+            {
+                "name": "",
+                "print_time_hours": 1.0,
+                "part_weight_g": 10.0
+            }
+        ]
+    }, headers=headers)
+    assert res_empty_plate.status_code == 422
+
+    # 2. Project with whitespace-only plate name
+    res_blank_plate = client.post("/api/projects", json={
+        "name": "Projeto Teste",
+        "plates": [
+            {
+                "name": "   ",
+                "print_time_hours": 1.0,
+                "part_weight_g": 10.0
+            }
+        ]
+    }, headers=headers)
+    assert res_blank_plate.status_code == 422
+
+    # 3. Project with empty BOM item name
+    res_empty_bom = client.post("/api/projects", json={
+        "name": "Projeto Teste",
+        "bom_items": [
+            {
+                "name": "",
+                "quantity": 1,
+                "unit_cost": 2.5
+            }
+        ]
+    }, headers=headers)
+    assert res_empty_bom.status_code == 422
+
+    # 4. Project with whitespace-only BOM item name
+    res_blank_bom = client.post("/api/projects", json={
+        "name": "Projeto Teste",
+        "bom_items": [
+            {
+                "name": "   ",
+                "quantity": 1,
+                "unit_cost": 2.5
+            }
+        ]
+    }, headers=headers)
+    assert res_blank_bom.status_code == 422
+
+
+def test_dashboard_stats_excludes_cancelled_from_top_projects_and_cost_breakdown(client, make_user):
+    """Issue #48: Ensure cancelled projects are excluded from top_projects and cost breakdown in dashboard stats."""
+    user = make_user(email="top_projects_cancel@example.com")
+    headers = user["headers"]
+
+    # Create active completed project
+    res_active = client.post("/api/projects", json={
+        "name": "Projeto Ativo",
+        "status": "completed",
+        "plates": [
+            {"name": "P1", "print_time_hours": 2.0, "part_weight_g": 50.0}
+        ]
+    }, headers=headers)
+    assert res_active.status_code == 201
+
+    # Create cancelled project with massive value
+    res_cancelled = client.post("/api/projects", json={
+        "name": "Projeto Gigante Cancelado",
+        "status": "cancelled",
+        "plates": [
+            {"name": "P2", "print_time_hours": 200.0, "part_weight_g": 5000.0}
+        ]
+    }, headers=headers)
+    assert res_cancelled.status_code == 201
+
+    stats_res = client.get("/api/projects/dashboard-stats", headers=headers)
+    assert stats_res.status_code == 200
+    stats = stats_res.json()
+
+    # Cancelled project must NOT be in top_projects list
+    top_project_names = [p["name"] for p in stats.get("top_projects", [])]
+    assert "Projeto Gigante Cancelado" not in top_project_names
+    assert "Projeto Ativo" in top_project_names
+
+    # Cancelled project cost must NOT leak into cost_breakdown
+    active_cost = res_active.json()["summary"]["total_material_cost"]
+    assert stats["cost_breakdown"]["material_cost"] == round(active_cost, 2)
+
+
+
+
 
 
 

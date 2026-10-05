@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 import datetime
 
 # ----------------- Auth & User Schemas -----------------
@@ -135,7 +135,7 @@ class FilamentResponse(FilamentBase):
 # ----------------- Plate Schemas -----------------
 
 class PlateBase(BaseModel):
-    name: str = "Placa 1"
+    name: str = Field("Placa 1", min_length=1)
     printer_id: Optional[int] = None
     filament_id: Optional[int] = None
     custom_printer_hourly_rate: Optional[float] = None
@@ -148,11 +148,18 @@ class PlateBase(BaseModel):
     slicer_filament_profile: Optional[str] = None
     notes: Optional[str] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: str) -> str:
+        if v is not None and not v.strip():
+            raise ValueError("O nome da placa não pode ser vazio.")
+        return v
+
 class PlateCreate(PlateBase):
     pass
 
 class PlateUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1)
     printer_id: Optional[int] = None
     filament_id: Optional[int] = None
     custom_printer_hourly_rate: Optional[float] = None
@@ -165,6 +172,13 @@ class PlateUpdate(BaseModel):
     slicer_filament_profile: Optional[str] = None
     notes: Optional[str] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("O nome da placa não pode ser vazio.")
+        return v
+
 class PlateResponse(PlateBase):
     id: int
     project_id: int
@@ -176,21 +190,35 @@ class PlateResponse(PlateBase):
 # ----------------- BOM Items Schemas -----------------
 
 class BOMItemBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     category: str = "Fixadores"
     quantity: int = Field(1, ge=1)
     unit_cost: float = Field(0.0, ge=0)
     notes: Optional[str] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: str) -> str:
+        if v is not None and not v.strip():
+            raise ValueError("O nome do insumo não pode ser vazio.")
+        return v
+
 class BOMItemCreate(BOMItemBase):
     pass
 
 class BOMItemUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1)
     category: Optional[str] = None
     quantity: Optional[int] = Field(None, ge=1)
     unit_cost: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("O nome do insumo não pode ser vazio.")
+        return v
 
 class BOMItemResponse(BOMItemBase):
     id: int

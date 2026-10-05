@@ -117,6 +117,18 @@ async def main():
                     results.bugs_found.push({ id, title, category, severity, details });
                 }
 
+                function setInputValue(id, val) {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    if (String(val).includes(',')) {
+                        el.type = 'text';
+                        el.dataset.originalType = 'number';
+                    }
+                    el.value = val;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
                 // STEP 1: Registration and Authentication Flow
                 try {
                     const testEmail = `audit_${Date.now()}@makerstudio.com`;
@@ -155,11 +167,11 @@ async def main():
                     openPrinterModal();
                     document.getElementById('printer-name').value = 'Bambu Lab X1 Carbon';
                     document.getElementById('printer-model').value = 'X1C Combo';
-                    document.getElementById('printer-cost').value = '9500,00';
-                    document.getElementById('printer-lifespan').value = '6000';
-                    document.getElementById('printer-power').value = '350';
-                    document.getElementById('printer-maintenance').value = '1,50';
-                    document.getElementById('printer-energy').value = '0,95';
+                    setInputValue('printer-cost', '9500,00');
+                    setInputValue('printer-lifespan', '6000');
+                    setInputValue('printer-power', '350');
+                    setInputValue('printer-maintenance', '1,50');
+                    setInputValue('printer-energy', '0,95');
 
                     // Trigger save
                     const fakeEvent = { preventDefault: () => {} };
@@ -182,8 +194,8 @@ async def main():
                     document.getElementById('filament-brand').value = '3D Fila';
                     document.getElementById('filament-color').value = 'Azul Translúcido';
                     document.getElementById('filament-color-hex').value = '#0284c7';
-                    document.getElementById('filament-weight').value = '1000';
-                    document.getElementById('filament-price').value = '119,90';
+                    setInputValue('filament-weight', '1000');
+                    setInputValue('filament-price', '119,90');
                     
                     const densityVal = document.getElementById('filament-density').value;
                     const fakeEvent = { preventDefault: () => {} };
@@ -234,16 +246,16 @@ async def main():
                     ];
 
                     // Commercial adjustments
-                    document.getElementById('proj-cad-hours').value = '1.5';
-                    document.getElementById('proj-cad-rate').value = '80,00';
-                    document.getElementById('proj-post-hours').value = '0.5';
-                    document.getElementById('proj-post-rate').value = '40,00';
-                    document.getElementById('proj-overhead').value = '15,00';
-                    document.getElementById('proj-margin').value = '40';
-                    document.getElementById('proj-tax').value = '6';
-                    document.getElementById('proj-discount').value = '5';
-                    document.getElementById('proj-shipping').value = '25,00';
-                    document.getElementById('proj-delivery-days').value = '4';
+                    setInputValue('proj-cad-hours', '1.5');
+                    setInputValue('proj-cad-rate', '80,00');
+                    setInputValue('proj-post-hours', '0.5');
+                    setInputValue('proj-post-rate', '40,00');
+                    setInputValue('proj-overhead', '15,00');
+                    setInputValue('proj-margin', '40');
+                    setInputValue('proj-tax', '6');
+                    setInputValue('proj-discount', '5');
+                    setInputValue('proj-shipping', '25,00');
+                    setInputValue('proj-delivery-days', '4');
 
                     renderPlates();
                     renderBOM();

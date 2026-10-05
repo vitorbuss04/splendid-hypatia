@@ -2199,6 +2199,610 @@ def test_render_plates_empty_state_and_warning():
     assert "success" in res.stdout
 
 
+def test_render_plates_includes_purge_weight_input():
+    """Issue #40: Ensure renderPlates includes editable Purga (g) input in plate card."""
+    node_test = """
+    const vm = require('vm');
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const elements = {
+        'plates-container': { innerHTML: '' },
+        'bom-container': { innerHTML: '' },
+    };
+
+    const sandbox = {
+        console,
+        elements,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => elements[id] || { innerHTML: '', value: '', classList: { add: ()=>{}, remove: ()=>{} } },
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null,
+        refreshIcons: () => {},
+        recalcLiveSummary: () => {},
+        parseLocaleFloat: (v, def) => parseFloat(v) || def,
+        lucide: { createIcons: () => {} }
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\\n' +
+        'state.currentPlates = [{\\n' +
+        '  name: "Placa Teste",\\n' +
+        '  print_time_hours: 2.5,\\n' +
+        '  part_weight_g: 80.0,\\n' +
+        '  purge_weight_g: 15.5,\\n' +
+        '  failure_margin_percent: 10,\\n' +
+        '  quantity: 1\\n' +
+        '}];\\n' +
+        'renderPlates();\\n' +
+        'globalThis.__html = elements["plates-container"].innerHTML;\\n', sandbox);
+
+    const html = sandbox.__html;
+    if (!html.includes('Purga (g)')) {
+        throw new Error('renderPlates HTML does not include "Purga (g)" label');
+    }
+    if (!html.includes('purge_weight_g')) {
+        throw new Error('renderPlates HTML does not bind oninput to purge_weight_g');
+    }
+    if (!html.includes('value="15.5"')) {
+        throw new Error('renderPlates HTML does not reflect current purge_weight_g value');
+    }
+    console.log(JSON.stringify({ success: true }));
+    """
+
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_dashboard_chart_cost_breakdown_includes_overhead():
+    """Issue #38: Ensure renderDashboardCharts includes overhead_cost in Chart 3."""
+    app_js = (Path(__file__).parent.parent / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    assert "cb.overhead_cost" in app_js, "app.js must include cb.overhead_cost in cost breakdown values"
+    assert "Custos Indiretos (Overhead)" in app_js, "app.js must include 'Custos Indiretos (Overhead)' in labels"
+    assert "#ec4899" in app_js, "app.js must include overhead color in cbColors palette"
+
+
+def test_preview_html_trigger_print_does_not_download():
+    """Issue #41: Ensure preview.html triggerPrint does not call triggerDownload on error."""
+    preview_html = (Path(__file__).parent.parent / "frontend" / "preview.html").read_text(encoding="utf-8")
+    assert "triggerDownload()" not in preview_html.split("function triggerPrint()")[1].split("</script>")[0], \
+        "triggerPrint in preview.html must not fall back to triggerDownload"
+
+
+def test_handle_single_plate_multi_3mf_import():
+    """Issue #42: Ensure handleSinglePlateFile imports multi-plate 3MF by adding extra plates."""
+    node_test = """
+    const vm = require('vm');
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    let toasts = [];
+    let platesRendered = false;
+    let summaryRecalculated = false;
+
+    const sandbox = {
+        console,
+        toasts,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: () => ({ value: '', innerHTML: '', classList: { add: ()=>{}, remove: ()=>{} } }),
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null,
+        lucide: { createIcons: () => {} },
+        renderPlates: () => { platesRendered = true; },
+        recalcLiveSummary: () => { summaryRecalculated = true; },
+        cleanFilamentProfileName: (n) => n,
+        parse3mfMetadata: async (file) => [
+            { print_time_hours: 1.5, part_weight_g: 45, purge_weight_g: 5, slicer_filament_profile: 'PLA' },
+            { print_time_hours: 2.0, part_weight_g: 60, purge_weight_g: 8, slicer_filament_profile: 'PETG' },
+            { print_time_hours: 3.5, part_weight_g: 110, purge_weight_g: 12, slicer_filament_profile: 'ABS' }
+        ]
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\\n' +
+        'showToast = (msg, type) => { toasts.push({ msg, type }); };\\n' +
+        'globalThis.__state = state;\\n' +
+        'state.currentPlates = [\\n' +
+        '  { name: "Placa Inicial", print_time_hours: 0, part_weight_g: 0, purge_weight_g: 0, quantity: 1 }\\n' +
+        '];\\n' +
+        'async function run() {\\n' +
+        '  const fakeEvent = { target: { files: [{ name: "multi_plate_model.3mf" }] } };\\n' +
+        '  await handleSinglePlateFile(fakeEvent, 0);\\n' +
+        '}\\n' +
+        'globalThis.__run = run;\\n', sandbox);
+
+    sandbox.__run().then(() => {
+        const plates = sandbox.__state.currentPlates;
+        if (plates.length !== 3) {
+            throw new Error('Expected 3 plates in state, got ' + plates.length);
+        }
+        if (plates[0].part_weight_g !== 45 || plates[1].part_weight_g !== 60 || plates[2].part_weight_g !== 110) {
+            throw new Error('Plates data not properly mapped from multi-plate 3MF');
+        }
+        const successToast = sandbox.toasts.find(t => t.type === 'success' && t.msg.includes('2 nova(s) placa(s) adicionada(s)'));
+        if (!successToast) {
+            throw new Error('Expected notification about 2 additional plates, got: ' + JSON.stringify(sandbox.toasts));
+        }
+        console.log(JSON.stringify({ success: true, count: plates.length }));
+    }).catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_projects_table_interactive_sorting():
+    """Issue #43: Ensure renderProjectsTable supports interactive column sorting."""
+    node_test = """
+    const vm = require('vm');
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const elements = {
+        'projects-table-container': { innerHTML: '' },
+        'project-search-input': { value: '' }
+    };
+
+    const sandbox = {
+        console,
+        elements,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => elements[id] || { innerHTML: '', value: '', classList: { add: ()=>{}, remove: ()=>{} } },
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null,
+        lucide: { createIcons: () => {} },
+        refreshIcons: () => {},
+        formatCurrency: (v) => 'R$ ' + (v || 0).toFixed(2),
+        formatStatus: (s) => s,
+        escapeHtml: (s) => s,
+        matchesSearch: () => true
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\\n' +
+        'globalThis.__state = state;\\n' +
+        'globalThis.__renderProjectsTable = renderProjectsTable;\\n' +
+        'globalThis.__setProjectSort = setProjectSort;\\n' +
+        'state.projects = [\\n' +
+        '  { id: 1, name: "Zeta Box", client_name: "Carlos", plates_count: 1, total_time_hours: 5.0, base_cost: 20, final_price_to_client: 50, status: "draft" },\\n' +
+        '  { id: 2, name: "Alpha Rack", client_name: "Bruno", plates_count: 3, total_time_hours: 15.0, base_cost: 60, final_price_to_client: 180, status: "approved" },\\n' +
+        '  { id: 3, name: "Beta Bracket", client_name: "Amanda", plates_count: 2, total_time_hours: 2.0, base_cost: 10, final_price_to_client: 25, status: "completed" }\\n' +
+        '];\\n', sandbox);
+
+    // 1. Check initial rendering and sort headers presence
+    sandbox.__renderProjectsTable();
+    const html = elements['projects-table-container'].innerHTML;
+    if (!html.includes('setProjectSort(\\'name\\')') || !html.includes('setProjectSort(\\'final_price_to_client\\')')) {
+        throw new Error('renderProjectsTable headers missing onclick setProjectSort');
+    }
+
+    // 2. Sort by name ascending (should be Alpha, Beta, Zeta)
+    sandbox.__setProjectSort('name');
+    if (sandbox.__state.projectSortField !== 'name' || sandbox.__state.projectSortAsc !== true) {
+        throw new Error('setProjectSort("name") did not set sort state to name/asc');
+    }
+    const htmlNameAsc = elements['projects-table-container'].innerHTML;
+    const posAlpha = htmlNameAsc.indexOf('Alpha Rack');
+    const posBeta = htmlNameAsc.indexOf('Beta Bracket');
+    const posZeta = htmlNameAsc.indexOf('Zeta Box');
+    if (!(posAlpha < posBeta && posBeta < posZeta)) {
+        throw new Error('Projects not sorted alphabetically ascending by name');
+    }
+
+    // 3. Sort by final_price_to_client descending (180, 50, 25)
+    sandbox.__setProjectSort('final_price_to_client');
+    if (sandbox.__state.projectSortAsc !== false) {
+        throw new Error('setProjectSort("final_price_to_client") did not default to descending');
+    }
+    const htmlPriceDesc = elements['projects-table-container'].innerHTML;
+    const posAlphaDesc = htmlPriceDesc.indexOf('Alpha Rack');
+    const posZetaDesc = htmlPriceDesc.indexOf('Zeta Box');
+    const posBetaDesc = htmlPriceDesc.indexOf('Beta Bracket');
+    if (!(posAlphaDesc < posZetaDesc && posZetaDesc < posBetaDesc)) {
+        throw new Error('Projects not sorted descending by final price (expected Alpha -> Zeta -> Beta)');
+    }
+
+    // 4. Toggle direction by calling setProjectSort on same field
+    sandbox.__setProjectSort('final_price_to_client');
+    if (sandbox.__state.projectSortAsc !== true) {
+        throw new Error('Calling setProjectSort again on same field did not toggle to ascending');
+    }
+
+    console.log(JSON.stringify({ success: true }));
+    """
+
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_clear_user_data_on_logout():
+    """Issue #44: Ensure clearUserData wipes in-memory state and DOM containers."""
+    node_test = """
+    const vm = require('vm');
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const elements = {
+        'projects-table-container': { innerHTML: '<div>Stale Project</div>' },
+        'recent-projects-table': { innerHTML: '<tr><td>Stale Recent</td></tr>' },
+        'dashboard-recent-projects': { innerHTML: '<div>Stale Dashboard Recent</div>' },
+        'printers-grid': { innerHTML: '<div>Stale Printer</div>' },
+        'filaments-grid': { innerHTML: '<div>Stale Filament</div>' },
+        'user-display-name': { textContent: 'Old User' },
+        'user-display-company': { textContent: 'Old Company' },
+        'user-avatar': { textContent: 'O' }
+    };
+
+    const tbody = { innerHTML: '<tr><td>Stale Tbody</td></tr>' };
+
+    const sandbox = {
+        console,
+        elements,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => elements[id] || { innerHTML: '', value: '', classList: { add: ()=>{}, remove: ()=>{} }, textContent: '' },
+            querySelector: (sel) => sel.includes('tbody') ? tbody : null,
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null,
+        lucide: { createIcons: () => {} },
+        refreshIcons: () => {},
+        formatCurrency: (v) => 'R$ ' + (v || 0).toFixed(2),
+        formatStatus: (s) => s,
+        escapeHtml: (s) => s,
+        matchesSearch: () => true
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\\n' +
+        'globalThis.__state = state;\\n' +
+        'globalThis.__clearUserData = clearUserData;\\n' +
+        'state.user = { id: 1, full_name: "Test User" };\\n' +
+        'state.projects = [{ id: 1, name: "Secret Project" }];\\n' +
+        'state.printers = [{ id: 1, name: "Secret Printer" }];\\n' +
+        'state.filaments = [{ id: 1, name: "Secret Filament" }];\\n' +
+        'state.currentProject = { id: 1 };\\n' +
+        'state.currentPlates = [{ name: "Secret Plate" }];\\n' +
+        'state.currentBOM = [{ name: "Secret Part" }];\\n' +
+        'state.dashboardStats = { total_revenue_approved: 1000 };\\n', sandbox);
+
+    sandbox.__clearUserData();
+
+    const st = sandbox.__state;
+    if (st.user !== null) throw new Error('state.user was not cleared');
+    if (st.projects.length !== 0) throw new Error('state.projects was not cleared');
+    if (st.printers.length !== 0) throw new Error('state.printers was not cleared');
+    if (st.filaments.length !== 0) throw new Error('state.filaments was not cleared');
+    if (st.currentProject !== null) throw new Error('state.currentProject was not cleared');
+    if (st.currentPlates.length !== 0) throw new Error('state.currentPlates was not cleared');
+    if (st.currentBOM.length !== 0) throw new Error('state.currentBOM was not cleared');
+    if (st.dashboardStats !== null) throw new Error('state.dashboardStats was not cleared');
+
+    if (elements['projects-table-container'].innerHTML !== '') throw new Error('projects-table-container not cleared');
+    if (elements['printers-grid'].innerHTML !== '') throw new Error('printers-grid not cleared');
+    if (elements['filaments-grid'].innerHTML !== '') throw new Error('filaments-grid not cleared');
+    if (elements['user-display-name'].textContent !== '') throw new Error('user-display-name not cleared');
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_update_plate_time_guards_missing_dom():
+    """Issue #45: Ensure updatePlateTime does not overwrite print_time_hours when inputs are not rendered."""
+    node_test = """
+    const vm = require('vm');
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const sandbox = {
+        console,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: () => null,
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null,
+        recalcLiveSummary: () => {}
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\\n' +
+        'globalThis.__state = state;\\n' +
+        'globalThis.__updatePlateTime = updatePlateTime;\\n' +
+        'state.currentPlates = [{ name: "Placa 1", print_time_hours: 4.75 }];\\n', sandbox);
+
+    // Call updatePlateTime when DOM elements do not exist
+    sandbox.__updatePlateTime(0);
+
+    if (sandbox.__state.currentPlates[0].print_time_hours !== 4.75) {
+        throw new Error('print_time_hours was overwritten to ' + sandbox.__state.currentPlates[0].print_time_hours);
+    }
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_show_toast_xss_protection():
+    """Issue #46: Ensure showToast uses textContent rather than innerHTML to prevent reflected XSS."""
+    node_test = """
+    const vm = require('vm');
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    let createdToast = null;
+    const toastContainer = {
+        appendChild: (child) => { createdToast = child; }
+    };
+
+    class FakeElement {
+        constructor(tag) {
+            this.tagName = tag;
+            this.children = [];
+            this.textContent = '';
+            this.innerHTML = '';
+            this.className = '';
+            this.classList = { add: ()=>{}, remove: ()=>{} };
+        }
+        appendChild(child) {
+            this.children.push(child);
+        }
+    }
+
+    const sandbox = {
+        console,
+        setTimeout: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => id === 'toast-container' ? toastContainer : null,
+            createElement: (tag) => new FakeElement(tag),
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\\n' +
+        'globalThis.__showToast = showToast;\\n', sandbox);
+
+    const malicious = '<img src=x onerror=alert(1)>';
+    sandbox.__showToast(malicious, 'error');
+
+    if (!createdToast) throw new Error('Toast element was not created');
+    if (createdToast.innerHTML.includes('<img')) {
+        throw new Error('XSS payload injected directly into innerHTML!');
+    }
+    const span = createdToast.children[0];
+    if (!span || span.textContent !== malicious) {
+        throw new Error('Toast text span does not have correct textContent');
+    }
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_save_project_fallback_plate_and_bom_names():
+    """Issue #47: Ensure saveCurrentProject falls back empty/whitespace plate and BOM names."""
+    node_test = """
+    const vm = require('vm');
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    let capturedPayload = null;
+    const elements = {
+        'proj-name': { value: 'Projeto Valido', focus: ()=>{} },
+        'proj-client-name': { value: 'Cliente' },
+        'proj-client-email': { value: '' },
+        'proj-client-phone': { value: '' },
+        'proj-status': { value: 'draft' },
+        'proj-cad-hours': { value: '0' },
+        'proj-cad-rate': { value: '0' },
+        'proj-post-hours': { value: '0' },
+        'proj-post-rate': { value: '0' },
+        'proj-overhead': { value: '0' },
+        'proj-margin': { value: '30' },
+        'proj-tax': { value: '0' },
+        'proj-discount': { value: '0' },
+        'proj-shipping': { value: '0' },
+        'proj-delivery-days': { value: '3' },
+        'proj-payment-terms': { value: '' },
+        'proj-warranty-terms': { value: '' },
+        'proj-notes': { value: '' }
+    };
+
+    const sandbox = {
+        console,
+        elements,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => id === 'toast-container' ? null : (elements[id] || { value: '', innerHTML: '', focus: ()=>{} }),
+            querySelector: () => null,
+            querySelectorAll: () => [],
+            createElement: () => ({ appendChild: ()=>{}, classList: { add: ()=>{}, remove: ()=>{} }, style: {} }),
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null,
+        showToast: () => {},
+        recalcLiveSummary: () => {},
+        normalizeNumericInputs: () => {},
+        updatePlateTime: () => {},
+        loadAllData: async () => {},
+        navigateTo: () => {},
+        API: {
+            getToken: () => null,
+            projects: {
+                create: async (p) => { capturedPayload = p; return { id: 1, ...p }; }
+            }
+        }
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\\n' +
+        'globalThis.__state = state;\\n' +
+        'globalThis.__saveCurrentProject = saveCurrentProject;\\n' +
+        'state.currentPlates = [\\n' +
+        '  { name: "", print_time_hours: 1, part_weight_g: 10, purge_weight_g: 0, failure_margin_percent: 10, quantity: 1 },\\n' +
+        '  { name: "   ", print_time_hours: 1, part_weight_g: 10, purge_weight_g: 0, failure_margin_percent: 10, quantity: 1 }\\n' +
+        '];\\n' +
+        'state.currentBOM = [\\n' +
+        '  { name: "", category: "Fixadores", quantity: 2, unit_cost: 1.5 },\\n' +
+        '  { name: "  ", category: "Outros", quantity: 1, unit_cost: 5 }\\n' +
+        '];\\n', sandbox);
+
+    sandbox.__saveCurrentProject(false).then(() => {
+        if (!capturedPayload) throw new Error('Payload was not captured');
+        if (capturedPayload.plates[0].name !== 'Placa 1') {
+            throw new Error('Plate 0 did not fallback to "Placa 1", got: ' + capturedPayload.plates[0].name);
+        }
+        if (capturedPayload.plates[1].name !== 'Placa 2') {
+            throw new Error('Plate 1 did not fallback to "Placa 2", got: ' + capturedPayload.plates[1].name);
+        }
+        if (capturedPayload.bom_items[0].name !== 'Insumo 1') {
+            throw new Error('BOM 0 did not fallback to "Insumo 1", got: ' + capturedPayload.bom_items[0].name);
+        }
+        if (capturedPayload.bom_items[1].name !== 'Insumo 2') {
+            throw new Error('BOM 1 did not fallback to "Insumo 2", got: ' + capturedPayload.bom_items[1].name);
+        }
+        console.log(JSON.stringify({ success: true }));
+    }).catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_duplicate_bom_row():
+    """Issue #49: Ensure duplicateBomRow clones the BOM item, sets (Cópia), strips id, and calls renderBOM."""
+    node_test = """
+    const vm = require('vm');
+    const fs = require('fs');
+    const path = require('path');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const elements = {
+        'bom-container': { innerHTML: '' }
+    };
+
+    const sandbox = {
+        console,
+        elements,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => elements[id] || null,
+            querySelector: () => null,
+            querySelectorAll: () => [],
+            createElement: () => ({ appendChild: ()=>{}, classList: { add: ()=>{}, remove: ()=>{} }, style: {} }),
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\\n' +
+        'globalThis.__state = state;\\n' +
+        'globalThis.__duplicateBomRow = duplicateBomRow;\\n' +
+        'state.currentBOM = [\\n' +
+        '  { id: 99, name: "Parafuso M3x12", category: "Fixadores", quantity: 4, unit_cost: 0.35 }\\n' +
+        '];\\n', sandbox);
+
+    sandbox.__duplicateBomRow(0);
+
+    const bom = sandbox.__state.currentBOM;
+    if (bom.length !== 2) throw new Error('Expected 2 items in currentBOM, got ' + bom.length);
+    const cloned = bom[1];
+    if (cloned.id !== undefined) throw new Error('Cloned BOM item retained id: ' + cloned.id);
+    if (cloned.name !== 'Parafuso M3x12 (Cópia)') throw new Error('Cloned name mismatch: ' + cloned.name);
+    if (cloned.quantity !== 4 || cloned.unit_cost !== 0.35) throw new Error('Cloned values mismatch');
+    if (!elements['bom-container'].innerHTML.includes('Parafuso M3x12 (Cópia)')) {
+        throw new Error('renderBOM did not render cloned item into bom-container');
+    }
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+
+
+
 
 
 

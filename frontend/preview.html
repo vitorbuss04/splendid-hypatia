@@ -246,11 +246,29 @@
             const frame = document.getElementById('pdf-frame');
             if (frame && frame.contentWindow) {
                 try {
+                    frame.contentWindow.focus();
                     frame.contentWindow.print();
+                    return;
                 } catch (e) {
-                    triggerDownload();
+                    console.warn('Falha ao acionar impressão pelo iframe:', e);
                 }
             }
+            if (currentBlob) {
+                const blobUrl = URL.createObjectURL(currentBlob);
+                const printWindow = window.open(blobUrl, '_blank');
+                if (printWindow) {
+                    setTimeout(() => {
+                        try {
+                            printWindow.focus();
+                            printWindow.print();
+                        } catch (e) {
+                            console.warn('Falha ao acionar impressão pela janela secundária:', e);
+                        }
+                    }, 800);
+                    return;
+                }
+            }
+            window.print();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
