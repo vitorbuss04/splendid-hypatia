@@ -32,7 +32,7 @@ def sanitize_plate_foreign_keys(plate_dict: dict, user_id: int, db: Session) -> 
         if not pr:
             cleaned["printer_id"] = None
             if not cleaned.get("custom_printer_hourly_rate"):
-                cleaned["custom_printer_hourly_rate"] = 2.0
+                cleaned["custom_printer_hourly_rate"] = 2.50
 
     fil_id = cleaned.get("filament_id")
     if fil_id is not None:
@@ -43,7 +43,7 @@ def sanitize_plate_foreign_keys(plate_dict: dict, user_id: int, db: Session) -> 
         if not fil:
             cleaned["filament_id"] = None
             if not cleaned.get("custom_filament_cost_per_g"):
-                cleaned["custom_filament_cost_per_g"] = 0.09
+                cleaned["custom_filament_cost_per_g"] = 0.10
 
     return cleaned
 
@@ -205,7 +205,7 @@ def get_dashboard_stats(
 
         status_values[st] = round(status_values[st] + final_price, 2)
 
-        if st in ["draft", "quoted", "in_production"]:
+        if st in ["draft", "quoted", "approved", "in_production"]:
             active_quotes += 1
 
         if st in ["approved", "in_production", "completed"]:
@@ -221,7 +221,7 @@ def get_dashboard_stats(
             margins_sum += eff_margin
             margins_count += 1
 
-        if st != "cancelled":
+        if st in ["approved", "in_production", "completed"]:
             material_cost += float(summary.get("total_material_cost", 0.0) or 0.0)
             machine_energy_cost += float(summary.get("total_machine_cost", 0.0) or 0.0)
             labor_cost += float(summary.get("total_labor_cost", 0.0) or 0.0)
@@ -229,6 +229,7 @@ def get_dashboard_stats(
             overhead_cost += float(summary.get("overhead_cost", 0.0) or 0.0)
             profit_acc += max(0.0, net_profit)
 
+        if st != "cancelled":
             created_dt = proj.created_at or datetime.datetime.now()
             month_key = created_dt.strftime("%Y-%m")
             pt_m = MONTH_NAMES_PT.get(created_dt.month, str(created_dt.month))
@@ -245,9 +246,10 @@ def get_dashboard_stats(
                     "print_hours": 0.0,
                     "projects_count": 0,
                 }
-            monthly_data[month_key]["revenue"] = round(monthly_data[month_key]["revenue"] + (final_price if st in ["approved", "in_production", "completed"] else 0.0), 2)
-            monthly_data[month_key]["base_cost"] = round(monthly_data[month_key]["base_cost"] + base_cost, 2)
-            monthly_data[month_key]["net_profit"] = round(monthly_data[month_key]["net_profit"] + (net_profit if st in ["approved", "in_production", "completed"] else 0.0), 2)
+            is_realized = st in ["approved", "in_production", "completed"]
+            monthly_data[month_key]["revenue"] = round(monthly_data[month_key]["revenue"] + (final_price if is_realized else 0.0), 2)
+            monthly_data[month_key]["base_cost"] = round(monthly_data[month_key]["base_cost"] + (base_cost if is_realized else 0.0), 2)
+            monthly_data[month_key]["net_profit"] = round(monthly_data[month_key]["net_profit"] + (net_profit if is_realized else 0.0), 2)
             monthly_data[month_key]["print_hours"] = round(monthly_data[month_key]["print_hours"] + hours, 2)
             monthly_data[month_key]["projects_count"] += 1
 

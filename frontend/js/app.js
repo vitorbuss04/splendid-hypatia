@@ -737,7 +737,7 @@ function renderDashboard() {
     const totalPrinters = stats ? stats.total_printers : (state.printers ? state.printers.length : 0);
     const totalFilaments = stats ? stats.total_filaments : (state.filaments ? state.filaments.length : 0);
     const activeQuotes = stats ? stats.active_quotes : (state.projects 
-        ? state.projects.filter(p => ['draft', 'quoted', 'in_production'].includes(p.status)).length 
+        ? state.projects.filter(p => ['draft', 'quoted', 'approved', 'in_production'].includes(p.status)).length 
         : 0);
 
     if (statProjects) statProjects.textContent = totalProjects;
@@ -1654,6 +1654,7 @@ function updatePlateTime(idx) {
 }
 
 function renderPlates() {
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (str => (str == null ? '' : String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')));
     const container = document.getElementById('plates-container');
     if (!container) return;
 
@@ -1675,7 +1676,9 @@ function renderPlates() {
     }
 
     container.innerHTML = state.currentPlates.map((plate, idx) => {
-        const selFil = state.filaments.find(f => f.id === plate.filament_id);
+        const hasValidPrinter = !!(plate.printer_id && state.printers.some(p => p.id === plate.printer_id));
+        const hasValidFilament = !!(plate.filament_id && state.filaments.some(f => f.id === plate.filament_id));
+        const selFil = hasValidFilament ? state.filaments.find(f => f.id === plate.filament_id) : null;
         const totalMin = Math.round((plate.print_time_hours || 0) * 60);
         const timeH = Math.floor(totalMin / 60);
         const timeM = totalMin % 60;
@@ -1722,11 +1725,11 @@ function renderPlates() {
                             <option value="">Personalizada (Manual)</option>
                             ${state.printers.map(p => `
                                 <option value="${p.id}" ${plate.printer_id === p.id ? 'selected' : ''}>
-                                    ${p.name} (R$ ${p.machine_hourly_rate.toFixed(2)}/h)
+                                    ${esc(p.name)} (R$ ${p.machine_hourly_rate.toFixed(2)}/h)
                                 </option>
                             `).join('')}
                         </select>
-                        ${!plate.printer_id ? `
+                        ${!hasValidPrinter ? `
                             <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/60">
                                 <span class="text-[10px] text-amber-400 font-medium">Taxa manual:</span>
                                 <span class="text-[10px] text-slate-400">R$</span>
@@ -1742,25 +1745,25 @@ function renderPlates() {
                             <div class="flex items-center gap-1.5 min-w-0">
                                 <label class="text-[11px] font-medium text-slate-300 leading-tight shrink-0">Filamento</label>
                                 ${plate.slicer_filament_profile ? `
-                                    <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors shrink-0 cursor-help" data-tooltip="Fatiado com: ${cleanFilamentProfileName(plate.slicer_filament_profile).replace(/"/g, '&quot;')}">
+                                    <span class="info-icon text-slate-400 hover:text-blue-400 transition-colors shrink-0 cursor-help" data-tooltip="Fatiado com: ${esc(cleanFilamentProfileName(plate.slicer_filament_profile))}">
                                         <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
                                     </span>
                                 ` : ''}
                             </div>
-                            ${selFil ? `<span class="flex items-center gap-1 text-[10px] text-slate-400 font-normal shrink-0 max-w-[55%] truncate" title="${selFil.material} ${selFil.color || ''}"><span class="w-2 h-2 rounded-full inline-block border border-slate-600 shadow-sm shrink-0" style="background-color: ${selFil.color_hex || '#10b981'};"></span> <span class="truncate">${selFil.material} ${selFil.color || ''}</span></span>` : ''}
+                            ${selFil ? `<span class="flex items-center gap-1 text-[10px] text-slate-400 font-normal shrink-0 max-w-[55%] truncate" title="${esc(selFil.material)} ${esc(selFil.color || '')}"><span class="w-2 h-2 rounded-full inline-block border border-slate-600 shadow-sm shrink-0" style="background-color: ${esc(selFil.color_hex || '#10b981')};"></span> <span class="truncate">${esc(selFil.material)} ${esc(selFil.color || '')}</span></span>` : ''}
                         </div>
                         <div class="relative flex items-center">
-                            <span class="absolute left-2.5 w-3 h-3 rounded-full border border-white/20 pointer-events-none shadow-sm" style="background-color: ${selFil ? (selFil.color_hex || '#10b981') : '#64748b'};"></span>
+                            <span class="absolute left-2.5 w-3 h-3 rounded-full border border-white/20 pointer-events-none shadow-sm" style="background-color: ${selFil ? esc(selFil.color_hex || '#10b981') : '#64748b'};"></span>
                             <select onchange="updatePlateFilament(${idx}, this.value)" class="w-full pl-8 pr-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500">
                                 <option value="">Personalizado (Manual)</option>
                                 ${state.filaments.map(f => `
                                     <option value="${f.id}" ${plate.filament_id === f.id ? 'selected' : ''}>
-                                        ${f.name} (R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g)
+                                        ${esc(f.name)} (R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g)
                                     </option>
                                 `).join('')}
                             </select>
                         </div>
-                        ${!plate.filament_id ? `
+                        ${!hasValidFilament ? `
                             <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/60">
                                 <span class="text-[10px] text-amber-400 font-medium">Custo manual:</span>
                                 <span class="text-[10px] text-slate-400">R$</span>
@@ -2022,9 +2025,9 @@ function recalcLiveSummary() {
         if (filament && filament.spool_weight_g > 0) {
             costPerGram = filament.spool_price / filament.spool_weight_g;
         } else if (plate.custom_filament_cost_per_g != null) {
-            costPerGram = parseLocaleFloat(plate.custom_filament_cost_per_g, 0);
+            costPerGram = Math.max(0, parseLocaleFloat(plate.custom_filament_cost_per_g, 0));
         } else {
-            costPerGram = 0.09; // fallback standard PLA
+            costPerGram = 0.10; // aligned with visual fallback of 0.10/g
         }
 
         // Machine rate
@@ -2032,15 +2035,15 @@ function recalcLiveSummary() {
         if (printer) {
             machineHourlyRate = printer.machine_hourly_rate ?? 2.0;
         } else if (plate.custom_printer_hourly_rate != null) {
-            machineHourlyRate = parseLocaleFloat(plate.custom_printer_hourly_rate, 0);
+            machineHourlyRate = Math.max(0, parseLocaleFloat(plate.custom_printer_hourly_rate, 0));
         } else {
-            machineHourlyRate = 2.0; // fallback standard rate
+            machineHourlyRate = 2.50; // aligned with visual fallback of 2.50/h
         }
 
-        const qty = plate.quantity || 1;
-        const printTime = plate.print_time_hours || 0;
-        const rawWeight = (plate.part_weight_g || 0) + (plate.purge_weight_g || 0);
-        const failureFactor = 1.0 + ((plate.failure_margin_percent || 0) / 100);
+        const qty = Math.max(1, parseInt(plate.quantity, 10) || 1);
+        const printTime = Math.max(0, plate.print_time_hours || 0);
+        const rawWeight = Math.max(0, (plate.part_weight_g || 0) + (plate.purge_weight_g || 0));
+        const failureFactor = Math.max(1.0, 1.0 + (Math.max(0, plate.failure_margin_percent || 0) / 100));
         const effectiveWeight = rawWeight * failureFactor;
 
         const unitMaterialCost = effectiveWeight * costPerGram;
@@ -2075,25 +2078,25 @@ function recalcLiveSummary() {
     });
 
     // 3. Labor costs
-    const cadHours = parseLocaleFloat(document.getElementById('proj-cad-hours')?.value, 0);
-    const cadRate = parseLocaleFloat(document.getElementById('proj-cad-rate')?.value, 50);
+    const cadHours = Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-hours')?.value, 0));
+    const cadRate = Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-rate')?.value, 50));
     const cadCost = cadHours * cadRate;
 
-    const postHours = parseLocaleFloat(document.getElementById('proj-post-hours')?.value, 0);
-    const postRate = parseLocaleFloat(document.getElementById('proj-post-rate')?.value, 30);
+    const postHours = Math.max(0, parseLocaleFloat(document.getElementById('proj-post-hours')?.value, 0));
+    const postRate = Math.max(0, parseLocaleFloat(document.getElementById('proj-post-rate')?.value, 30));
     const postCost = postHours * postRate;
 
     const totalLaborCost = cadCost + postCost;
 
     // 4. Overhead & Base Cost
-    const overheadCost = parseLocaleFloat(document.getElementById('proj-overhead')?.value, 0);
+    const overheadCost = Math.max(0, parseLocaleFloat(document.getElementById('proj-overhead')?.value, 0));
     const baseCost = totalPlatesCost + totalBOMCost + totalLaborCost + overheadCost;
 
     // 5. Pricing, Margins, Taxes
-    const marginPercent = parseLocaleFloat(document.getElementById('proj-margin')?.value, 30);
-    const taxPercent = Math.min(99, parseLocaleFloat(document.getElementById('proj-tax')?.value, 0));
-    const discountPercent = Math.min(100, parseLocaleFloat(document.getElementById('proj-discount')?.value, 0));
-    const shippingCost = parseLocaleFloat(document.getElementById('proj-shipping')?.value, 0);
+    const marginPercent = Math.max(0, parseLocaleFloat(document.getElementById('proj-margin')?.value, 30));
+    const taxPercent = Math.max(0, Math.min(99, parseLocaleFloat(document.getElementById('proj-tax')?.value, 0)));
+    const discountPercent = Math.max(0, Math.min(100, parseLocaleFloat(document.getElementById('proj-discount')?.value, 0)));
+    const shippingCost = Math.max(0, parseLocaleFloat(document.getElementById('proj-shipping')?.value, 0));
 
     const taxDivisor = Math.max(0.01, 1.0 - (taxPercent / 100.0));
     const suggestedPrice = baseCost > 0 
@@ -2204,33 +2207,37 @@ async function saveCurrentProject(navigateBack = true) {
         client_email: document.getElementById('proj-client-email').value.trim(),
         client_phone: document.getElementById('proj-client-phone').value.trim(),
         status: document.getElementById('proj-status').value,
-        cad_hours: parseLocaleFloat(document.getElementById('proj-cad-hours').value, 0),
-        cad_hourly_rate: parseLocaleFloat(document.getElementById('proj-cad-rate').value, 0),
-        post_process_hours: parseLocaleFloat(document.getElementById('proj-post-hours').value, 0),
-        post_process_hourly_rate: parseLocaleFloat(document.getElementById('proj-post-rate').value, 0),
-        overhead_cost: parseLocaleFloat(document.getElementById('proj-overhead').value, 0),
-        profit_margin_percent: parseLocaleFloat(document.getElementById('proj-margin').value, 0),
-        tax_rate_percent: parseLocaleFloat(document.getElementById('proj-tax').value, 0),
-        discount_percent: parseLocaleFloat(document.getElementById('proj-discount').value, 0),
-        shipping_cost: parseLocaleFloat(document.getElementById('proj-shipping').value, 0),
-        delivery_days: (() => { const d = parseInt(document.getElementById('proj-delivery-days')?.value, 10); return isNaN(d) ? 3 : d; })(),
+        cad_hours: Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-hours').value, 0)),
+        cad_hourly_rate: Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-rate').value, 0)),
+        post_process_hours: Math.max(0, parseLocaleFloat(document.getElementById('proj-post-hours').value, 0)),
+        post_process_hourly_rate: Math.max(0, parseLocaleFloat(document.getElementById('proj-post-rate').value, 0)),
+        overhead_cost: Math.max(0, parseLocaleFloat(document.getElementById('proj-overhead').value, 0)),
+        profit_margin_percent: Math.max(0, parseLocaleFloat(document.getElementById('proj-margin').value, 0)),
+        tax_rate_percent: Math.max(0, Math.min(99, parseLocaleFloat(document.getElementById('proj-tax').value, 0))),
+        discount_percent: Math.max(0, Math.min(100, parseLocaleFloat(document.getElementById('proj-discount').value, 0))),
+        shipping_cost: Math.max(0, parseLocaleFloat(document.getElementById('proj-shipping').value, 0)),
+        delivery_days: (() => { const d = parseInt(document.getElementById('proj-delivery-days')?.value, 10); return isNaN(d) || d < 0 ? 3 : d; })(),
         payment_terms: document.getElementById('proj-payment-terms')?.value.trim() || null,
         warranty_terms: document.getElementById('proj-warranty-terms')?.value.trim() || null,
         notes: document.getElementById('proj-notes').value.trim(),
-        plates: state.currentPlates.map((p, idx) => ({
-            name: (p.name || '').trim() || `Placa ${idx + 1}`,
-            printer_id: p.printer_id,
-            filament_id: p.filament_id,
-            custom_printer_hourly_rate: p.printer_id ? null : (p.custom_printer_hourly_rate != null ? parseLocaleFloat(p.custom_printer_hourly_rate, 2.50) : 2.50),
-            custom_filament_cost_per_g: p.filament_id ? null : (p.custom_filament_cost_per_g != null ? parseLocaleFloat(p.custom_filament_cost_per_g, 0.10) : 0.10),
-            print_time_hours: parseLocaleFloat(p.print_time_hours, 0),
-            part_weight_g: parseLocaleFloat(p.part_weight_g, 0),
-            purge_weight_g: parseLocaleFloat(p.purge_weight_g, 0),
-            failure_margin_percent: parseLocaleFloat(p.failure_margin_percent, 0),
-            quantity: parseInt(p.quantity, 10) || 1,
-            slicer_filament_profile: p.slicer_filament_profile || null,
-            notes: p.notes,
-        })),
+        plates: state.currentPlates.map((p, idx) => {
+            const pValidPrinter = !!(p.printer_id && state.printers.some(pr => pr.id === p.printer_id));
+            const pValidFilament = !!(p.filament_id && state.filaments.some(fi => fi.id === p.filament_id));
+            return {
+                name: (p.name || '').trim() || `Placa ${idx + 1}`,
+                printer_id: pValidPrinter ? p.printer_id : null,
+                filament_id: pValidFilament ? p.filament_id : null,
+                custom_printer_hourly_rate: pValidPrinter ? null : (p.custom_printer_hourly_rate != null ? Math.max(0, parseLocaleFloat(p.custom_printer_hourly_rate, 2.50)) : 2.50),
+                custom_filament_cost_per_g: pValidFilament ? null : (p.custom_filament_cost_per_g != null ? Math.max(0, parseLocaleFloat(p.custom_filament_cost_per_g, 0.10)) : 0.10),
+                print_time_hours: Math.max(0, parseLocaleFloat(p.print_time_hours, 0)),
+                part_weight_g: Math.max(0, parseLocaleFloat(p.part_weight_g, 0)),
+                purge_weight_g: Math.max(0, parseLocaleFloat(p.purge_weight_g, 0)),
+                failure_margin_percent: Math.max(0, parseLocaleFloat(p.failure_margin_percent, 0)),
+                quantity: Math.max(1, parseInt(p.quantity, 10) || 1),
+                slicer_filament_profile: p.slicer_filament_profile || null,
+                notes: p.notes,
+            };
+        }),
         bom_items: state.currentBOM.map((b, idx) => ({
             name: (b.name || '').trim() || `Insumo ${idx + 1}`,
             category: b.category,
@@ -2749,6 +2756,7 @@ function filterPrinters() {
 window.filterPrinters = filterPrinters;
 
 function renderPrintersGrid(filterTerm = null, filterStatus = null) {
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (str => (str == null ? '' : String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')));
     const grid = document.getElementById('printers-grid');
     if (!grid) return;
 
@@ -2785,8 +2793,8 @@ function renderPrintersGrid(filterTerm = null, filterStatus = null) {
     if (printers.length === 0 && (term || status !== 'all')) {
         const statusLabel = status === 'active' ? 'ativas' : (status === 'inactive' ? 'inativas/manutenção' : '');
         const filterDesc = [
-            term ? `busca "<strong class="text-white">${term}</strong>"` : '',
-            statusLabel ? `status "<strong class="text-white">${statusLabel}</strong>"` : ''
+            term ? `busca "<strong class="text-white">${esc(term)}</strong>"` : '',
+            statusLabel ? `status "<strong class="text-white">${esc(statusLabel)}</strong>"` : ''
         ].filter(Boolean).join(' e ');
 
         grid.innerHTML = `
@@ -2809,8 +2817,8 @@ function renderPrintersGrid(filterTerm = null, filterStatus = null) {
                 <div>
                     <div class="flex items-start justify-between">
                         <div>
-                            <h4 class="font-bold text-white text-base">${p.name}</h4>
-                            <p class="text-xs text-slate-400">${p.model || 'FDM'}</p>
+                            <h4 class="font-bold text-white text-base">${esc(p.name)}</h4>
+                            <p class="text-xs text-slate-400">${esc(p.model || 'FDM')}</p>
                         </div>
                         <div class="flex items-center gap-1">
                             <button onclick="editPrinter(${p.id})" class="p-1 text-slate-400 hover:text-white transition-colors" title="Editar">
@@ -3043,6 +3051,7 @@ function filterFilaments() {
 window.filterFilaments = filterFilaments;
 
 function renderFilamentsGrid(filterTerm = null, filterMaterial = null) {
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : (str => (str == null ? '' : String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')));
     const grid = document.getElementById('filaments-grid');
     if (!grid) return;
 
@@ -3076,8 +3085,8 @@ function renderFilamentsGrid(filterTerm = null, filterMaterial = null) {
 
     if (filaments.length === 0 && (term || material)) {
         const filterDesc = [
-            term ? `busca "<strong class="text-white">${term}</strong>"` : '',
-            material ? `material "<strong class="text-white">${material}</strong>"` : ''
+            term ? `busca "<strong class="text-white">${esc(term)}</strong>"` : '',
+            material ? `material "<strong class="text-white">${esc(material)}</strong>"` : ''
         ].filter(Boolean).join(' e ');
 
         grid.innerHTML = `
@@ -3106,13 +3115,13 @@ function renderFilamentsGrid(filterTerm = null, filterMaterial = null) {
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider badge-mat-${matLower}">
-                                        ${f.material}
+                                        ${esc(f.material)}
                                     </span>
-                                    <h4 class="font-bold text-white text-sm">${f.name}</h4>
+                                    <h4 class="font-bold text-white text-sm">${esc(f.name)}</h4>
                                 </div>
                                 <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-                                    <span class="inline-block w-2.5 h-2.5 rounded-full border border-white/20 shadow-sm" style="background-color: ${f.color_hex || '#10b981'};"></span>
-                                    <span>${f.brand || 'Genérico'} • ${f.color || 'Cor padrão'}</span>
+                                    <span class="inline-block w-2.5 h-2.5 rounded-full border border-white/20 shadow-sm" style="background-color: ${esc(f.color_hex || '#10b981')};"></span>
+                                    <span>${esc(f.brand || 'Genérico')} • ${esc(f.color || 'Cor padrão')}</span>
                                 </p>
                             </div>
                         </div>

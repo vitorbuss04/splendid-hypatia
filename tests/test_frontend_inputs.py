@@ -2800,6 +2800,278 @@ def test_duplicate_bom_row():
     assert "success" in res.stdout
 
 
+def test_issue_50_printers_grid_xss_protection():
+    """Issue #50: renderPrintersGrid escapes printer name, model, and search term."""
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const elements = {
+        'printers-grid': { innerHTML: '' },
+        'printer-search-input': { value: '' },
+        'printer-status-filter': { value: 'all' }
+    };
+
+    const sandbox = {
+        console,
+        elements,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => elements[id] || null,
+            querySelector: () => null,
+            querySelectorAll: () => [],
+            createElement: () => ({ appendChild: ()=>{}, classList: { add: ()=>{}, remove: ()=>{} }, style: {} }),
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\n' +
+        'state.printers = [{\n' +
+        '  id: 1, name: "<img src=x onerror=alert(1)>", model: "<b id=\\"prn\\">CoreXY</b>", is_active: true, rates_breakdown: {}, machine_hourly_rate: 3.5\n' +
+        '}];\n' +
+        'renderPrintersGrid();\n', sandbox);
+
+    const html = elements['printers-grid'].innerHTML;
+    if (html.includes('<img src=x')) throw new Error('Unescaped img tag in printer grid');
+    if (!html.includes('&lt;img src=x')) throw new Error('Printer name not escaped with &lt;');
+    if (html.includes('<b id="prn">')) throw new Error('Unescaped b tag in printer model');
+    if (!html.includes('&lt;b id=&quot;prn&quot;&gt;')) throw new Error('Printer model not escaped');
+
+    // Test search filter XSS
+    vm.runInContext('state.printers = [{ id: 1, name: "Ender", model: "V2" }]; renderPrintersGrid("<script>alert(\\"xss\\")</script>", "all");', sandbox);
+    const emptyHtml = elements['printers-grid'].innerHTML;
+    if (emptyHtml.includes('<script>')) throw new Error('Unescaped script tag in search empty state');
+    if (!emptyHtml.includes('&lt;script&gt;')) throw new Error('Search term not escaped in empty state');
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_issue_51_filaments_grid_xss_protection():
+    """Issue #51: renderFilamentsGrid escapes filament name, brand, color, and search filter."""
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const elements = {
+        'filaments-grid': { innerHTML: '' },
+        'filament-search-input': { value: '' },
+        'filament-material-filter': { value: '' }
+    };
+
+    const sandbox = {
+        console,
+        elements,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => elements[id] || null,
+            querySelector: () => null,
+            querySelectorAll: () => [],
+            createElement: () => ({ appendChild: ()=>{}, classList: { add: ()=>{}, remove: ()=>{} }, style: {} }),
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\n' +
+        'state.filaments = [{\n' +
+        '  id: 1, name: "<script>alert(\\"fil\\")</script>", brand: "<b>Brand</b>", color: "<i>Color</i>", material: "PLA", cost_per_gram: 0.1, spool_weight_g: 1000, spool_price: 100\n' +
+        '}];\n' +
+        'renderFilamentsGrid();\n', sandbox);
+
+    const html = elements['filaments-grid'].innerHTML;
+    if (html.includes('<script>')) throw new Error('Unescaped script tag in filaments grid');
+    if (!html.includes('&lt;script&gt;')) throw new Error('Filament name not escaped');
+    if (html.includes('<b>Brand</b>')) throw new Error('Unescaped brand in filaments grid');
+    if (!html.includes('&lt;b&gt;Brand&lt;/b&gt;')) throw new Error('Filament brand not escaped');
+
+    // Test filter search XSS
+    vm.runInContext('state.filaments = [{ id: 1, name: "Fil", brand: "B", color: "C", material: "PLA" }]; renderFilamentsGrid("<img src=x onerror=alert(2)>", "");', sandbox);
+    const emptyHtml = elements['filaments-grid'].innerHTML;
+    if (emptyHtml.includes('<img src=x')) throw new Error('Unescaped filter search term in empty state');
+    if (!emptyHtml.includes('&lt;img src=x')) throw new Error('Filter search term not escaped in empty state');
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_issue_52_and_55_plate_card_orphans_and_xss():
+    """Issues #52 & #55: manual rate inputs shown for orphaned IDs, and filament info escaped."""
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const elements = {
+        'plates-container': { innerHTML: '' }
+    };
+
+    const sandbox = {
+        console,
+        elements,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => elements[id] || null,
+            querySelector: () => null,
+            querySelectorAll: () => [],
+            createElement: () => ({ appendChild: ()=>{}, classList: { add: ()=>{}, remove: ()=>{} }, style: {} }),
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\n' +
+        'state.printers = [{ id: 1, name: "Prusa MK4", machine_hourly_rate: 3.0 }];\n' +
+        'state.filaments = [{ id: 1, name: "PLA Especial", material: "<b id=\\"xss\\">PLA</b>", color: "<i>Azul</i>", color_hex: "#0000ff", cost_per_gram: 0.12 }];\n' +
+        'state.currentPlates = [\n' +
+        '  { name: "P1", printer_id: 999, filament_id: 999, custom_printer_hourly_rate: 2.50, custom_filament_cost_per_g: 0.10, print_time_hours: 1, part_weight_g: 50 },\n' +
+        '  { name: "P2", printer_id: 1, filament_id: 1, print_time_hours: 1, part_weight_g: 50 }\n' +
+        '];\n' +
+        'renderPlates();\n', sandbox);
+
+    const html = elements['plates-container'].innerHTML;
+
+    // Issue #52: P1 has orphaned printer_id=999 and filament_id=999 -> manual inputs MUST be rendered
+    if (!html.includes('Taxa manual:')) throw new Error('Missing manual printer rate input for orphaned printer_id');
+    if (!html.includes('Custo manual:')) throw new Error('Missing manual filament cost input for orphaned filament_id');
+
+    // Issue #55: P2 has filament with HTML tags in material & color -> MUST be escaped
+    if (html.includes('<b id="xss">')) throw new Error('Unescaped material tag in plate header');
+    if (!html.includes('&lt;b id=&quot;xss&quot;&gt;PLA&lt;/b&gt;')) throw new Error('Plate filament material not escaped');
+    if (html.includes('<i>Azul</i>')) throw new Error('Unescaped color tag in plate header');
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_issue_54_and_56_recalc_live_summary():
+    """Issues #54 & #56: recalcLiveSummary clamps negative inputs and applies 2.50/h and 0.10/g fallbacks."""
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const domMap = {
+        'proj-margin': { value: '-20' }, // negative margin
+        'proj-tax': { value: '-5' },     // negative tax
+        'proj-discount': { value: '-15' }, // negative discount
+        'proj-shipping': { value: '-10' }, // negative shipping
+        'proj-cad-hours': { value: '0' },
+        'proj-cad-rate': { value: '50' },
+        'proj-post-hours': { value: '0' },
+        'proj-post-rate': { value: '30' },
+        'proj-overhead': { value: '0' },
+        'live-discount-amount': { textContent: '' },
+        'live-final-price': { textContent: '' },
+        'live-net-profit': { textContent: '', className: '' },
+        'live-weight': { textContent: '' },
+        'live-time': { textContent: '' },
+        'live-material-cost': { textContent: '' },
+        'live-machine-cost': { textContent: '' },
+        'live-bom-cost': { textContent: '' },
+        'live-labor-cost': { textContent: '' },
+        'live-overhead-cost': { textContent: '' },
+        'live-base-cost': { textContent: '' },
+        'live-suggested-price': { textContent: '' },
+        'live-shipping-amount': { textContent: '' },
+        'live-tax-amount': { textContent: '' }
+    };
+
+    const sandbox = {
+        console,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => domMap[id] || null,
+            querySelector: () => ({ textContent: '', className: '', style: {} }),
+            querySelectorAll: () => [],
+            createElement: () => ({ appendChild: ()=>{}, classList: { add: ()=>{}, remove: ()=>{} }, style: {} }),
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+
+    vm.runInContext(appJs + '\n' +
+        'state.printers = [];\n' +
+        'state.filaments = [];\n' +
+        'state.currentBOM = [];\n' +
+        // Plate with negative quantity, null custom rates (Issue #56: should use 2.50/h and 0.10/g)
+        'state.currentPlates = [{\n' +
+        '  printer_id: null,\n' +
+        '  filament_id: null,\n' +
+        '  custom_printer_hourly_rate: null,\n' +
+        '  custom_filament_cost_per_g: null,\n' +
+        '  print_time_hours: 10,\n' +
+        '  part_weight_g: 1000,\n' +
+        '  purge_weight_g: 0,\n' +
+        '  failure_margin_percent: 0,\n' +
+        '  quantity: -3\n' +
+        '}];\n' +
+        'recalcLiveSummary();\n', sandbox);
+
+    // Issue #54: Negative quantity must be clamped to at least 1 (not -3)
+    const timeText = domMap['live-time'].textContent;
+    if (timeText !== '10.0 h') throw new Error('Expected 10.0 h for qty=1, got: ' + timeText);
+
+    // Issue #56: Fallback rates must be 2.50/h and 0.10/g
+    // 10h * 2.50 = R$ 25,00 machine cost
+    // 1000g * 0.10 = R$ 100,00 material cost
+    const machCost = domMap['live-machine-cost'].textContent;
+    const matCost = domMap['live-material-cost'].textContent;
+    if (!machCost.includes('25,00')) throw new Error('Expected R$ 25,00 machine cost with 2.50 fallback, got: ' + machCost);
+    if (!matCost.includes('100,00')) throw new Error('Expected R$ 100,00 material cost with 0.10 fallback, got: ' + matCost);
+
+    // Issue #54: Discount was -15, should be clamped to 0 -> discount amount is R$ 0,00 (no double minus)
+    const discText = domMap['live-discount-amount'].textContent;
+    if (discText.includes('- -') || !discText.includes('0,00')) throw new Error('Discount amount has double minus or is not 0: ' + discText);
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+
 
 
 

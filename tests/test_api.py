@@ -1395,6 +1395,105 @@ def test_dashboard_stats_excludes_cancelled_from_top_projects_and_cost_breakdown
     assert stats["cost_breakdown"]["material_cost"] == round(active_cost, 2)
 
 
+def test_issue_53_and_57_dashboard_stats_excludes_draft_and_quoted_from_timeline_and_breakdown(client, make_user):
+    """Issues #53 & #57: Ensure draft and quoted projects do not distort monthly timeline base_cost and cost_breakdown."""
+    user = make_user(email="realized_metrics@example.com")
+    headers = user["headers"]
+
+    # 1. Create realized approved project
+    res_appr = client.post("/api/projects", json={
+        "name": "Projeto Aprovado Realizado",
+        "status": "approved",
+        "plates": [
+            {"name": "P1", "print_time_hours": 5.0, "part_weight_g": 100.0, "custom_filament_cost_per_g": 0.10, "custom_printer_hourly_rate": 2.50}
+        ]
+    }, headers=headers)
+    assert res_appr.status_code == 201
+    appr_summary = res_appr.json()["summary"]
+    appr_base_cost = appr_summary["base_cost"]
+    appr_mat_cost = appr_summary["total_material_cost"]
+
+    # 2. Create high-cost draft project
+    res_draft = client.post("/api/projects", json={
+        "name": "Rascunho Experimental",
+        "status": "draft",
+        "plates": [
+            {"name": "PDraft", "print_time_hours": 50.0, "part_weight_g": 3000.0, "custom_filament_cost_per_g": 0.10, "custom_printer_hourly_rate": 2.50}
+        ]
+    }, headers=headers)
+    assert res_draft.status_code == 201
+
+    # 3. Create high-cost quoted project
+    res_quoted = client.post("/api/projects", json={
+        "name": "Orcamento Enviado",
+        "status": "quoted",
+        "plates": [
+            {"name": "PQuoted", "print_time_hours": 30.0, "part_weight_g": 2000.0, "custom_filament_cost_per_g": 0.10, "custom_printer_hourly_rate": 2.50}
+        ]
+    }, headers=headers)
+    assert res_quoted.status_code == 201
+
+    stats_res = client.get("/api/projects/dashboard-stats", headers=headers)
+    assert stats_res.status_code == 200
+    stats = stats_res.json()
+
+    # Timeline base_cost must ONLY include the approved project (Issue #53)
+    timeline = stats["monthly_timeline"]
+    total_timeline_base_cost = sum(t["base_cost"] for t in timeline)
+    assert round(total_timeline_base_cost, 2) == round(appr_base_cost, 2)
+
+    # Cost breakdown must ONLY include the approved project (Issue #57)
+    assert stats["cost_breakdown"]["material_cost"] == round(appr_mat_cost, 2)
+
+
+def test_issue_58_active_quotes_includes_approved_projects(client, make_user):
+    """Issue #58: active_quotes counter must include 'approved' status projects."""
+    user = make_user(email="active_quotes_test@example.com")
+    headers = user["headers"]
+
+    statuses = ["draft", "quoted", "approved", "in_production", "completed", "cancelled"]
+    for st in statuses:
+        r = client.post("/api/projects", json={
+            "name": f"Projeto Status {st}",
+            "status": st
+        }, headers=headers)
+        assert r.status_code == 201
+
+    stats_res = client.get("/api/projects/dashboard-stats", headers=headers)
+    assert stats_res.status_code == 200
+    stats = stats_res.json()
+
+    # Active quotes must be exactly 4: draft, quoted, approved, in_production
+    assert stats["active_quotes"] == 4
+
+
+def test_issue_56_orphaned_foreign_key_fallbacks_2_50_and_0_10(client, make_user):
+    """Issue #56: verify orphaned printer_id / filament_id sanitation sets 2.50 and 0.10 fallbacks."""
+    user = make_user(email="orphan_test@example.com")
+    headers = user["headers"]
+
+    res = client.post("/api/projects", json={
+        "name": "Projeto Orfao",
+        "status": "draft",
+        "plates": [
+            {
+                "name": "Placa Orfa",
+                "printer_id": 999999,
+                "filament_id": 999999,
+                "print_time_hours": 1.0,
+                "part_weight_g": 50.0
+            }
+        ]
+    }, headers=headers)
+    assert res.status_code == 201
+    plate = res.json()["plates"][0]
+    assert plate["printer_id"] is None
+    assert plate["filament_id"] is None
+    assert plate["custom_printer_hourly_rate"] == 2.50
+    assert plate["custom_filament_cost_per_g"] == 0.10
+
+
+
 
 
 

@@ -338,8 +338,8 @@ def test_dashboard_rendering_1_5_and_10_plus_projects():
     assert result["five"]["hasTable"] is True
     assert result["five"]["rows"] == 5, f"Expected exactly 5 rows, got {result['five']['rows']}"
     assert int(result["five"]["stat"]) == 5
-    # Active quotes: draft(1), quoted(1), in_production(1) -> 3 active
-    assert int(result["five"]["active"]) == 3
+    # Active quotes (Issue #58): draft(1), quoted(1), approved(1), in_production(1) -> 4 active
+    assert int(result["five"]["active"]) == 4
 
     # 12 Projects assertions (10+)
     assert result["twelve"]["hasTable"] is True
