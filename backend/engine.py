@@ -116,6 +116,10 @@ def calculate_plate_cost(
     total_depreciation_cost = (print_time_hours * machine_rate_details["depreciation_per_hour"]) * quantity
     total_maintenance_cost = (print_time_hours * machine_rate_details["maintenance_cost_per_hour"]) * quantity
 
+    nozzle_diameter = str(get_attr(plate, "nozzle_diameter", "0.4") or "0.4")
+    bed_type = str(get_attr(plate, "bed_type", "Textured PEI") or "Textured PEI")
+    layer_height = str(get_attr(plate, "layer_height", "0.20") or "0.20")
+
     return {
         "plate_id": get_attr(plate, "id", None),
         "name": name,
@@ -142,6 +146,9 @@ def calculate_plate_cost(
         "total_depreciation_cost": round(total_depreciation_cost, 2),
         "total_maintenance_cost": round(total_maintenance_cost, 2),
         "total_cost": round(total_cost, 2),
+        "nozzle_diameter": nozzle_diameter,
+        "bed_type": bed_type,
+        "layer_height": layer_height,
     }
 
 

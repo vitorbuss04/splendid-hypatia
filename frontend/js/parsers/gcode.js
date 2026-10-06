@@ -202,6 +202,43 @@ function parseGcodeMetadata(gcodeText, fileName = '') {
         if (curaNameMatch && !filamentProfile) {
             filamentProfile = curaNameMatch[1].trim().replace(/^["']|["']$/g, '');
         }
+
+        // 7. Nozzle Diameter (Prusa, Bambu, Orca, Cura)
+        // e.g. ; nozzle_diameter = 0.4 or ; nozzle_diameter = 0.4,0.4 or ; nozzle_diameter[0] = 0.4
+        // Cura: ;Nozzle diameter: 0.4 or ;NOZZLE_DIAMETER:0.4 or ;extruder_nozzle_size: 0.4
+        const nozzleMatch = line.match(/^;\s*(?:nozzle_diameter|nozzle_size|extruder_nozzle_size|nozzle\s*diameter)(?:\s*\[\d+\])?\s*[:=]\s*(.+)/i);
+        if (nozzleMatch && nozzleDiameterParts.length === 0) {
+            nozzleDiameterParts = nozzleMatch[1].trim().split(/[,;]/).map(s => s.trim().replace(/^["']|["']$/g, '').replace(/mm$/i, '').trim()).filter(Boolean);
+        }
+        if (!nozzleDiameter && nozzleDiameterParts.length === 0) {
+            const inlineNozzle = line.match(/(?:^;\s*|\b)nozzle\s*[:=]\s*([0-9.]+)(?:\s*mm)?/i);
+            if (inlineNozzle) {
+                nozzleDiameter = inlineNozzle[1];
+            }
+        }
+
+        // 8. Layer Height (Prusa, Bambu, Orca, Cura)
+        // e.g. ; layer_height = 0.2 or ;Layer height: 0.2 or ;LAYER_HEIGHT:0.2
+        if (!layerHeight) {
+            const layerMatch = line.match(/^;\s*(?:layer_height|layer_thickness|layer\s*height)(?:\s*\[\d+\])?\s*[:=]\s*([0-9.]+)(?:\s*mm)?/i);
+            if (layerMatch) {
+                layerHeight = layerMatch[1];
+            } else {
+                const inlineLayer = line.match(/(?:^;\s*|\b)layer\s*[:=]\s*([0-9.]+)(?:\s*mm)\b/i);
+                if (inlineLayer) {
+                    layerHeight = inlineLayer[1];
+                }
+            }
+        }
+
+        // 9. Bed Type (Bambu, Orca, Prusa)
+        // e.g. ; curr_bed_type = Textured PEI or ; bed_type = Textured PEI
+        if (!bedType) {
+            const bedMatch = line.match(/^;\s*(?:curr_bed_type|bed_type|plate_type)\s*[:=]\s*(.+)/i);
+            if (bedMatch) {
+                bedType = bedMatch[1].trim().replace(/^["']|["']$/g, '');
+            }
+        }
     }
 
     let activeSlot = null;
@@ -209,6 +246,10 @@ function parseGcodeMetadata(gcodeText, fileName = '') {
     let filamentVendorParts = [];
     let filamentTypeParts = [];
     let filamentColourParts = [];
+    let nozzleDiameter = null;
+    let nozzleDiameterParts = [];
+    let layerHeight = null;
+    let bedType = null;
 
     for (const rawLine of candidateLines) {
         extractFromLine(rawLine);
@@ -228,6 +269,9 @@ function parseGcodeMetadata(gcodeText, fileName = '') {
     let filamentColourHex = null;
     if (filamentColourParts.length > 0) {
         filamentColourHex = filamentColourParts[targetIdx] || filamentColourParts[0];
+    }
+    if (nozzleDiameterParts.length > 0 && !nozzleDiameter) {
+        nozzleDiameter = nozzleDiameterParts[targetIdx] || nozzleDiameterParts[0];
     }
 
     // Fallback: if either print time or filament weight not found, scan any comment line in full file
@@ -265,13 +309,20 @@ function parseGcodeMetadata(gcodeText, fileName = '') {
     }
 
     const printTimeHours = printTimeSeconds > 0 ? (printTimeSeconds / 3600) : 0;
+    let roundedHours = parseFloat(printTimeHours.toFixed(2));
+    if (roundedHours === 0 && printTimeHours > 0) {
+        roundedHours = parseFloat(printTimeHours.toFixed(4));
+    }
 
     return {
-        print_time_hours: parseFloat(printTimeHours.toFixed(2)),
+        print_time_hours: roundedHours,
         part_weight_g: parseFloat(filamentGrams.toFixed(2)),
         filament_type: filamentType,
         slicer_filament_profile: cleanFilamentProfileName(slicerFilamentProfile, fileName) || null,
         filament_color_hex: filamentColourHex || null,
         filament_slot: activeSlot || null,
+        nozzle_diameter: nozzleDiameter || null,
+        layer_height: layerHeight || null,
+        bed_type: bedType || null,
     };
 }

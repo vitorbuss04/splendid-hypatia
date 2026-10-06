@@ -1724,6 +1724,63 @@ def test_issue_70_plate_manufacturing_parameters_and_technical_pdf(client, make_
     assert pdf_res.content.startswith(b"%PDF")
 
 
+def test_duplicate_project_preserves_manufacturing_parameters_issue_72(client, make_user):
+    user = make_user(email="dup_manuf@example.com")
+    headers = user["headers"]
+
+    # 1. Create project with custom manufacturing parameters on plate
+    res = client.post("/api/projects", json={
+        "name": "Projeto Original Setup",
+        "plates": [{
+            "name": "Placa 0.8mm Glass",
+            "nozzle_diameter": "0.8",
+            "bed_type": "SuperPlate Glass",
+            "layer_height": "0.32",
+            "print_time_hours": 4.0,
+            "part_weight_g": 120.0
+        }]
+    }, headers=headers)
+    assert res.status_code == 201
+    orig_id = res.json()["id"]
+
+    # 2. Duplicate project
+    dup_res = client.post(f"/api/projects/{orig_id}/duplicate", headers=headers)
+    assert dup_res.status_code == 200
+    dup_data = dup_res.json()
+    assert len(dup_data["plates"]) == 1
+    dup_plate = dup_data["plates"][0]
+    assert dup_plate["nozzle_diameter"] == "0.8"
+    assert dup_plate["bed_type"] == "SuperPlate Glass"
+    assert dup_plate["layer_height"] == "0.32"
+
+
+def test_dashboard_stats_total_filament_kg_includes_failure_margin_issue_80(client, make_user):
+    user = make_user(email="filament_margin@example.com")
+    headers = user["headers"]
+
+    # Create approved project with 1000g piece and 10% failure margin (effective weight = 1100g = 1.10kg)
+    res = client.post("/api/projects", json={
+        "name": "Projeto Margem Falha",
+        "status": "approved",
+        "plates": [{
+            "name": "Peça 1kg",
+            "print_time_hours": 5.0,
+            "part_weight_g": 1000.0,
+            "purge_weight_g": 0.0,
+            "failure_margin_percent": 10.0,
+            "quantity": 1
+        }]
+    }, headers=headers)
+    assert res.status_code == 201
+
+    stats_res = client.get("/api/projects/dashboard-stats", headers=headers)
+    assert stats_res.status_code == 200
+    stats = stats_res.json()
+    # 1000g * (1 + 0.10) = 1100g -> 1.10 kg
+    assert stats["total_filament_kg"] == 1.1
+
+
+
 
 
 

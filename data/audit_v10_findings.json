@@ -1,0 +1,139 @@
+{
+  "tests": [
+    {
+      "name": "Auth Registration",
+      "passed": true,
+      "details": {
+        "email": "audit10_1791274763138@test.com"
+      }
+    },
+    {
+      "name": "Commercial Rate Fallback Consistency",
+      "passed": false,
+      "details": {
+        "liveLaborCostText": "R$ 130,00",
+        "hasSaveFallbackDivergence": true
+      }
+    },
+    {
+      "name": "Printer Modal Real-Time Rate Preview",
+      "passed": false,
+      "details": {
+        "hasLiveHourlyRatePreview": false
+      }
+    },
+    {
+      "name": "Plate Select Rates Brazilian Currency Formatting",
+      "passed": false,
+      "details": {
+        "hasPrDotNotation": true,
+        "hasFlDotNotation": true,
+        "printerOptionSample": "\n                            <option value=\"\">Personalizada (Manual)</option>\n                            \n             ",
+        "filamentOptionSample": "\n                                <option value=\"\">Personalizado (Manual)</option>\n                                \n     "
+      }
+    },
+    {
+      "name": "BOM Item Row Notes Field Availability",
+      "passed": false,
+      "details": {
+        "hasNotesInput": false,
+        "inputCount": 4
+      }
+    },
+    {
+      "name": "Logout Action Confirmation Guard",
+      "passed": false,
+      "details": {
+        "hasConfirmation": false,
+        "logoutOnClick": "API.auth.logout()"
+      }
+    },
+    {
+      "name": "Filament Modal Client-Side Numeric Validation",
+      "passed": false,
+      "details": {
+        "hasClientNumericValidation": false
+      }
+    },
+    {
+      "name": "GCode Parser Short Print Time Precision",
+      "passed": false,
+      "details": {
+        "print_time_hours": 0,
+        "part_weight_g": 1.2
+      }
+    }
+  ],
+  "issues": [
+    {
+      "id": "BUG-FINANCIAL-RATE-FALLBACK-DIVERGENCE",
+      "title": "[BUG/CÁLCULO] Divergência de fallback entre o resumo em tempo real e o salvamento quando campos de Taxa CAD, Pós-processamento e Margem são esvaziados",
+      "category": "frontend",
+      "severity": "high",
+      "details": {
+        "file": "frontend/js/app.js:2099-2113 vs 2228-2232",
+        "explanation": "Enquanto recalcLiveSummary aplica fallbacks de 50 para cad-rate, 30 para post-rate e 30 para margin, saveCurrentProject passa fallback 0 para parseLocaleFloat nestes mesmos campos. Se o usuário apagar o conteúdo dos inputs, a tela exibe valores calculados (ex: R$ 130 de mão de obra), mas o projeto é salvo com taxa 0 no backend, gerando discrepância financeira."
+      }
+    },
+    {
+      "id": "UX-PRINTER-MODAL-NO-RATE-PREVIEW",
+      "title": "[UX/FEAT] Modal de impressora não exibe pré-visualização em tempo real da tarifa horária resultante (R$/h) durante a edição dos parâmetros",
+      "category": "ux",
+      "severity": "medium",
+      "details": {
+        "file": "frontend/index.html:1327-1388 e frontend/js/app.js:2691-2760",
+        "explanation": "Ao preencher custo de aquisição, vida útil, potência média, taxa de energia e manutenção, o usuário não recebe nenhuma indicação visual de quanto será a tarifa por hora resultante (T_máquina = D_hora + Manutenção + E_hora). O cálculo só é descoberto após salvar e visualizar o card no catálogo."
+      }
+    },
+    {
+      "id": "UX-PLATE-SELECT-RATES-DOT-NOTATION",
+      "title": "[UX/BUG] Seletores de impressora e filamento no card da placa formatam tarifas com ponto decimal americano (ex: R$ 2.50/h e R$ 0.18/g) em vez de formatCurrency (R$ 2,50/h e R$ 0,18/g)",
+      "category": "ux",
+      "severity": "low",
+      "details": {
+        "file": "frontend/js/app.js:1730 e 1763",
+        "explanation": "Nas linhas 1730 e 1763 de app.js, as opções do select concatenam R$ ${p.machine_hourly_rate.toFixed(2)}/h e R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g com ponto decimal hardcoded em vez de aplicar formatCurrency ou toLocaleString(\"pt-BR\"), divergindo do padrão monetário nacional adotado no restante da aplicação."
+      }
+    },
+    {
+      "id": "FEAT-BOM-ROW-MISSING-NOTES-INPUT",
+      "title": "[UX/FEAT] Ausência de campo de especificações/observações (notes) na linha de insumos (BOM) da calculadora de orçamentos",
+      "category": "ux",
+      "severity": "medium",
+      "details": {
+        "file": "frontend/js/app.js:1963-2013 e frontend/index.html",
+        "explanation": "Embora a entidade BOMItem no banco de dados e no schema Pydantic possua a coluna \"notes\" para guardar link de fornecedor, rosca, código do componente ou observações técnicas, a tabela renderizada em renderBOM() não disponibiliza nenhum input ou campo para o operador visualizar ou editar essas anotações."
+      }
+    },
+    {
+      "id": "UX-LOGOUT-MISSING-CONFIRMATION",
+      "title": "[UX/BUG] Ação de logout na barra lateral encerra a sessão imediatamente sem confirmação do usuário causando risco de perda de dados",
+      "category": "ux",
+      "severity": "medium",
+      "details": {
+        "file": "frontend/index.html:233 e frontend/js/api.js:114-117",
+        "explanation": "O botão de logout dispara diretamente API.auth.logout(), limpando o token JWT e o estado em memória sem exibir caixa de confirmação. Se o operador clicar no ícone por engano enquanto edita um orçamento longo, todos os dados não salvos são perdidos."
+      }
+    },
+    {
+      "id": "UX-FILAMENT-MODAL-MISSING-NUMERIC-VALIDATION",
+      "title": "[UX/BUG] Formulário de filamento não valida valores estritamente positivos para peso do carretel e densidade no frontend antes de submeter requisição à API",
+      "category": "ux",
+      "severity": "low",
+      "details": {
+        "file": "frontend/js/app.js:3036-3065",
+        "explanation": "handleSaveFilament valida apenas se brand e color foram preenchidos. Se o operador acidentalmente digitar 0 ou valor negativo para o peso do carretel ou densidade, a requisição é enviada à API resultando em erro HTTP 422 em vez de validação amigável e foco no campo incorreto."
+      }
+    },
+    {
+      "id": "BUG-PARSER-GCODE-PREMATURE-ROUNDING",
+      "title": "[BUG/PARSER] Leitor de G-Code zera o tempo de impressão (print_time_hours = 0) para peças de calibração ou testes rápidos devido a arredondamento prematuro toFixed(2)",
+      "category": "frontend",
+      "severity": "medium",
+      "details": {
+        "file": "frontend/js/parsers/gcode.js:270",
+        "explanation": "Em gcode.js linha 270, print_time_hours é retornado como parseFloat(printTimeHours.toFixed(2)). Para impressões rápidas com menos de 18 segundos (comuns em testes de fluxo, calibração de retração ou scripts de purge), printTimeHours (15s / 3600 = 0.0041h) é arredondado para 0.00h, fazendo a placa ser importada com tempo zerado."
+      }
+    }
+  ]
+}

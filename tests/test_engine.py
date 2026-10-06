@@ -228,3 +228,31 @@ def test_plate_cost_with_zero_machine_hourly_rate_and_zero_filament_cost():
     assert cost["total_material_cost"] == 0.0
     assert cost["total_cost"] == 0.0
 
+
+def test_plate_cost_manufacturing_parameters_issue_73():
+    # 1. Custom setup parameters
+    plate_custom = {
+        "name": "Placa Especial",
+        "print_time_hours": 1.0,
+        "part_weight_g": 50.0,
+        "nozzle_diameter": "0.8",
+        "bed_type": "SuperPlate Glass",
+        "layer_height": "0.28",
+    }
+    cost = calculate_plate_cost(plate_custom)
+    assert cost["nozzle_diameter"] == "0.8"
+    assert cost["bed_type"] == "SuperPlate Glass"
+    assert cost["layer_height"] == "0.28"
+
+    # 2. Defaults when parameters omitted
+    plate_default = {
+        "name": "Placa Padrão",
+        "print_time_hours": 1.0,
+        "part_weight_g": 50.0,
+    }
+    cost_def = calculate_plate_cost(plate_default)
+    assert cost_def["nozzle_diameter"] == "0.4"
+    assert cost_def["bed_type"] == "Textured PEI"
+    assert cost_def["layer_height"] == "0.20"
+
+

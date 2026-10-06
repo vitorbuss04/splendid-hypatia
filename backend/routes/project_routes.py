@@ -201,7 +201,7 @@ def get_dashboard_stats(
         base_cost = float(summary.get("base_cost", 0.0) or 0.0)
         net_profit = float(summary.get("net_profit", 0.0) or 0.0)
         hours = float(summary.get("total_print_time_hours", 0.0) or 0.0)
-        weight = float(summary.get("total_filament_weight_g", 0.0) or 0.0)
+        weight = float(summary.get("total_effective_filament_weight_g", summary.get("total_filament_weight_g", 0.0)) or 0.0)
 
         status_values[st] = round(status_values[st] + final_price, 2)
 
@@ -458,6 +458,9 @@ def duplicate_project(
             failure_margin_percent=pl.failure_margin_percent,
             quantity=pl.quantity,
             slicer_filament_profile=pl.slicer_filament_profile,
+            nozzle_diameter=pl.nozzle_diameter,
+            bed_type=pl.bed_type,
+            layer_height=pl.layer_height,
             notes=pl.notes,
         )
         db.add(c_plate)

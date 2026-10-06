@@ -1509,8 +1509,8 @@ function openNewProject() {
     document.getElementById('proj-discount').value = '0';
     document.getElementById('proj-shipping').value = '0';
     document.getElementById('proj-delivery-days').value = '3';
-    document.getElementById('proj-payment-terms').value = '';
-    document.getElementById('proj-warranty-terms').value = '';
+    document.getElementById('proj-payment-terms').value = u.default_payment_terms || '';
+    document.getElementById('proj-warranty-terms').value = u.default_warranty_terms || '';
     const defPay = (u.default_payment_terms || '').trim();
     const defWar = (u.default_warranty_terms || '').trim();
     document.getElementById('proj-payment-terms').placeholder = defPay 
@@ -1727,7 +1727,7 @@ function renderPlates() {
                             <option value="">Personalizada (Manual)</option>
                             ${state.printers.map(p => `
                                 <option value="${p.id}" ${plate.printer_id === p.id ? 'selected' : ''}>
-                                    ${esc(p.name)} (R$ ${p.machine_hourly_rate.toFixed(2)}/h)
+                                    ${esc(p.name)} (${formatCurrency(p.machine_hourly_rate)}/h)
                                 </option>
                             `).join('')}
                         </select>
@@ -1760,7 +1760,7 @@ function renderPlates() {
                                 <option value="">Personalizado (Manual)</option>
                                 ${state.filaments.map(f => `
                                     <option value="${f.id}" ${plate.filament_id === f.id ? 'selected' : ''}>
-                                        ${esc(f.name)} (R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g)
+                                        ${esc(f.name)} (${formatCurrency(f.cost_per_gram || 0)}/g)
                                     </option>
                                 `).join('')}
                             </select>
@@ -1952,9 +1952,10 @@ function renderBOM() {
         <div class="space-y-2">
             <!-- Header Labels (Desktop Table Columns) -->
             <div class="hidden sm:grid sm:grid-cols-12 gap-3 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800/60">
-                <div class="col-span-4">Descrição do Componente</div>
+                <div class="col-span-3">Descrição do Componente</div>
                 <div class="col-span-2">Categoria</div>
-                <div class="col-span-2 text-center">Qtd</div>
+                <div class="col-span-2">Especificações / Obs</div>
+                <div class="col-span-1 text-center">Qtd</div>
                 <div class="col-span-2 text-right">Custo Unit. (R$)</div>
                 <div class="col-span-1 text-right">Subtotal</div>
                 <div class="col-span-1 text-center">Ações</div>
@@ -1963,7 +1964,7 @@ function renderBOM() {
             ${state.currentBOM.map((item, idx) => `
                 <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 p-3 bg-slate-900/70 hover:bg-slate-900/95 border border-slate-800/80 hover:border-slate-700 rounded-lg items-center text-xs transition-all shadow-sm">
                     <!-- Item Description -->
-                    <div class="sm:col-span-4">
+                    <div class="sm:col-span-3">
                         <label class="block sm:hidden text-[10px] text-slate-400 mb-1">Item / Descrição</label>
                         <input type="text" value="${(item.name || '').replace(/"/g, '&quot;')}" oninput="state.currentBOM[${idx}].name = this.value" placeholder="Item (ex: Parafuso M3)" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-md text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                     </div>
@@ -1980,10 +1981,16 @@ function renderBOM() {
                         </select>
                     </div>
 
-                    <!-- Quantity Input (min=1 step=1) -->
+                    <!-- Specifications / Notes -->
                     <div class="sm:col-span-2">
+                        <label class="block sm:hidden text-[10px] text-slate-400 mb-1">Especificações / Obs</label>
+                        <input type="text" value="${(item.notes || '').replace(/"/g, '&quot;')}" oninput="state.currentBOM[${idx}].notes = this.value" placeholder="Obs / Especificação..." class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-md text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                    </div>
+
+                    <!-- Quantity Input (min=1 step=1) -->
+                    <div class="sm:col-span-1">
                         <label class="block sm:hidden text-[10px] text-slate-400 mb-1">Quantidade</label>
-                        <input type="number" min="1" step="1" value="${item.quantity || 1}" oninput="state.currentBOM[${idx}].quantity = Math.max(1, parseInt(this.value, 10) || 1); recalcLiveSummary();" placeholder="Qtd" class="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 rounded-md text-white text-xs text-center font-bold font-mono focus:outline-none focus:border-blue-500 transition-colors">
+                        <input type="number" min="1" step="1" value="${item.quantity || 1}" oninput="state.currentBOM[${idx}].quantity = Math.max(1, parseInt(this.value, 10) || 1); recalcLiveSummary();" placeholder="Qtd" class="w-full px-1.5 py-1.5 bg-slate-800 border border-slate-700 rounded-md text-white text-xs text-center font-bold font-mono focus:outline-none focus:border-blue-500 transition-colors">
                     </div>
 
                     <!-- Unit Cost (CRITICAL CONTRACT: placeholder="R$ Unit" min="0" step="any") -->
@@ -2095,12 +2102,16 @@ function recalcLiveSummary() {
     });
 
     // 3. Labor costs
+    const defaultCadRate = state.user?.default_cad_rate ?? 50;
+    const defaultPostRate = state.user?.default_post_rate ?? 30;
+    const defaultMargin = state.user?.default_profit_margin ?? 30;
+
     const cadHours = Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-hours')?.value, 0));
-    const cadRate = Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-rate')?.value, 50));
+    const cadRate = Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-rate')?.value, defaultCadRate));
     const cadCost = cadHours * cadRate;
 
     const postHours = Math.max(0, parseLocaleFloat(document.getElementById('proj-post-hours')?.value, 0));
-    const postRate = Math.max(0, parseLocaleFloat(document.getElementById('proj-post-rate')?.value, 30));
+    const postRate = Math.max(0, parseLocaleFloat(document.getElementById('proj-post-rate')?.value, defaultPostRate));
     const postCost = postHours * postRate;
 
     const totalLaborCost = cadCost + postCost;
@@ -2110,7 +2121,7 @@ function recalcLiveSummary() {
     const baseCost = totalPlatesCost + totalBOMCost + totalLaborCost + overheadCost;
 
     // 5. Pricing, Margins, Taxes
-    const marginPercent = Math.max(0, parseLocaleFloat(document.getElementById('proj-margin')?.value, 30));
+    const marginPercent = Math.max(0, parseLocaleFloat(document.getElementById('proj-margin')?.value, defaultMargin));
     const taxPercent = Math.max(0, Math.min(99, parseLocaleFloat(document.getElementById('proj-tax')?.value, 0)));
     const discountPercent = Math.max(0, Math.min(100, parseLocaleFloat(document.getElementById('proj-discount')?.value, 0)));
     const shippingCost = Math.max(0, parseLocaleFloat(document.getElementById('proj-shipping')?.value, 0));
@@ -2218,6 +2229,10 @@ async function saveCurrentProject(navigateBack = true) {
         showToast('Aviso: orçamento sem placas ou insumos configurados.', 'warning');
     }
 
+    const defaultCadRate = state.user?.default_cad_rate ?? 50;
+    const defaultPostRate = state.user?.default_post_rate ?? 30;
+    const defaultMargin = state.user?.default_profit_margin ?? 30;
+
     const payload = {
         name,
         client_name: document.getElementById('proj-client-name').value.trim(),
@@ -2225,11 +2240,11 @@ async function saveCurrentProject(navigateBack = true) {
         client_phone: document.getElementById('proj-client-phone').value.trim(),
         status: document.getElementById('proj-status').value,
         cad_hours: Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-hours').value, 0)),
-        cad_hourly_rate: Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-rate').value, 0)),
+        cad_hourly_rate: Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-rate').value, defaultCadRate)),
         post_process_hours: Math.max(0, parseLocaleFloat(document.getElementById('proj-post-hours').value, 0)),
-        post_process_hourly_rate: Math.max(0, parseLocaleFloat(document.getElementById('proj-post-rate').value, 0)),
+        post_process_hourly_rate: Math.max(0, parseLocaleFloat(document.getElementById('proj-post-rate').value, defaultPostRate)),
         overhead_cost: Math.max(0, parseLocaleFloat(document.getElementById('proj-overhead').value, 0)),
-        profit_margin_percent: Math.max(0, parseLocaleFloat(document.getElementById('proj-margin').value, 0)),
+        profit_margin_percent: Math.max(0, parseLocaleFloat(document.getElementById('proj-margin').value, defaultMargin)),
         tax_rate_percent: Math.max(0, Math.min(99, parseLocaleFloat(document.getElementById('proj-tax').value, 0))),
         discount_percent: Math.max(0, Math.min(100, parseLocaleFloat(document.getElementById('proj-discount').value, 0))),
         shipping_cost: Math.max(0, parseLocaleFloat(document.getElementById('proj-shipping').value, 0)),
@@ -2330,6 +2345,12 @@ async function deleteProject(id) {
     if (!confirm('Deseja realmente excluir este orçamento?')) return;
     try {
         await API.projects.delete(id);
+        if (state.currentProject && state.currentProject.id === id) {
+            state.currentProject = null;
+            if (state.activeView === 'project-editor') {
+                openNewProject();
+            }
+        }
         showToast('Projeto excluído com sucesso.', 'success');
         await loadAllData();
         renderProjectsTable();
@@ -2501,9 +2522,9 @@ async function handleSlicerFiles(files) {
                     filament_id: null,
                     custom_printer_hourly_rate: defaultPrinter ? null : 2.50,
                     custom_filament_cost_per_g: null,
-                    nozzle_diameter: '0.4',
-                    bed_type: 'Textured PEI',
-                    layer_height: '0.20',
+                    nozzle_diameter: meta.nozzle_diameter || '0.4',
+                    bed_type: meta.bed_type || 'Textured PEI',
+                    layer_height: meta.layer_height || '0.20',
                     print_time_hours: meta.print_time_hours || 0,
                     part_weight_g: meta.part_weight_g || 0,
                     purge_weight_g: 0,
@@ -2683,6 +2704,37 @@ async function handleSinglePlateFile(e, plateIdx) {
     }
 }
 
+function updatePrinterRatePreview() {
+    const costInput = document.getElementById('printer-cost');
+    const lifespanInput = document.getElementById('printer-lifespan');
+    const powerInput = document.getElementById('printer-power');
+    const maintInput = document.getElementById('printer-maintenance');
+    const energyInput = document.getElementById('printer-energy');
+
+    const previewEl = document.getElementById('printer-rate-preview-value');
+    if (!previewEl) return;
+
+    const cost = Math.max(0, parseLocaleFloat(costInput?.value, 0));
+    const lifespan = Math.max(0, parseLocaleFloat(lifespanInput?.value, 5000));
+    const power = Math.max(0, parseLocaleFloat(powerInput?.value, 150));
+    const maint = Math.max(0, parseLocaleFloat(maintInput?.value, 1.0));
+    const energy = Math.max(0, parseLocaleFloat(energyInput?.value, 0.85));
+
+    const depPerHour = lifespan > 0 ? (cost / lifespan) : 0;
+    const energyPerHour = (power / 1000.0) * energy;
+    const totalRate = depPerHour + maint + energyPerHour;
+
+    previewEl.textContent = formatCurrency(totalRate);
+
+    const depEl = document.getElementById('printer-rate-preview-dep');
+    if (depEl) depEl.textContent = `${formatCurrency(depPerHour)}/h`;
+    const energyEl = document.getElementById('printer-rate-preview-energy');
+    if (energyEl) energyEl.textContent = `${formatCurrency(energyPerHour)}/h`;
+    const maintEl = document.getElementById('printer-rate-preview-maint');
+    if (maintEl) maintEl.textContent = `${formatCurrency(maint)}/h`;
+}
+window.updatePrinterRatePreview = updatePrinterRatePreview;
+
 function editPrinter(id) {
     const printer = state.printers.find(p => p.id === id);
     if (printer) openPrinterModal(printer);
@@ -2718,6 +2770,7 @@ function openPrinterModal(printer = null) {
         const activeEl = document.getElementById('printer-active');
         if (activeEl) activeEl.value = 'true';
     }
+    updatePrinterRatePreview();
     refreshIcons();
 }
 
@@ -2729,8 +2782,14 @@ async function handleSavePrinter(e) {
     e.preventDefault();
     normalizeNumericInputs();
     const id = document.getElementById('printer-id').value;
+    const name = document.getElementById('printer-name').value.trim();
+    if (!name) {
+        showToast('Informe o nome ou identificação da impressora.', 'error');
+        document.getElementById('printer-name')?.focus();
+        return;
+    }
     const payload = {
-        name: document.getElementById('printer-name').value.trim(),
+        name,
         model: document.getElementById('printer-model').value.trim(),
         acquisition_cost: parseLocaleFloat(document.getElementById('printer-cost').value, 0),
         lifespan_hours: parseLocaleFloat(document.getElementById('printer-lifespan').value, 5000),
@@ -2988,7 +3047,7 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-id').value = '';
         document.getElementById('filament-material').value = filament.material || 'PLA';
         document.getElementById('filament-brand').value = filament.brand || '';
-        document.getElementById('filament-color').value = '';
+        document.getElementById('filament-color').value = filament.color ? `${filament.color} (Cópia)` : '';
         document.getElementById('filament-color-hex').value = filament.color_hex || '#10b981';
         document.getElementById('filament-density').value = filament.density_g_cm3 != null ? filament.density_g_cm3 : (MATERIAL_DENSITIES[filament.material] || 1.24);
         document.getElementById('filament-weight').value = filament.spool_weight_g;
@@ -3053,15 +3112,36 @@ async function handleSaveFilament(e) {
     const colorHex = document.getElementById('filament-color-hex').value || '#10b981';
     const standardName = `${mat} ${color} - ${brand}`;
 
+    const density = parseLocaleFloat(document.getElementById('filament-density')?.value, 1.24);
+    if (isNaN(density) || density <= 0) {
+        showToast('A densidade do material deve ser maior que zero.', 'error');
+        document.getElementById('filament-density')?.focus();
+        return;
+    }
+
+    const spoolWeight = parseLocaleFloat(document.getElementById('filament-weight').value, 1000);
+    if (isNaN(spoolWeight) || spoolWeight <= 0) {
+        showToast('O peso do carretel deve ser maior que zero.', 'error');
+        document.getElementById('filament-weight')?.focus();
+        return;
+    }
+
+    const spoolPrice = parseLocaleFloat(document.getElementById('filament-price').value, 0);
+    if (isNaN(spoolPrice) || spoolPrice < 0) {
+        showToast('O preço do carretel não pode ser negativo.', 'error');
+        document.getElementById('filament-price')?.focus();
+        return;
+    }
+
     const payload = {
         name: standardName,
         brand: brand,
         material: mat,
         color: color,
         color_hex: colorHex,
-        density_g_cm3: parseLocaleFloat(document.getElementById('filament-density')?.value, 1.24),
-        spool_weight_g: parseLocaleFloat(document.getElementById('filament-weight').value, 1000),
-        spool_price: parseLocaleFloat(document.getElementById('filament-price').value, 90),
+        density_g_cm3: density,
+        spool_weight_g: spoolWeight,
+        spool_price: spoolPrice,
     };
     const activeEl = document.getElementById('filament-active');
     if (activeEl) {
@@ -3219,14 +3299,15 @@ function renderFilamentsGrid(filterTerm = null, filterMaterial = null, filterSta
                     <!-- Highlighted Gram Cost -->
                     <div class="mt-4 p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-center">
                         <span class="text-[10px] uppercase font-semibold text-emerald-300 tracking-wider">Custo por Grama</span>
-                        <div class="text-2xl font-black text-emerald-400 mt-0.5">
-                            R$ ${f.cost_per_gram != null ? f.cost_per_gram.toFixed(2) : '0.00'}<span class="text-xs font-normal text-slate-400">/g</span>
+                        <div class="text-2xl font-black text-emerald-400 mt-0.5" data-cost-fixed="${f.cost_per_gram != null ? f.cost_per_gram.toFixed(2) : '0.00'}">
+                            ${formatCurrency(f.cost_per_gram || 0)}<span class="text-xs font-normal text-slate-400">/g</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex justify-between">
+                <div class="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex justify-between items-center gap-2">
                     <span>Carretel: ${f.spool_weight_g} g</span>
+                    <span>Densidade: ${f.density_g_cm3 != null ? Number(f.density_g_cm3).toFixed(2) : '1.24'} g/cm³</span>
                     <span>Preço: ${formatCurrency(f.spool_price)}</span>
                 </div>
             </div>
@@ -3516,6 +3597,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('modal-printer')?.addEventListener('click', (e) => {
         if (e.target === e.currentTarget) closePrinterModal();
     });
+
+    function handleLogout() {
+        if (confirm('Deseja realmente sair da sua conta? Certifique-se de ter salvo suas alterações.')) {
+            API.auth.logout();
+        }
+    }
+    window.handleLogout = handleLogout;
 
     window.addEventListener('auth:unauthorized', () => {
         clearUserData();

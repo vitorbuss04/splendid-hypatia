@@ -36,9 +36,13 @@ def python_parse_gcode(gcode_text: str, filename: str = ""):
     filament_vendor_parts = []
     filament_type_parts = []
     filament_colour_parts = []
+    nozzle_diameter = None
+    nozzle_diameter_parts = []
+    layer_height = None
+    bed_type = None
 
     def extract_from_line(raw_line: str):
-        nonlocal print_time_seconds, print_time_priority, filament_grams, filament_millimeters, filament_type, filament_profile, filament_vendor, active_slot, filament_settings_parts, filament_vendor_parts, filament_type_parts, filament_colour_parts
+        nonlocal print_time_seconds, print_time_priority, filament_grams, filament_millimeters, filament_type, filament_profile, filament_vendor, active_slot, filament_settings_parts, filament_vendor_parts, filament_type_parts, filament_colour_parts, nozzle_diameter, nozzle_diameter_parts, layer_height, bed_type
         line = raw_line.strip()
         if not line.startswith(";"):
             return
@@ -159,6 +163,31 @@ def python_parse_gcode(gcode_text: str, filename: str = ""):
         if cura_name and not filament_profile:
             filament_profile = cura_name.group(1).strip().strip('"\'')
 
+        # 7. Nozzle Diameter
+        nozzle_match = re.search(r"^;\s*(?:nozzle_diameter|nozzle_size|extruder_nozzle_size|nozzle\s*diameter)(?:\s*\[\d+\])?\s*[:=]\s*(.+)", line, re.I)
+        if nozzle_match and not nozzle_diameter_parts:
+            nozzle_diameter_parts = [s.strip().strip('"\'').rstrip('mm').strip() for s in re.split(r'[,;]', nozzle_match.group(1)) if s.strip()]
+        if not nozzle_diameter and not nozzle_diameter_parts:
+            inline_nozzle = re.search(r"(?:^;\s*|\b)nozzle\s*[:=]\s*([0-9.]+)(?:\s*mm)?", line, re.I)
+            if inline_nozzle:
+                nozzle_diameter = inline_nozzle.group(1)
+
+        # 8. Layer Height
+        if not layer_height:
+            layer_match = re.search(r"^;\s*(?:layer_height|layer_thickness|layer\s*height)(?:\s*\[\d+\])?\s*[:=]\s*([0-9.]+)(?:\s*mm)?", line, re.I)
+            if layer_match:
+                layer_height = layer_match.group(1)
+            else:
+                inline_layer = re.search(r"(?:^;\s*|\b)layer\s*[:=]\s*([0-9.]+)(?:\s*mm)\b", line, re.I)
+                if inline_layer:
+                    layer_height = inline_layer.group(1)
+
+        # 9. Bed Type
+        if not bed_type:
+            bed_match = re.search(r"^;\s*(?:curr_bed_type|bed_type|plate_type)\s*[:=]\s*(.+)", line, re.I)
+            if bed_match:
+                bed_type = bed_match.group(1).strip().strip('"\'')
+
     for raw_line in candidate_lines:
         extract_from_line(raw_line)
 
@@ -172,6 +201,8 @@ def python_parse_gcode(gcode_text: str, filename: str = ""):
     filament_colour_hex = None
     if filament_colour_parts:
         filament_colour_hex = filament_colour_parts[target_idx] if target_idx < len(filament_colour_parts) else filament_colour_parts[0]
+    if nozzle_diameter_parts and not nozzle_diameter:
+        nozzle_diameter = nozzle_diameter_parts[target_idx] if target_idx < len(nozzle_diameter_parts) else nozzle_diameter_parts[0]
 
     if (not print_time_seconds or not filament_grams) and len(lines) > 6000:
         for i in range(3000, len(lines) - 3000):
@@ -200,6 +231,8 @@ def python_parse_gcode(gcode_text: str, filename: str = ""):
         slicer_profile = filament_type
 
     hours = round(print_time_seconds / 3600.0, 2) if print_time_seconds > 0 else 0.0
+    if hours == 0.0 and print_time_seconds > 0:
+        hours = round(print_time_seconds / 3600.0, 4)
     return {
         "print_time_hours": hours,
         "part_weight_g": round(filament_grams, 2),
@@ -207,6 +240,9 @@ def python_parse_gcode(gcode_text: str, filename: str = ""):
         "slicer_filament_profile": clean_filament_profile_name(slicer_profile, filename) or None,
         "filament_color_hex": filament_colour_hex,
         "filament_slot": active_slot,
+        "nozzle_diameter": nozzle_diameter,
+        "layer_height": layer_height,
+        "bed_type": bed_type,
     }
 
 
@@ -430,6 +466,9 @@ def python_parse_3mf(data: bytes, filename: str = None):
             "part_weight_g": meta["part_weight_g"],
             "purge_weight_g": 0.0,
             "filament_type": meta["filament_type"] or "PLA",
+            "nozzle_diameter": meta.get("nozzle_diameter"),
+            "layer_height": meta.get("layer_height"),
+            "bed_type": meta.get("bed_type"),
         }]
 
     plates = []
@@ -438,6 +477,19 @@ def python_parse_3mf(data: bytes, filename: str = None):
     if slice_names:
         xml_data = zf.read(slice_names[0])
         root = ET.fromstring(xml_data)
+        global_nozzle = None
+        global_layer = None
+        global_bed = None
+        for meta in root.findall(".//metadata"):
+            k = (meta.get("key") or "").lower()
+            v = meta.get("value") or ""
+            if k in ["nozzle_diameter", "nozzle", "nozzle_size"] and not global_nozzle and v.strip():
+                global_nozzle = v.strip().rstrip("mm").strip()
+            elif k in ["layer_height", "layer_thickness"] and not global_layer and v.strip():
+                global_layer = v.strip().rstrip("mm").strip()
+            elif k in ["curr_bed_type", "bed_type", "bed"] and not global_bed and v.strip():
+                global_bed = v.strip()
+
         plate_nodes = root.findall(".//plate")
         for idx, plate in enumerate(plate_nodes):
             prediction_secs = 0.0
@@ -448,6 +500,9 @@ def python_parse_3mf(data: bytes, filename: str = None):
             plate_filament_profile = None
             plate_filament_slot = None
             plate_filament_color_hex = None
+            plate_nozzle = global_nozzle
+            plate_layer = global_layer
+            plate_bed = global_bed
 
             for meta in plate.findall("metadata"):
                 k = (meta.get("key") or "").lower()
@@ -470,6 +525,28 @@ def python_parse_3mf(data: bytes, filename: str = None):
                 elif k in ["filament_profile", "filament_name", "profile", "tray_info_idx"]:
                     if v.strip() and not plate_filament_profile:
                         plate_filament_profile = v.strip()
+                elif k in ["nozzle_diameter", "nozzle", "nozzle_size"] and v.strip():
+                    plate_nozzle = v.strip().rstrip("mm").strip()
+                elif k in ["layer_height", "layer_thickness"] and v.strip():
+                    plate_layer = v.strip().rstrip("mm").strip()
+                elif k in ["curr_bed_type", "bed_type", "bed"] and v.strip():
+                    plate_bed = v.strip()
+
+            if not plate_nozzle:
+                for attr_k in ["nozzle_diameter", "nozzle", "nozzle_size"]:
+                    if plate.get(attr_k) and plate.get(attr_k).strip():
+                        plate_nozzle = plate.get(attr_k).strip().rstrip("mm").strip()
+                        break
+            if not plate_layer:
+                for attr_k in ["layer_height", "layer_thickness"]:
+                    if plate.get(attr_k) and plate.get(attr_k).strip():
+                        plate_layer = plate.get(attr_k).strip().rstrip("mm").strip()
+                        break
+            if not plate_bed:
+                for attr_k in ["curr_bed_type", "bed_type", "bed"]:
+                    if plate.get(attr_k) and plate.get(attr_k).strip():
+                        plate_bed = plate.get(attr_k).strip()
+                        break
 
             if not prediction_secs:
                 for attr_k in ["prediction", "print_time", "prediction_time", "time", "estimated_time"]:
@@ -565,6 +642,9 @@ def python_parse_3mf(data: bytes, filename: str = None):
                 "slicer_filament_profile": plate_filament_profile or None,
                 "filament_slot": plate_filament_slot,
                 "filament_color_hex": plate_filament_color_hex,
+                "nozzle_diameter": plate_nozzle,
+                "layer_height": plate_layer,
+                "bed_type": plate_bed,
             })
 
         # Complement plates with embedded G-code inside the ZIP archive
@@ -589,6 +669,12 @@ def python_parse_3mf(data: bytes, filename: str = None):
                         p["filament_color_hex"] = meta["filament_color_hex"]
                     if not p.get("filament_slot") and meta.get("filament_slot"):
                         p["filament_slot"] = meta["filament_slot"]
+                    if not p.get("nozzle_diameter") and meta.get("nozzle_diameter"):
+                        p["nozzle_diameter"] = meta["nozzle_diameter"]
+                    if not p.get("layer_height") and meta.get("layer_height"):
+                        p["layer_height"] = meta["layer_height"]
+                    if not p.get("bed_type") and meta.get("bed_type"):
+                        p["bed_type"] = meta["bed_type"]
 
         # Check config files in zip (project_settings.config, model_settings.config, etc.)
         cfg_names = [n for n in zf.namelist() if any(k in n.lower() for k in ["project_settings.config", "model_settings.config", "slic3r_pe.config", "prusaslicer.ini"]) and not n.lower().endswith("slice_info.config")]
@@ -1087,6 +1173,92 @@ def test_orcaslicer_slice_info_config_support():
     assert res[0]["filament_slot"] == 2
     assert res[0]["filament_type"] == "PLA"
     assert res[0]["slicer_filament_profile"] == "Voolt3D PLA Premium 0.4"
+
+
+def test_gcode_manufacturing_parameters_extraction():
+    # 1. Bambu / Orca format
+    bambu_sample = """
+; generated by Bambu Studio 1.8.4
+; nozzle_diameter = 0.6
+; layer_height = 0.15
+; curr_bed_type = Textured PEI
+; filament used [g] = 45.0
+; estimated printing time (normal mode) = 1h 20m
+"""
+    res1 = python_parse_gcode(bambu_sample)
+    assert res1["nozzle_diameter"] == "0.6"
+    assert res1["layer_height"] == "0.15"
+    assert res1["bed_type"] == "Textured PEI"
+
+    # 2. Prusa format
+    prusa_sample = """
+; generated by PrusaSlicer 2.7.2
+; nozzle_diameter = 0.8
+; layer_height = 0.28
+; filament used [g] = 75.2
+; estimated printing time (normal mode) = 3h 10m
+"""
+    res2 = python_parse_gcode(prusa_sample)
+    assert res2["nozzle_diameter"] == "0.8"
+    assert res2["layer_height"] == "0.28"
+
+    # 3. Cura format
+    cura_sample = """
+;FLAVOR:Marlin
+;TIME:3600
+;Filament used: 30g
+;Nozzle diameter: 0.4
+;Layer height: 0.12
+"""
+    res3 = python_parse_gcode(cura_sample)
+    assert res3["nozzle_diameter"] == "0.4"
+    assert res3["layer_height"] == "0.12"
+
+
+def test_3mf_manufacturing_parameters_extraction():
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        xml = """<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <plate>
+    <metadata key="index" value="1"/>
+    <metadata key="prediction" value="7200"/>
+    <metadata key="weight" value="50.0"/>
+    <metadata key="nozzle_diameter" value="0.6"/>
+    <metadata key="layer_height" value="0.15"/>
+    <metadata key="curr_bed_type" value="Smooth PEI"/>
+    <filament id="1" type="PETG" used_g="50.0"/>
+  </plate>
+</config>"""
+        zf.writestr("Metadata/slice_info.xml", xml)
+
+    res = python_parse_3mf(buf.getvalue(), filename="peca_estrutural.3mf")
+    assert len(res) == 1
+    assert res[0]["nozzle_diameter"] == "0.6"
+    assert res[0]["layer_height"] == "0.15"
+    assert res[0]["bed_type"] == "Smooth PEI"
+
+
+def test_gcode_sub_minute_calibration_print_hours():
+    # Issue #87: Quick calibration prints (< 18s) must not be rounded to 0.0h
+    sample = """
+; generated by OrcaSlicer 2.0.0
+; model printing time: 15s; total estimated time: 15s
+; filament used [g] = 0.45
+; filament_type = PLA
+; nozzle_diameter = 0.4
+; layer_height = 0.20
+; curr_bed_type = Textured PEI
+"""
+    res = python_parse_gcode(sample)
+    assert res["print_time_hours"] > 0.0
+    assert res["print_time_hours"] == 0.0042
+    assert res["part_weight_g"] == 0.45
+
+
 
 
 

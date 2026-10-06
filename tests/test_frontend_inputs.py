@@ -3234,6 +3234,109 @@ def test_issues_59_through_71_frontend_verification():
     if (defPlate.bed_type !== 'Textured PEI') throw new Error('Default plate missing bed_type Textured PEI');
     if (defPlate.layer_height !== '0.20') throw new Error('Default plate missing layer_height 0.20');
 
+    // Test Issue #74: openNewProject populates default commercial terms
+    if (!appJs.includes("document.getElementById('proj-payment-terms').value = u.default_payment_terms || '';")) {
+        throw new Error('openNewProject does not pre-fill default_payment_terms');
+    }
+    if (!appJs.includes("document.getElementById('proj-warranty-terms').value = u.default_warranty_terms || '';")) {
+        throw new Error('openNewProject does not pre-fill default_warranty_terms');
+    }
+
+    // Test Issue #75: deleteProject clears currentProject if matching
+    if (!appJs.includes("if (state.currentProject && state.currentProject.id === id)")) {
+        throw new Error('deleteProject does not check state.currentProject');
+    }
+    if (!appJs.includes("state.currentProject = null;")) {
+        throw new Error('deleteProject does not clear state.currentProject');
+    }
+
+    // Test Issue #76: filament card displays material density
+    vm.runInContext(`
+        state.filaments = [{
+            id: 1,
+            name: 'ABS Premium',
+            brand: 'TechFil',
+            color: 'Cinza',
+            material: 'ABS',
+            density_g_cm3: 1.04,
+            spool_weight_g: 1000,
+            spool_price: 110.0,
+            cost_per_gram: 0.11,
+            is_active: true
+        }];
+        renderFilamentsGrid();
+    `, sandbox);
+    const filHtml = dom['filaments-grid'].innerHTML;
+    if (!filHtml.includes('Densidade: 1.04 g/cm³')) {
+        throw new Error('Filament card does not display material density 1.04 g/cm³');
+    }
+
+    // Test Issue #77: duplicate filament pre-fills color with (Cópia)
+    if (!appJs.includes("document.getElementById('filament-color').value = filament.color ? `${filament.color} (Cópia)` : '';")) {
+        throw new Error('openFilamentModal duplicate does not preserve color with (Cópia)');
+    }
+
+    // Test Issue #78: printer form validates required name in frontend
+    if (!appJs.includes("const name = document.getElementById('printer-name').value.trim();") ||
+        !appJs.includes("if (!name) {") ||
+        !appJs.includes("showToast('Informe o nome ou identificação da impressora.', 'error');")) {
+        throw new Error('handleSavePrinter does not validate required printer name in frontend');
+    }
+
+    // Test Issue #79: slicer parsers extract nozzle_diameter and layer_height
+    const gcodeJs = fs.readFileSync('frontend/js/parsers/gcode.js', 'utf8');
+    if (!gcodeJs.includes('nozzle_diameter: nozzleDiameter || null') || !gcodeJs.includes('layer_height: layerHeight || null')) {
+        throw new Error('gcode.js does not return nozzle_diameter and layer_height');
+    }
+    if (!threemfJs.includes('nozzle_diameter: plateNozzleDiameter || null') || !threemfJs.includes('layer_height: plateLayerHeight || null')) {
+        throw new Error('threemf.js does not return nozzle_diameter and layer_height');
+    }
+
+    // Test Issue #81: saveCurrentProject matches recalcLiveSummary defaults
+    if (!appJs.includes("cad_hourly_rate: Math.max(0, parseLocaleFloat(document.getElementById('proj-cad-rate').value, defaultCadRate))") ||
+        !appJs.includes("profit_margin_percent: Math.max(0, parseLocaleFloat(document.getElementById('proj-margin').value, defaultMargin))")) {
+        throw new Error('saveCurrentProject does not harmonize defaults with recalcLiveSummary');
+    }
+
+    // Test Issue #82: printer rate preview card and updatePrinterRatePreview function
+    const htmlContent = fs.readFileSync('frontend/index.html', 'utf8');
+    if (!htmlContent.includes('id="printer-rate-preview-card"') || !htmlContent.includes('id="printer-rate-preview-value"')) {
+        throw new Error('index.html lacks printer-rate-preview-card or printer-rate-preview-value');
+    }
+    if (!appJs.includes('function updatePrinterRatePreview()') || !appJs.includes('updatePrinterRatePreview();')) {
+        throw new Error('app.js does not define or invoke updatePrinterRatePreview');
+    }
+
+    // Test Issue #83: plate selectors and filament card format rates with formatCurrency
+    if (!appJs.includes("(${formatCurrency(p.machine_hourly_rate)}/h)") ||
+        !appJs.includes("(${formatCurrency(f.cost_per_gram || 0)}/g)")) {
+        throw new Error('Plate options do not use formatCurrency for hourly rate and gram cost');
+    }
+
+    // Test Issue #84: BOM table contains specifications/notes input
+    if (!appJs.includes("state.currentBOM[${idx}].notes = this.value") ||
+        !appJs.includes('Especificações / Obs')) {
+        throw new Error('renderBOM does not render specifications/notes column and input');
+    }
+
+    // Test Issue #85: logout confirmation prevents accidental logout
+    if (!htmlContent.includes('onclick="handleLogout()"')) {
+        throw new Error('index.html sidebar logout button does not call handleLogout()');
+    }
+    if (!appJs.includes('function handleLogout()') || !appJs.includes('confirm(')) {
+        throw new Error('app.js does not define handleLogout with confirmation dialog');
+    }
+
+    // Test Issue #86: filament form validates strictly positive spool weight and density
+    if (!appJs.includes("density <= 0") || !appJs.includes("spoolWeight <= 0")) {
+        throw new Error('handleSaveFilament does not validate strictly positive density and spool weight');
+    }
+
+    // Test Issue #87: gcode parser preserves precision for quick calibration prints
+    if (!gcodeJs.includes('roundedHours = parseFloat(printTimeHours.toFixed(4));')) {
+        throw new Error('gcode.js does not provide toFixed(4) fallback for short calibration prints');
+    }
+
     console.log(JSON.stringify({ success: true }));
     """
     res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")

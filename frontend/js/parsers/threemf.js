@@ -79,6 +79,9 @@ async function parse3mfMetadata(file) {
                             purge_weight_g: 0.0,
                             filament_type: meta.filament_type || "PLA",
                             slicer_filament_profile: cleanFilamentProfileName(meta.slicer_filament_profile || meta.filament_type || null, file ? file.name : '') || null,
+                            nozzle_diameter: meta.nozzle_diameter || null,
+                            layer_height: meta.layer_height || null,
+                            bed_type: meta.bed_type || null,
                             failure_margin_percent: 10.0,
                             quantity: 1,
                         }];
@@ -109,6 +112,24 @@ async function parse3mfMetadata(file) {
 
         const plateNodes = xmlDoc.querySelectorAll("plate");
         if (plateNodes && plateNodes.length > 0) {
+            let globalNozzleDiameter = null;
+            let globalLayerHeight = null;
+            let globalBedType = null;
+            const globalMetaTags = xmlDoc.querySelectorAll("metadata");
+            globalMetaTags.forEach(meta => {
+                const key = (meta.getAttribute("key") || "").toLowerCase();
+                const val = meta.getAttribute("value");
+                if ((key === "nozzle_diameter" || key === "nozzle" || key === "nozzle_size") && val && !globalNozzleDiameter) {
+                    globalNozzleDiameter = val.trim().replace(/mm$/i, '').trim();
+                }
+                if ((key === "layer_height" || key === "layer_thickness") && val && !globalLayerHeight) {
+                    globalLayerHeight = val.trim().replace(/mm$/i, '').trim();
+                }
+                if ((key === "curr_bed_type" || key === "bed_type" || key === "bed") && val && !globalBedType) {
+                    globalBedType = val.trim();
+                }
+            });
+
             plateNodes.forEach((node, idx) => {
                 let index = idx + 1;
                 let predictionSeconds = 0;
@@ -119,6 +140,9 @@ async function parse3mfMetadata(file) {
                 let plateFilamentProfile = null;
                 let plateFilamentSlot = null;
                 let plateFilamentColorHex = null;
+                let plateNozzleDiameter = globalNozzleDiameter;
+                let plateLayerHeight = globalLayerHeight;
+                let plateBedType = globalBedType;
 
                 // Metadata items inside plate
                 const metaTags = node.querySelectorAll("metadata");
@@ -141,9 +165,30 @@ async function parse3mfMetadata(file) {
                     if (key === "filament_profile" || key === "filament_name" || key === "profile" || key === "tray_info_idx") {
                         if (val && val.trim() && !plateFilamentProfile) plateFilamentProfile = cleanFilamentProfileName(val.trim(), file ? file.name : '');
                     }
+                    if (key === "nozzle_diameter" || key === "nozzle" || key === "nozzle_size") {
+                        if (val && val.trim()) plateNozzleDiameter = val.trim().replace(/mm$/i, '').trim();
+                    }
+                    if (key === "layer_height" || key === "layer_thickness") {
+                        if (val && val.trim()) plateLayerHeight = val.trim().replace(/mm$/i, '').trim();
+                    }
+                    if (key === "curr_bed_type" || key === "bed_type" || key === "bed") {
+                        if (val && val.trim()) plateBedType = val.trim();
+                    }
                 });
 
                 // Fallback to node attributes if metadata tags omitted
+                if (!plateNozzleDiameter) {
+                    const attrNozzle = node.getAttribute("nozzle_diameter") || node.getAttribute("nozzle") || node.getAttribute("nozzle_size");
+                    if (attrNozzle && attrNozzle.trim()) plateNozzleDiameter = attrNozzle.trim().replace(/mm$/i, '').trim();
+                }
+                if (!plateLayerHeight) {
+                    const attrLayer = node.getAttribute("layer_height") || node.getAttribute("layer_thickness");
+                    if (attrLayer && attrLayer.trim()) plateLayerHeight = attrLayer.trim().replace(/mm$/i, '').trim();
+                }
+                if (!plateBedType) {
+                    const attrBed = node.getAttribute("curr_bed_type") || node.getAttribute("bed_type") || node.getAttribute("bed");
+                    if (attrBed && attrBed.trim()) plateBedType = attrBed.trim();
+                }
                 if (!predictionSeconds) {
                     predictionSeconds = parseTimeStringToSeconds(
                         node.getAttribute("prediction") ||
@@ -237,6 +282,9 @@ async function parse3mfMetadata(file) {
                     slicer_filament_profile: cleanFilamentProfileName(plateFilamentProfile, file ? file.name : '') || null,
                     filament_slot: plateFilamentSlot || null,
                     filament_color_hex: plateFilamentColorHex || null,
+                    nozzle_diameter: plateNozzleDiameter || null,
+                    layer_height: plateLayerHeight || null,
+                    bed_type: plateBedType || null,
                     failure_margin_percent: 10.0,
                     quantity: 1,
                 });
@@ -276,6 +324,15 @@ async function parse3mfMetadata(file) {
                                 }
                                 if (!p.filament_slot && meta.filament_slot) {
                                     p.filament_slot = meta.filament_slot;
+                                }
+                                if (!p.nozzle_diameter && meta.nozzle_diameter) {
+                                    p.nozzle_diameter = meta.nozzle_diameter;
+                                }
+                                if (!p.layer_height && meta.layer_height) {
+                                    p.layer_height = meta.layer_height;
+                                }
+                                if (!p.bed_type && meta.bed_type) {
+                                    p.bed_type = meta.bed_type;
                                 }
                             }
                         } catch (_) {}
@@ -368,6 +425,9 @@ async function parse3mfMetadata(file) {
                     slicer_filament_profile: cleanFilamentProfileName(meta.slicer_filament_profile || meta.filament_type || null, file ? file.name : '') || null,
                     filament_color_hex: meta.filament_color_hex || null,
                     filament_slot: meta.filament_slot || null,
+                    nozzle_diameter: meta.nozzle_diameter || null,
+                    layer_height: meta.layer_height || null,
+                    bed_type: meta.bed_type || null,
                     failure_margin_percent: 10.0,
                     quantity: 1,
                 });
