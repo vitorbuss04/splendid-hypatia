@@ -1,0 +1,79 @@
+{
+  "tests": [
+    {
+      "name": "Auth Registration",
+      "passed": true,
+      "details": {
+        "email": "auditor13_1791328777897@test.com"
+      }
+    },
+    {
+      "name": "Plate Card Notes Field Availability",
+      "passed": false,
+      "details": {
+        "hasPlateNotesInput": false
+      }
+    },
+    {
+      "name": "BOM Quantity Minimum Enforcement",
+      "passed": true,
+      "details": {
+        "bomSubtotalText": "R$ 10,00"
+      }
+    },
+    {
+      "name": "Client PDF Generation with BOM",
+      "passed": true,
+      "details": {
+        "projectId": 1,
+        "pdfSize": 3830
+      }
+    },
+    {
+      "name": "Project Duplicate Resets Status to Draft",
+      "passed": true,
+      "details": {
+        "origStatus": "approved",
+        "duplicatedStatus": "draft",
+        "duplicatedName": "Projeto Original Aprovado (Cópia)"
+      }
+    },
+    {
+      "name": "Single Plate Import Unmatched Filament Fallback",
+      "passed": true,
+      "details": {
+        "resetsFilamentOnNullMatch": true
+      }
+    },
+    {
+      "name": "Duplicate Project HTTP Status Code (201 Created)",
+      "passed": false,
+      "details": {
+        "statusCode": 200,
+        "expected": 201
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "UX-PLATE-CARD-OMITS-NOTES-FIELD",
+      "title": "[UX/FEAT] Card de placa no editor de orçamentos não possui campo para visualização ou edição de observações e instruções operacionais da placa (plate.notes)",
+      "category": "ux",
+      "severity": "medium",
+      "details": {
+        "file": "frontend/js/app.js:1688-1868",
+        "explanation": "O modelo de dados Plate no backend possui a coluna notes (Text, nullable=True), que é serializada pelo schema PlateBase e enviada na requisição de salvamento (app.js:2290: notes: p.notes). Além disso, o analisador de 3MF (threemf.js:522) preenche automaticamente a nota \"Arquivo 3MF sem metadados de fatiamento. Preencha o tempo e peso manualmente.\" para arquivos brutos. No entanto, o template renderPlates() não possui nenhum input ou textarea para exibir ou editar essas observações na placa, tornando impossível para o operador visualizar instruções específicas de fatiamento ou adicionar notas de produção para a placa."
+      }
+    },
+    {
+      "id": "API-PROJECT-DUPLICATE-RETURNS-200-INSTEAD-OF-201",
+      "title": "[API/PADRÃO] Endpoint POST /api/projects/{id}/duplicate retorna status HTTP 200 OK em vez de HTTP 201 Created divergindo dos endpoints de duplicação de impressoras e filamentos",
+      "category": "backend",
+      "severity": "low",
+      "details": {
+        "file": "backend/routes/project_routes.py:410",
+        "explanation": "Enquanto os endpoints de duplicação de impressoras (@router.post(\"/{printer_id}/duplicate\", status_code=status.HTTP_201_CREATED) em printer_routes.py:83) e filamentos (status_code=status.HTTP_201_CREATED em filament_routes.py:75) retornam o status semântico RESTful 201 Created ao gerar um novo recurso clonado, o endpoint de duplicar projeto omite o parâmetro status_code, retornando HTTP 200 OK padrão."
+      }
+    }
+  ]
+}

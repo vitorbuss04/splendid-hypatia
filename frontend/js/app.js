@@ -145,8 +145,8 @@ function findBestMatchingFilament(filaments, plateName = '', slicerProfile = '',
         }
     }
 
-    // Fallback: first filament
-    return filaments[0];
+    // Fallback: no match found
+    return null;
 }
 
 
@@ -1851,6 +1851,12 @@ function renderPlates() {
                         <input type="number" step="1" min="1" value="${plate.quantity}" oninput="state.currentPlates[${idx}].quantity = parseInt(this.value, 10) || 1; recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-bold font-numeric text-center focus:outline-none focus:border-blue-500" placeholder="1">
                     </div>
                 </div>
+
+                <!-- Plate Notes & Operational Instructions -->
+                <div class="plate-field-col pt-2 border-t border-slate-800/60">
+                    <label class="text-[10px] font-medium text-slate-400 mb-1 block">Observações / Instruções de Impressão</label>
+                    <input type="text" value="${esc(plate.notes || '')}" oninput="state.currentPlates[${idx}].notes = this.value" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors" placeholder="Ex: Pausa na camada 45 para ímã, usar cola bastão, suportes orgânicos...">
+                </div>
             </div>
 
             <!-- Single Plate Subtotal Summary Pill -->
@@ -2098,7 +2104,11 @@ function recalcLiveSummary() {
         const sumTextEl = document.getElementById(`plate-summary-text-${idx}`);
         if (costEl) costEl.textContent = formatCurrency(plateTotalCost);
         if (sumTextEl) {
-            sumTextEl.textContent = `${qty}x • ${(printTime * qty).toFixed(1)}h • ${(rawWeight * qty).toFixed(1)}g (Mat: ${formatCurrency(unitMaterialCost * qty)} + Máq: ${formatCurrency(unitMachineCost * qty)})`;
+            const plateTotalTime = printTime * qty;
+            const formattedTime = plateTotalTime > 0 && plateTotalTime < 0.1
+                ? (Math.round(plateTotalTime * 60) < 1 ? `<1m (~${Math.max(1, Math.round(plateTotalTime * 3600))}s)` : `${Math.round(plateTotalTime * 60)}min`)
+                : `${plateTotalTime.toFixed(1)}h`;
+            sumTextEl.textContent = `${qty}x • ${formattedTime} • ${(rawWeight * qty).toFixed(1)}g (Mat: ${formatCurrency(unitMaterialCost * qty)} + Máq: ${formatCurrency(unitMachineCost * qty)})`;
         }
     });
 
@@ -2152,8 +2162,11 @@ function recalcLiveSummary() {
     const finalPriceToClient = Math.round((subtotalAfterDiscount + shippingCost) * 100) / 100;
 
     // Update Live Summary DOM
+    const liveTimeFormatted = totalTimeHours > 0 && totalTimeHours < 0.1
+        ? (Math.round(totalTimeHours * 60) < 1 ? `<1 min (~${Math.max(1, Math.round(totalTimeHours * 3600))}s)` : `${Math.round(totalTimeHours * 60)} min`)
+        : `${totalTimeHours.toFixed(1)} h`;
     setText('live-weight', `${totalWeightGrams.toFixed(1)} g`);
-    setText('live-time', `${totalTimeHours.toFixed(1)} h`);
+    setText('live-time', liveTimeFormatted);
     setText('live-material-cost', formatCurrency(totalMaterialCost));
     setText('live-machine-cost', formatCurrency(totalMachineCost));
     setText('live-bom-cost', formatCurrency(totalBOMCost));
@@ -2630,6 +2643,11 @@ async function handleSinglePlateFile(e, plateIdx) {
                 if (matchedFilament) {
                     state.currentPlates[plateIdx].filament_id = matchedFilament.id;
                     state.currentPlates[plateIdx].custom_filament_cost_per_g = null;
+                } else {
+                    state.currentPlates[plateIdx].filament_id = null;
+                    if (state.currentPlates[plateIdx].custom_filament_cost_per_g == null) {
+                        state.currentPlates[plateIdx].custom_filament_cost_per_g = 0.10;
+                    }
                 }
 
                 if (plates.length > 1) {
@@ -2708,6 +2726,11 @@ async function handleSinglePlateFile(e, plateIdx) {
                 if (matchedFilament) {
                     state.currentPlates[plateIdx].filament_id = matchedFilament.id;
                     state.currentPlates[plateIdx].custom_filament_cost_per_g = null;
+                } else {
+                    state.currentPlates[plateIdx].filament_id = null;
+                    if (state.currentPlates[plateIdx].custom_filament_cost_per_g == null) {
+                        state.currentPlates[plateIdx].custom_filament_cost_per_g = 0.10;
+                    }
                 }
 
             showToast(`Placa atualizada com dados do G-Code!`, 'success');

@@ -109,7 +109,8 @@ def python_parse_gcode(gcode_text: str, filename: str = ""):
 
         # 2. Filament Weight
         if "filament used [g]" in lower or "filament used [grams]" in lower:
-            numbers = re.findall(r"[0-9]+(?:\.[0-9]+)?", line)
+            val_part = line.split("=")[-1] if "=" in line else (line.split(":")[-1] if ":" in line else line)
+            numbers = re.findall(r"[0-9]+(?:\.[0-9]+)?", val_part)
             if numbers:
                 total_g = sum(float(n) for n in numbers)
                 if total_g > 0:
@@ -1431,6 +1432,55 @@ def test_3mf_fallback_unsliced_default_manufacturing_parameters():
     assert plate["nozzle_diameter"] == "0.4"
     assert plate["layer_height"] == "0.20"
     assert plate["bed_type"] == "Textured PEI"
+
+
+def test_issue_107_gcode_filament_weight_ignores_prefix_indices():
+    """Issue #107: G-code filament weight extraction must ignore slot/extruder numbers before assignment operator."""
+    import subprocess
+    import json
+
+    # 1. Test Python parser mirror
+    gcode_text_with_slot = """; G-Code with indexed tool tag
+; filament used [g] [1] = 45.2
+; estimated printing time = 3600
+"""
+    res = python_parse_gcode(gcode_text_with_slot)
+    assert res["part_weight_g"] == 45.2, f"Expected 45.2, got {res['part_weight_g']}"
+
+    gcode_text_with_extruder = """; G-Code with extruder tag
+; filament used [g] (extruder 2) = 18.5
+; estimated printing time = 1800
+"""
+    res2 = python_parse_gcode(gcode_text_with_extruder)
+    assert res2["part_weight_g"] == 18.5, f"Expected 18.5, got {res2['part_weight_g']}"
+
+    # 2. Test Node/JS parser directly
+    node_test = """
+    const fs = require('fs');
+    const vm = require('vm');
+    const code = fs.readFileSync('frontend/js/parsers/gcode.js', 'utf8');
+    const context = { window: {}, Math, parseInt, parseFloat, String, Number };
+    vm.createContext(context);
+    vm.runInContext(code, context);
+
+    const test1 = '; filament used [g] [1] = 45.2\\n; estimated printing time = 3600';
+    const parsed1 = context.parseGcodeMetadata(test1);
+    if (parsed1.part_weight_g !== 45.2) {
+        throw new Error('Expected 45.2 in JS parser, got: ' + parsed1.part_weight_g);
+    }
+
+    const test2 = '; filament used [g] (extruder 2) = 18.5\\n; estimated printing time = 1800';
+    const parsed2 = context.parseGcodeMetadata(test2);
+    if (parsed2.part_weight_g !== 18.5) {
+        throw new Error('Expected 18.5 in JS parser, got: ' + parsed2.part_weight_g);
+    }
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res_node = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res_node.returncode == 0, f"Node verification failed: {res_node.stderr}\nStdout: {res_node.stdout}"
+    assert "success" in res_node.stdout
+
 
 
 

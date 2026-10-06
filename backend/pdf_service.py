@@ -25,6 +25,19 @@ def extract_clean_material(p: dict) -> str:
             return known
     return "PLA"
 
+def format_pdf_hours(hours: float) -> str:
+    """Formats printing hours for PDF display, preserving sub-minute and short prints clearly without zeroing."""
+    h = float(hours or 0.0)
+    if h <= 0:
+        return "0.0 h"
+    if h < 0.1:
+        mins = round(h * 60)
+        if mins < 1:
+            secs = max(1, round(h * 3600))
+            return f"&lt;1 min (~{secs}s)"
+        return f"{mins} min"
+    return f"{h:.1f} h"
+
 def build_pdf_document(
     project_data: dict,
     user_data: dict,
@@ -250,7 +263,7 @@ def build_pdf_document(
                     Paragraph(f"<b>{p_name}</b>", style_cell),
                     Paragraph(mat_name, style_cell),
                     Paragraph(str(p.get("quantity", 1)), style_cell_right),
-                    Paragraph(f"{p.get('total_time_hours', 0.0):.1f} h", style_cell_right),
+                    Paragraph(format_pdf_hours(p.get('total_time_hours', 0.0)), style_cell_right),
                 ])
 
         plate_table = Table(plate_table_data, colWidths=[65 * mm, 52 * mm, 25 * mm, 40 * mm])
@@ -464,16 +477,20 @@ def build_pdf_document(
                 bed = html.escape(str(p.get('bed_type') or 'Textured PEI'))
                 layer = html.escape(str(p.get('layer_height') or '0.20'))
                 setup_desc = f"{nozzle}mm / {layer}mm<br/><font color='#64748b' size='7'>{bed}</font>"
+                notes_txt = str(p.get("notes") or "").strip()
+                if notes_txt:
+                    safe_notes = html.escape(notes_txt)
+                    setup_desc += f"<br/><font color='#64748b' size='7'><i>Obs: {safe_notes}</i></font>"
                 tech_table_data.append([
                     Paragraph(f"<b>{p_name}</b>", style_cell),
                     Paragraph(printer_name, style_cell),
                     Paragraph(mat_name, style_cell),
                     Paragraph(setup_desc, style_cell),
-                    Paragraph(f"{p.get('unit_print_time_hours', 0.0):.1f} h", style_cell_right),
+                    Paragraph(format_pdf_hours(p.get('unit_print_time_hours', 0.0)), style_cell_right),
                     Paragraph(f"{p.get('part_weight_g', p.get('unit_raw_weight_g', 0.0)):.1f} g", style_cell_right),
                     Paragraph(f"{p.get('purge_weight_g', 0.0):.1f} g", style_cell_right),
                     Paragraph(str(p.get("quantity", 1)), style_cell_right),
-                    Paragraph(f"{p.get('total_time_hours', 0.0):.1f} h", style_cell_right),
+                    Paragraph(format_pdf_hours(p.get('total_time_hours', 0.0)), style_cell_right),
                 ])
 
         tech_table = Table(tech_table_data, colWidths=[28*mm, 24*mm, 22*mm, 32*mm, 15*mm, 15*mm, 14*mm, 12*mm, 20*mm])

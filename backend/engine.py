@@ -120,6 +120,14 @@ def calculate_plate_cost(
     bed_type = str(get_attr(plate, "bed_type", "Textured PEI") or "Textured PEI")
     layer_height = str(get_attr(plate, "layer_height", "0.20") or "0.20")
 
+    unit_rounded_time = round(print_time_hours, 2)
+    if unit_rounded_time == 0.0 and print_time_hours > 0:
+        unit_rounded_time = round(print_time_hours, 4)
+
+    total_rounded_time = round(total_time_hours, 2)
+    if total_rounded_time == 0.0 and total_time_hours > 0:
+        total_rounded_time = round(total_time_hours, 4)
+
     return {
         "plate_id": get_attr(plate, "id", None),
         "name": name,
@@ -129,7 +137,7 @@ def calculate_plate_cost(
         "filament_material": filament_material,
         "cost_per_gram": round(cost_per_gram, 4),
         "machine_hourly_rate": round(machine_hourly_rate, 4),
-        "unit_print_time_hours": round(print_time_hours, 2),
+        "unit_print_time_hours": unit_rounded_time,
         "part_weight_g": round(part_weight_g, 2),
         "purge_weight_g": round(purge_weight_g, 2),
         "failure_margin_percent": round(failure_margin_percent, 2),
@@ -137,7 +145,7 @@ def calculate_plate_cost(
         "unit_material_cost": round(unit_material_cost, 2),
         "unit_machine_cost": round(unit_machine_cost, 2),
         "unit_total_cost": round(unit_total_cost, 2),
-        "total_time_hours": round(total_time_hours, 2),
+        "total_time_hours": total_rounded_time,
         "total_weight_g": round(total_weight_g, 2),
         "total_effective_weight_g": round(total_effective_weight_g, 2),
         "total_material_cost": round(total_material_cost, 2),
@@ -281,12 +289,16 @@ def calculate_project_summary(
 
     final_price_to_client = round(subtotal_after_discount + shipping_cost, 2)
 
+    summary_rounded_time = round(total_print_time_hours, 2)
+    if summary_rounded_time == 0.0 and total_print_time_hours > 0:
+        summary_rounded_time = round(total_print_time_hours, 4)
+
     return {
         "plates_details": plates_details,
         "bom_details": bom_details,
         "total_plates_count": len(plates_details),
         "total_bom_items_count": total_bom_items_count,
-        "total_print_time_hours": round(total_print_time_hours, 2),
+        "total_print_time_hours": summary_rounded_time,
         "total_filament_weight_g": round(total_filament_weight_g, 2),
         "total_effective_filament_weight_g": round(total_effective_filament_weight_g, 2),
         # Costs breakdown

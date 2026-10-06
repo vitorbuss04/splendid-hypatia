@@ -3449,6 +3449,71 @@ def test_issue_103_threemf_fallbacks_contain_manufacturing_params():
     assert 'bed_type: "Textured PEI"' in content, "Fallback 4 must set default bed_type"
 
 
+def test_issue_108_recalc_live_summary_formats_sub_minute_and_short_times():
+    """Issue #108: recalcLiveSummary in frontend/js/app.js formats short/sub-minute times gracefully without zeroing."""
+    with open("frontend/js/app.js", "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Verify plate time formatting logic
+    assert "plateTotalTime > 0 && plateTotalTime < 0.1" in content
+    assert "<1m (~" in content
+
+    # Verify live-time formatting logic
+    assert "totalTimeHours > 0 && totalTimeHours < 0.1" in content
+    assert "<1 min (~" in content
+
+
+def test_issue_109_find_best_matching_filament_returns_null_when_unmatched():
+    """Issue #109: findBestMatchingFilament must return null when no material matches instead of forcing filaments[0]."""
+    node_test = """
+    const fs = require('fs');
+    const vm = require('vm');
+    const code = fs.readFileSync('frontend/js/app.js', 'utf8');
+
+    // Extract findBestMatchingFilament function definition
+    const context = { window: {}, Math, parseInt, parseFloat, String, Number };
+    vm.createContext(context);
+    
+    // We isolate findBestMatchingFilament
+    const fnMatch = code.match(/function findBestMatchingFilament[\\s\\S]*?\\n\\}/);
+    if (!fnMatch) throw new Error('findBestMatchingFilament not found');
+    vm.runInContext(fnMatch[0], context);
+
+    const inventory = [
+        { id: 1, name: 'PLA Preto - 3D Prime', material: 'PLA', brand: '3D Prime', color: 'Preto', color_hex: '#000000' },
+        { id: 2, name: 'PLA Branco - Creality', material: 'PLA', brand: 'Creality', color: 'Branco', color_hex: '#ffffff' }
+    ];
+
+    // Slicer file asks for TPU (which is NOT in inventory)
+    const result = context.findBestMatchingFilament(inventory, 'Pneu Flexivel', 'Generic TPU', 'TPU', '#000000');
+    if (result !== null) {
+        throw new Error('Expected null when TPU is not in inventory, got: ' + JSON.stringify(result));
+    }
+
+    // Slicer file asks for PLA (which IS in inventory)
+    const resultPLA = context.findBestMatchingFilament(inventory, 'Peça Rígida', 'Generic PLA', 'PLA', '#000000');
+    if (!resultPLA || resultPLA.material !== 'PLA') {
+        throw new Error('Expected PLA match, got: ' + JSON.stringify(resultPLA));
+    }
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_issue_110_plate_notes_input_in_render_plates():
+    """Issue #110: renderPlates in frontend/js/app.js must render input for plate notes and operational instructions."""
+    with open("frontend/js/app.js", "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "Observações / Instruções de Impressão" in content
+    assert "state.currentPlates[${idx}].notes = this.value" in content
+
+
+
+
 
 
 

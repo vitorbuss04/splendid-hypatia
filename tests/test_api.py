@@ -229,7 +229,7 @@ def test_project_complete_lifecycle_and_pdf(client, make_user):
 
     # Duplicate project
     dup_resp = client.post(f"/api/projects/{proj_id}/duplicate", headers=headers)
-    assert dup_resp.status_code == 200
+    assert dup_resp.status_code == 201
     dup_proj = dup_resp.json()
     assert "(Cópia)" in dup_proj["name"]
     assert len(dup_proj["plates"]) == 2
@@ -710,7 +710,7 @@ def test_project_zero_tax_rate_and_preservation(client, make_user):
 
     # 4. Duplicate project: ensure tax_rate_percent = 0.0 and delivery_days = 5 are preserved
     dup_resp = client.post(f"/api/projects/{proj_id}/duplicate", headers=headers)
-    assert dup_resp.status_code == 200
+    assert dup_resp.status_code == 201
     dup_data = dup_resp.json()
     assert dup_data["tax_rate_percent"] == 0.0
     assert dup_data["delivery_days"] == 5
@@ -837,7 +837,7 @@ def test_project_payment_and_warranty_terms_and_pdf(client, make_user):
 
     # 4. Duplicate project preserves custom terms
     dup_res = client.post(f"/api/projects/{proj_id}/duplicate", headers=headers)
-    assert dup_res.status_code == 200
+    assert dup_res.status_code == 201
     dup_data = dup_res.json()
     assert dup_data["payment_terms"] == "100% antecipado via PIX com 5% de desconto"
     assert dup_data["warranty_terms"] == "Garantia estendida de 90 dias com reposição imediata"
@@ -982,7 +982,7 @@ def test_project_delivery_days_zero_and_pdf_terms(client, make_user):
 
     # 4. Duplicate project: ensure delivery_days = 0 is preserved
     dup_resp = client.post(f"/api/projects/{proj_id}/duplicate", headers=headers)
-    assert dup_resp.status_code == 200
+    assert dup_resp.status_code == 201
     assert dup_resp.json()["delivery_days"] == 0
 
     # 5. PDF generation should format delivery phrase for 0 days
@@ -1745,7 +1745,7 @@ def test_duplicate_project_preserves_manufacturing_parameters_issue_72(client, m
 
     # 2. Duplicate project
     dup_res = client.post(f"/api/projects/{orig_id}/duplicate", headers=headers)
-    assert dup_res.status_code == 200
+    assert dup_res.status_code == 201
     dup_data = dup_res.json()
     assert len(dup_data["plates"]) == 1
     dup_plate = dup_data["plates"][0]
@@ -1902,6 +1902,172 @@ def test_pdf_technical_demonstrative_discount_and_freight_issue_104(client, make
     pdf_bytes = buf.getvalue()
     assert pdf_bytes.startswith(b"%PDF")
     assert len(pdf_bytes) > 1000
+
+
+def test_issue_105_engine_preserves_sub_minute_print_hours():
+    """Issue #105: engine.py must preserve 4 decimal places for sub-minute prints without truncating to 0.0."""
+    from backend.engine import calculate_plate_cost, calculate_project_summary
+
+    sub_minute_plate = {
+        "id": 1,
+        "name": "Torre de Calibração 15s",
+        "print_time_hours": 0.0042,
+        "part_weight_g": 1.5,
+        "purge_weight_g": 0.0,
+        "failure_margin_percent": 10.0,
+        "quantity": 1,
+        "custom_printer_hourly_rate": 2.50,
+        "custom_filament_cost_per_g": 0.10,
+    }
+
+    cost = calculate_plate_cost(sub_minute_plate)
+    assert cost["unit_print_time_hours"] == 0.0042, f"Expected 0.0042, got {cost['unit_print_time_hours']}"
+    assert cost["total_time_hours"] == 0.0042, f"Expected 0.0042, got {cost['total_time_hours']}"
+
+    summary = calculate_project_summary(
+        project={"cad_hours": 0.0, "post_process_hours": 0.0, "overhead_cost": 0.0},
+        plates=[sub_minute_plate],
+        bom_items=[]
+    )
+    assert summary["total_print_time_hours"] == 0.0042, f"Expected summary total_print_time_hours to be 0.0042, got {summary['total_print_time_hours']}"
+
+
+def test_issue_106_pdf_format_hours_short_and_sub_minute_prints():
+    """Issue #106: PDF generator must format short and sub-minute print times gracefully without displaying 0.0 h."""
+    from backend.pdf_service import format_pdf_hours, build_pdf_document
+
+    assert format_pdf_hours(0.0) == "0.0 h"
+    assert format_pdf_hours(0.0042) == "&lt;1 min (~15s)"
+    assert format_pdf_hours(0.05) == "3 min"
+    assert format_pdf_hours(2.5) == "2.5 h"
+
+    # Verify both client and technical PDFs generate successfully for sub-minute plate
+    proj_data = {
+        "id": 99,
+        "name": "Projeto Calibração",
+        "client_name": "Lab Test",
+        "status": "approved",
+        "suggested_price": 25.0,
+        "discount_amount": 0.0,
+        "shipping_cost": 0.0,
+        "final_price_to_client": 25.0,
+        "total_print_time_hours": 0.0042,
+        "plates": [{
+            "name": "Cubo 15s",
+            "unit_print_time_hours": 0.0042,
+            "total_time_hours": 0.0042,
+            "part_weight_g": 1.2,
+            "purge_weight_g": 0.0,
+            "quantity": 1,
+            "filament_material": "PLA",
+            "printer_name": "P1S",
+            "nozzle_diameter": "0.4",
+            "bed_type": "Textured PEI",
+            "layer_height": "0.20",
+        }],
+        "bom_items": [],
+        "summary": {
+            "total_print_time_hours": 0.0042,
+            "suggested_price": 25.0,
+            "final_price_to_client": 25.0,
+            "base_cost": 5.0,
+            "profit_margin_percent": 30.0,
+            "tax_rate_percent": 6.0,
+            "discount_percent": 0.0,
+            "discount_amount": 0.0,
+            "shipping_cost": 0.0,
+            "tax_amount": 1.5,
+            "net_revenue": 23.5,
+            "net_profit": 18.5,
+            "effective_profit_margin_percent": 370.0,
+        }
+    }
+    user_data = {"company_name": "Maker Corp", "email": "maker@corp.com"}
+
+    client_pdf = build_pdf_document(proj_data, user_data, doc_type="client").getvalue()
+    assert client_pdf.startswith(b"%PDF")
+
+    tech_pdf = build_pdf_document(proj_data, user_data, doc_type="technical").getvalue()
+    assert tech_pdf.startswith(b"%PDF")
+
+
+def test_issue_111_duplicate_project_status_code_201_created(client, make_user):
+    """Issue #111: POST /api/projects/{id}/duplicate must return HTTP 201 Created."""
+    user = make_user("dup_proj_test@example.com")
+    headers = user["headers"]
+
+    # 1. Create project
+    create_resp = client.post("/api/projects", json={
+        "name": "Projeto Original",
+        "plates": [{
+            "name": "Placa 1",
+            "print_time_hours": 1.0,
+            "part_weight_g": 20.0,
+            "quantity": 1
+        }]
+    }, headers=headers)
+    assert create_resp.status_code == 201
+    proj_id = create_resp.json()["id"]
+
+    # 2. Duplicate project
+    dup_resp = client.post(f"/api/projects/{proj_id}/duplicate", headers=headers)
+    assert dup_resp.status_code == 201, f"Expected 201 Created, got {dup_resp.status_code}"
+    dup_data = dup_resp.json()
+    assert dup_data["name"] == "Projeto Original (Cópia)"
+    assert dup_data["id"] != proj_id
+
+
+def test_issue_110_pdf_technical_renders_plate_notes():
+    """Issue #110: Technical PDF must include plate operational notes in setup description."""
+    from backend.pdf_service import build_pdf_document
+
+    proj_data = {
+        "id": 101,
+        "name": "Projeto com Notas",
+        "client_name": "Cliente Fab",
+        "status": "approved",
+        "suggested_price": 50.0,
+        "discount_amount": 0.0,
+        "shipping_cost": 0.0,
+        "final_price_to_client": 50.0,
+        "total_print_time_hours": 2.0,
+        "plates": [{
+            "name": "Placa A",
+            "unit_print_time_hours": 2.0,
+            "total_time_hours": 2.0,
+            "part_weight_g": 30.0,
+            "purge_weight_g": 0.0,
+            "quantity": 1,
+            "filament_material": "PETG",
+            "printer_name": "Ender 3",
+            "nozzle_diameter": "0.4",
+            "bed_type": "Textured PEI",
+            "layer_height": "0.20",
+            "notes": "Pausa na camada 45 para inserir porca M3",
+        }],
+        "bom_items": [],
+        "summary": {
+            "total_print_time_hours": 2.0,
+            "suggested_price": 50.0,
+            "final_price_to_client": 50.0,
+            "base_cost": 20.0,
+            "profit_margin_percent": 30.0,
+            "tax_rate_percent": 6.0,
+            "discount_percent": 0.0,
+            "discount_amount": 0.0,
+            "shipping_cost": 0.0,
+            "tax_amount": 3.0,
+            "net_revenue": 47.0,
+            "net_profit": 27.0,
+            "effective_profit_margin_percent": 135.0,
+        }
+    }
+    user_data = {"company_name": "Fab Tech", "email": "fab@tech.com"}
+    pdf_bytes = build_pdf_document(proj_data, user_data, doc_type="technical").getvalue()
+    assert pdf_bytes.startswith(b"%PDF")
+    assert len(pdf_bytes) > 1000
+
+
 
 
 

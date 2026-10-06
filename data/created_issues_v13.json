@@ -1,0 +1,17 @@
+[
+  {
+    "number": 109,
+    "title": "[BUG/SLICER] findBestMatchingFilament força arbitrariamente o primeiro filamento do estoque quando não há correspondência de material, causando precificação incorreta de materiais técnicos (ex: TPU, Nylon, ABS)",
+    "url": "https://github.com/vitorbuss04/splendid-hypatia/issues/109"
+  },
+  {
+    "number": 110,
+    "title": "[UX/FEAT] Card de placa no editor de orçamentos e Ficha Técnica (PDF) omitem observações e instruções operacionais da placa (plate.notes)",
+    "url": "https://github.com/vitorbuss04/splendid-hypatia/issues/110"
+  },
+  {
+    "number": 111,
+    "title": "[API/PADRÃO] Endpoint POST /api/projects/{id}/duplicate retorna status HTTP 200 OK em vez de HTTP 201 Created divergindo dos endpoints de duplicação de impressoras e filamentos",
+    "url": "https://github.com/vitorbuss04/splendid-hypatia/issues/111"
+  }
+]

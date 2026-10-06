@@ -132,8 +132,11 @@ function parseGcodeMetadata(gcodeText, fileName = '') {
 
         // 2. Match Filament Weight
         // Prusa / SuperSlicer / Bambu: ; filament used [g] = 45.2 or ; total filament used [g] = 45.2
+        // Safely extract only values after assignment operator to prevent capturing slot/tool indices (e.g. ; filament used [g] [0] = 45.2)
         if (lower.includes('filament used [g]') || lower.includes('filament used [grams]')) {
-            const numbers = line.match(/[0-9]+(?:\.[0-9]+)?/g);
+            const sepIdx = Math.max(line.lastIndexOf('='), line.lastIndexOf(':'));
+            const valPart = sepIdx !== -1 ? line.slice(sepIdx + 1) : line;
+            const numbers = valPart.match(/[0-9]+(?:\.[0-9]+)?/g);
             if (numbers && numbers.length > 0) {
                 const totalG = numbers.reduce((acc, n) => acc + (parseFloat(n) || 0), 0);
                 if (totalG > 0) filamentGrams = totalG;

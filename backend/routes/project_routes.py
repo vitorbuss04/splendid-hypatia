@@ -407,7 +407,7 @@ def delete_project(
     db.commit()
     return None
 
-@router.post("/{project_id}/duplicate", response_model=schemas.ProjectResponse)
+@router.post("/{project_id}/duplicate", response_model=schemas.ProjectResponse, status_code=status.HTTP_201_CREATED)
 def duplicate_project(
     project_id: int,
     current_user: models.User = Depends(get_current_user),
