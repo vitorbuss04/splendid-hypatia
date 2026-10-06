@@ -1,0 +1,173 @@
+{
+  "tests": [
+    {
+      "name": "Auth Registration",
+      "passed": true,
+      "details": {
+        "email": "audit9_1791256613250@test.com"
+      }
+    },
+    {
+      "name": "Duplicate Project Preserves Plate Manufacturing Setup",
+      "passed": false,
+      "details": {
+        "expected": {
+          "nozzle": "0.6",
+          "bed": "Smooth PEI",
+          "layer": "0.12"
+        },
+        "actual": {
+          "nozzle": "0.4",
+          "bed": "Textured PEI",
+          "layer": "0.20"
+        }
+      }
+    },
+    {
+      "name": "Engine calculate_plate_cost Includes Plate MFG Parameters in Summary",
+      "passed": false,
+      "details": {}
+    },
+    {
+      "name": "openNewProject Prepopulates Commercial Terms from Preferences",
+      "passed": false,
+      "details": {
+        "paymentVal": "",
+        "warrantyVal": "",
+        "expectedPayment": "50% entrada e 50% na entrega via PIX"
+      }
+    },
+    {
+      "name": "deleteProject / Current Project Cache Invalidation",
+      "passed": false,
+      "details": {
+        "loadedIdBeforeDelete": 4,
+        "currentProjectIdAfterDelete": 4
+      }
+    },
+    {
+      "name": "BOM Item Name HTML Attribute Safety and Escaping",
+      "passed": true,
+      "details": {
+        "rawInputValue": "Parafuso M3 \"Inox\" & Suporte <Aço> 'Especial'",
+        "expected": "Parafuso M3 \"Inox\" & Suporte <Aço> 'Especial'"
+      }
+    },
+    {
+      "name": "Filament Grid Card Displays Polymer Density",
+      "passed": false,
+      "details": {
+        "hasDensityDisplay": false
+      }
+    },
+    {
+      "name": "Filament Cost Per Gram Brazilian Currency Format Consistency",
+      "passed": true,
+      "details": {
+        "hasDotNotation": false
+      }
+    },
+    {
+      "name": "Duplicate Filament Preserves Color or Provides Default",
+      "passed": false,
+      "details": {
+        "colorVal": "",
+        "originalColor": "Preto"
+      }
+    },
+    {
+      "name": "Printer Modal Client-Side Name Validation",
+      "passed": false,
+      "details": {
+        "hasClientValidation": false
+      }
+    }
+  ],
+  "issues": [
+    {
+      "id": "BUG-PROJECT-DUPLICATE-DROPS-MFG-PARAMS",
+      "title": "[BUG/OPERACIONAL] Duplicação de Projeto descarta parâmetros de manufatura das placas (nozzle_diameter, bed_type, layer_height) resetando para os padrões",
+      "category": "backend",
+      "severity": "high",
+      "details": {
+        "file": "backend/routes/project_routes.py:448-463",
+        "orig": {
+          "nozzle": "0.6",
+          "bed": "Smooth PEI",
+          "layer": "0.12"
+        },
+        "dup": {
+          "nozzle": "0.4",
+          "bed": "Textured PEI",
+          "layer": "0.20"
+        },
+        "explanation": "O loop de duplicação em duplicate_project instancia models.Plate omitindo nozzle_diameter, bed_type e layer_height, resetando o setup da oficina para os padrões (0.4 / Textured PEI / 0.20)."
+      }
+    },
+    {
+      "id": "BUG-ENGINE-PLATE-MFG-PARAMS-OMITTED",
+      "title": "[BUG/ENGINE] calculate_plate_cost omite nozzle_diameter, bed_type e layer_height nos detalhes da placa fazendo a Ficha Técnica de Produção exibir dados hardcoded",
+      "category": "backend",
+      "severity": "high",
+      "details": {
+        "file": "backend/engine.py:120-145 & backend/pdf_service.py:441-448",
+        "receivedInSummary": {},
+        "explanation": "A função calculate_plate_cost em engine.py omite nozzle_diameter, bed_type e layer_height do dicionário retornado, resultando em valores None em plates_details. Consequentemente, pdf_service.py sempre aplica os valores de fallback 0.4mm, Textured PEI e 0.20mm na Ficha Técnica de Produção."
+      }
+    },
+    {
+      "id": "UX-OPEN-NEW-PROJECT-TERMS-BLANK",
+      "title": "[UX/BUG] Criação de Novo Orçamento (openNewProject) zera Condições de Pagamento e Garantia em vez de carregar os padrões das preferências da oficina",
+      "category": "ux",
+      "severity": "medium",
+      "details": {
+        "file": "frontend/js/app.js:1512-1513",
+        "actualPaymentTerms": "",
+        "actualWarrantyTerms": "",
+        "expectedPaymentTerms": "50% entrada e 50% na entrega via PIX",
+        "explanation": "openNewProject carrega corretamente taxas padrão de CAD, pós-processamento, margem e impostos do usuário, porém força proj-payment-terms e proj-warranty-terms para string vazia (\"\"), ignorando default_payment_terms e default_warranty_terms configurados nas preferências."
+      }
+    },
+    {
+      "id": "UX-DELETE-PROJECT-STALE-CURRENT-PROJECT",
+      "title": "[UX/BUG] Exclusão de projeto não limpa state.currentProject permitindo tentativa de salvamento de registro inexistente com erro HTTP 404",
+      "category": "ux",
+      "severity": "medium",
+      "details": {
+        "file": "frontend/js/app.js:2329-2343",
+        "staleProjectId": 4,
+        "explanation": "A função deleteProject exclui o projeto via API e atualiza as listagens, mas se o projeto excluído estiver carregado no editor (state.currentProject), o estado em memória não é resetado, fazendo com que uma ação de salvar no editor envie PUT para um ID inexistente e dispare toast de erro 404."
+      }
+    },
+    {
+      "id": "UX-FILAMENT-GRID-MISSING-DENSITY",
+      "title": "[UX/FEAT] Card de Filamento na listagem da oficina omite a exibição da densidade do material (g/cm³)",
+      "category": "ux",
+      "severity": "low",
+      "details": {
+        "file": "frontend/js/app.js:3228-3230",
+        "explanation": "Apesar de a densidade do material (density_g_cm3) estar persistida no backend e ser crucial para a física e custos da manufatura aditiva, o rodapé do card de filamentos exibe apenas o peso do carretel e o preço, omitindo o valor da densidade."
+      }
+    },
+    {
+      "id": "UX-DUPLICATE-FILAMENT-CLEARS-COLOR",
+      "title": "[UX/BUG] Ação de duplicar filamento zera o campo de cor forçando preenchimento manual obrigatório",
+      "category": "ux",
+      "severity": "low",
+      "details": {
+        "file": "frontend/js/app.js:2991",
+        "explanation": "Ao duplicar um filamento, openFilamentModal define document.getElementById(\"filament-color\").value = \"\", deixando o campo em branco. Como handleSaveFilament exige cor preenchida, o usuário é impedido de salvar uma cópia direta sem digitar uma cor novamente."
+      }
+    },
+    {
+      "id": "UX-PRINTER-MODAL-MISSING-CLIENT-VALIDATION",
+      "title": "[UX/BUG] Formulário de impressora não valida nome obrigatório no frontend antes de submeter requisição à API",
+      "category": "ux",
+      "severity": "low",
+      "details": {
+        "file": "frontend/js/app.js:2728-2745",
+        "explanation": "Enquanto o cadastro de filamento e o editor de orçamentos validam campos obrigatórios no cliente antes do envio, handleSavePrinter envia o payload diretamente para a API, dependendo do erro HTTP 422 para alertar o usuário."
+      }
+    }
+  ]
+}
