@@ -2602,6 +2602,9 @@ async function handleSinglePlateFile(e, plateIdx) {
                 state.currentPlates[plateIdx].part_weight_g = plates[0].part_weight_g;
                 state.currentPlates[plateIdx].purge_weight_g = plates[0].purge_weight_g;
                 state.currentPlates[plateIdx].slicer_filament_profile = cleanFilamentProfileName(plates[0].slicer_filament_profile, file.name) || null;
+                if (plates[0].nozzle_diameter) state.currentPlates[plateIdx].nozzle_diameter = plates[0].nozzle_diameter;
+                if (plates[0].layer_height) state.currentPlates[plateIdx].layer_height = plates[0].layer_height;
+                if (plates[0].bed_type) state.currentPlates[plateIdx].bed_type = plates[0].bed_type;
 
                 const matchedFilament = (typeof findBestMatchingFilament === 'function')
                     ? findBestMatchingFilament(
@@ -2677,6 +2680,9 @@ async function handleSinglePlateFile(e, plateIdx) {
             state.currentPlates[plateIdx].part_weight_g = meta.part_weight_g;
             state.currentPlates[plateIdx].purge_weight_g = 0;
             state.currentPlates[plateIdx].slicer_filament_profile = cleanFilamentProfileName(meta.slicer_filament_profile, file.name) || null;
+            if (meta.nozzle_diameter) state.currentPlates[plateIdx].nozzle_diameter = meta.nozzle_diameter;
+            if (meta.layer_height) state.currentPlates[plateIdx].layer_height = meta.layer_height;
+            if (meta.bed_type) state.currentPlates[plateIdx].bed_type = meta.bed_type;
 
             const matchedFilament = (typeof findBestMatchingFilament === 'function')
                 ? findBestMatchingFilament(
@@ -2788,14 +2794,50 @@ async function handleSavePrinter(e) {
         document.getElementById('printer-name')?.focus();
         return;
     }
+
+    const lifespanHours = parseLocaleFloat(document.getElementById('printer-lifespan').value, 5000);
+    if (isNaN(lifespanHours) || lifespanHours <= 0) {
+        showToast('A vida útil estimada da impressora deve ser maior que zero.', 'error');
+        document.getElementById('printer-lifespan')?.focus();
+        return;
+    }
+
+    const acquisitionCost = parseLocaleFloat(document.getElementById('printer-cost').value, 0);
+    if (isNaN(acquisitionCost) || acquisitionCost < 0) {
+        showToast('O custo de aquisição da impressora não pode ser negativo.', 'error');
+        document.getElementById('printer-cost')?.focus();
+        return;
+    }
+
+    const powerWatts = parseLocaleFloat(document.getElementById('printer-power').value, 150);
+    if (isNaN(powerWatts) || powerWatts < 0) {
+        showToast('A potência média não pode ser negativa.', 'error');
+        document.getElementById('printer-power')?.focus();
+        return;
+    }
+
+    const maintenanceCost = parseLocaleFloat(document.getElementById('printer-maintenance').value, 1.0);
+    if (isNaN(maintenanceCost) || maintenanceCost < 0) {
+        showToast('A taxa de manutenção não pode ser negativa.', 'error');
+        document.getElementById('printer-maintenance')?.focus();
+        return;
+    }
+
+    const energyRate = parseLocaleFloat(document.getElementById('printer-energy').value, 0.85);
+    if (isNaN(energyRate) || energyRate < 0) {
+        showToast('A tarifa de energia elétrica não pode ser negativa.', 'error');
+        document.getElementById('printer-energy')?.focus();
+        return;
+    }
+
     const payload = {
         name,
         model: document.getElementById('printer-model').value.trim(),
-        acquisition_cost: parseLocaleFloat(document.getElementById('printer-cost').value, 0),
-        lifespan_hours: parseLocaleFloat(document.getElementById('printer-lifespan').value, 5000),
-        avg_power_watts: parseLocaleFloat(document.getElementById('printer-power').value, 150),
-        maintenance_cost_per_hour: parseLocaleFloat(document.getElementById('printer-maintenance').value, 1.0),
-        energy_rate_kwh: parseLocaleFloat(document.getElementById('printer-energy').value, 0.85),
+        acquisition_cost: acquisitionCost,
+        lifespan_hours: lifespanHours,
+        avg_power_watts: powerWatts,
+        maintenance_cost_per_hour: maintenanceCost,
+        energy_rate_kwh: energyRate,
     };
     const activeEl = document.getElementById('printer-active');
     if (activeEl) {
@@ -3340,17 +3382,55 @@ function populateSettingsForm() {
 async function handleSavePreferences(e) {
     e.preventDefault();
     normalizeNumericInputs();
+
+    const energyRate = parseLocaleFloat(document.getElementById('pref-energy').value, 0.85);
+    if (isNaN(energyRate) || energyRate < 0) {
+        showToast('A tarifa de energia padrão não pode ser negativa.', 'error');
+        document.getElementById('pref-energy')?.focus();
+        return;
+    }
+    const profitMargin = parseLocaleFloat(document.getElementById('pref-margin').value, 30);
+    if (isNaN(profitMargin) || profitMargin < 0) {
+        showToast('A margem de lucro padrão não pode ser negativa.', 'error');
+        document.getElementById('pref-margin')?.focus();
+        return;
+    }
+    const taxRate = parseLocaleFloat(document.getElementById('pref-tax').value, 6);
+    if (isNaN(taxRate) || taxRate < 0 || taxRate >= 100) {
+        showToast('A alíquota de impostos padrão deve estar entre 0% e 99%.', 'error');
+        document.getElementById('pref-tax')?.focus();
+        return;
+    }
+    const failureRate = parseLocaleFloat(document.getElementById('pref-failure').value, 10);
+    if (isNaN(failureRate) || failureRate < 0) {
+        showToast('A taxa de perda padrão não pode ser negativa.', 'error');
+        document.getElementById('pref-failure')?.focus();
+        return;
+    }
+    const cadRate = parseLocaleFloat(document.getElementById('pref-cad-rate').value, 50);
+    if (isNaN(cadRate) || cadRate < 0) {
+        showToast('A taxa horária CAD padrão não pode ser negativa.', 'error');
+        document.getElementById('pref-cad-rate')?.focus();
+        return;
+    }
+    const postRate = parseLocaleFloat(document.getElementById('pref-post-rate').value, 30);
+    if (isNaN(postRate) || postRate < 0) {
+        showToast('A taxa de pós-processamento padrão não pode ser negativa.', 'error');
+        document.getElementById('pref-post-rate')?.focus();
+        return;
+    }
+
     const payload = {
         company_name: document.getElementById('pref-company').value.trim(),
         full_name: document.getElementById('pref-fullname').value.trim(),
         phone: document.getElementById('pref-phone').value.trim(),
         pix_key: document.getElementById('pref-pix').value.trim(),
-        default_energy_rate: parseLocaleFloat(document.getElementById('pref-energy').value, 0.85),
-        default_profit_margin: parseLocaleFloat(document.getElementById('pref-margin').value, 30),
-        default_tax_rate: parseLocaleFloat(document.getElementById('pref-tax').value, 6),
-        default_failure_rate: parseLocaleFloat(document.getElementById('pref-failure').value, 10),
-        default_cad_rate: parseLocaleFloat(document.getElementById('pref-cad-rate').value, 50),
-        default_post_rate: parseLocaleFloat(document.getElementById('pref-post-rate').value, 30),
+        default_energy_rate: energyRate,
+        default_profit_margin: profitMargin,
+        default_tax_rate: taxRate,
+        default_failure_rate: failureRate,
+        default_cad_rate: cadRate,
+        default_post_rate: postRate,
         default_payment_terms: document.getElementById('pref-payment-terms')?.value.trim() || null,
         default_warranty_terms: document.getElementById('pref-warranty-terms')?.value.trim() || null,
     };

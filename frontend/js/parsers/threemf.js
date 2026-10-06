@@ -214,6 +214,8 @@ async function parse3mfMetadata(file) {
                 // Filament elements inside plate
                 const filamentNodes = node.querySelectorAll("filament");
                 let totalFilamentGrams = 0;
+                let filamentFlushSum = 0;
+                const hasMetadataPurge = purgeGrams > 0;
                 const filamentTypes = [];
                 filamentNodes.forEach((f) => {
                     let usedG = parseFloat(f.getAttribute("used_g") || f.getAttribute("weight") || f.getAttribute("used_weight") || "0") || 0;
@@ -240,10 +242,14 @@ async function parse3mfMetadata(file) {
                     if (fColor && !plateFilamentColorHex) plateFilamentColorHex = fColor;
 
                     totalFilamentGrams += usedG;
-                    if (flushG > 0 && purgeGrams === 0) {
-                        purgeGrams += flushG;
+                    if (flushG > 0) {
+                        filamentFlushSum += flushG;
                     }
                 });
+
+                if (!hasMetadataPurge && filamentFlushSum > 0) {
+                    purgeGrams = filamentFlushSum;
+                }
 
                 if (filamentTypes.length > 0) {
                     filamentType = filamentTypes.join(", ");
@@ -272,10 +278,15 @@ async function parse3mfMetadata(file) {
                     finalName = `Placa ${index}`;
                 }
 
+                let roundedHours = parseFloat(printTimeHours.toFixed(2));
+                if (roundedHours === 0 && printTimeHours > 0) {
+                    roundedHours = parseFloat(printTimeHours.toFixed(4));
+                }
+
                 plates.push({
                     name: finalName,
                     plate_index: index,
-                    print_time_hours: parseFloat(printTimeHours.toFixed(2)),
+                    print_time_hours: roundedHours,
                     part_weight_g: parseFloat(totalWeight.toFixed(2)),
                     purge_weight_g: parseFloat(purgeGrams.toFixed(2)),
                     filament_type: filamentType,
@@ -455,10 +466,16 @@ async function parse3mfMetadata(file) {
             const secs = timeMatch ? parseFloat(timeMatch[1]) : 0;
             const weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
 
+            const printTimeHours = secs > 0 ? (secs / 3600) : 0;
+            let roundedHours = parseFloat(printTimeHours.toFixed(2));
+            if (roundedHours === 0 && printTimeHours > 0) {
+                roundedHours = parseFloat(printTimeHours.toFixed(4));
+            }
+
             const fallbackName = cleanFileName || "Placa 1";
             plates.push({
                 name: fallbackName,
-                print_time_hours: parseFloat((secs / 3600).toFixed(2)),
+                print_time_hours: roundedHours,
                 part_weight_g: parseFloat(weight.toFixed(2)),
                 purge_weight_g: 0.0,
                 filament_type: "PLA",

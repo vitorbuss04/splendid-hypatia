@@ -3337,6 +3337,38 @@ def test_issues_59_through_71_frontend_verification():
         throw new Error('gcode.js does not provide toFixed(4) fallback for short calibration prints');
     }
 
+    // Test 3MF parser preserves precision for quick calibration prints
+    if (!threemfJs.includes('roundedHours = parseFloat(printTimeHours.toFixed(4));')) {
+        throw new Error('threemf.js does not provide toFixed(4) fallback for short calibration prints');
+    }
+
+    // Test printer form validates strictly positive lifespan in frontend
+    if (!appJs.includes("lifespanHours <= 0") || !appJs.includes("A vida útil estimada da impressora deve ser maior que zero.")) {
+        throw new Error('handleSavePrinter does not validate strictly positive lifespan');
+    }
+
+    // Test Issue #95: handleSinglePlateFile assigns nozzle_diameter, layer_height and bed_type
+    if (!appJs.includes("if (plates[0].nozzle_diameter) state.currentPlates[plateIdx].nozzle_diameter = plates[0].nozzle_diameter;") ||
+        !appJs.includes("if (meta.nozzle_diameter) state.currentPlates[plateIdx].nozzle_diameter = meta.nozzle_diameter;")) {
+        throw new Error('handleSinglePlateFile does not assign nozzle_diameter, layer_height and bed_type');
+    }
+
+    // Test Issue #97: threemf.js sums purge weight across all filaments
+    if (!threemfJs.includes("filamentFlushSum += flushG;") || !threemfJs.includes("purgeGrams = filamentFlushSum;")) {
+        throw new Error('threemf.js does not accumulate flushG across all filaments');
+    }
+
+    // Test Issue #98: pdf_service.py renders BOM notes in client quote and technical sheet
+    const pdfServicePy = fs.readFileSync('backend/pdf_service.py', 'utf8');
+    if (!pdfServicePy.includes('safe_notes = html.escape(notes_txt)')) {
+        throw new Error('pdf_service.py does not render BOM notes');
+    }
+
+    // Test Issue #101: pdf_service.py handles empty plates in technical sheet
+    if (!pdfServicePy.includes('Nenhuma peça impressa configurada')) {
+        throw new Error('pdf_service.py does not render fallback row for empty plates in technical sheet');
+    }
+
     console.log(JSON.stringify({ success: true }));
     """
     res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")

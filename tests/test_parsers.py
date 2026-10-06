@@ -571,6 +571,8 @@ def python_parse_3mf(data: bytes, filename: str = None):
                         plate_custom_name = plate.get(attr_k).strip()
                         break
 
+            has_metadata_purge = purge_g > 0
+            filament_flush_sum = 0.0
             total_fil_g = 0.0
             for f in plate.findall("filament"):
                 t = f.get("type")
@@ -607,8 +609,11 @@ def python_parse_3mf(data: bytes, filename: str = None):
                         except ValueError:
                             pass
                 total_fil_g += used_g
-                if flush_g > 0 and purge_g == 0:
-                    purge_g += flush_g
+                if flush_g > 0:
+                    filament_flush_sum += flush_g
+
+            if not has_metadata_purge and filament_flush_sum > 0:
+                purge_g = filament_flush_sum
 
             part_weight = weight_g
             if total_fil_g > 0:
@@ -633,9 +638,14 @@ def python_parse_3mf(data: bytes, filename: str = None):
             else:
                 final_name = f"Placa {idx + 1}"
 
+            print_time_hours = prediction_secs / 3600.0 if prediction_secs > 0 else 0.0
+            rounded_hours = round(print_time_hours, 2)
+            if rounded_hours == 0.0 and print_time_hours > 0:
+                rounded_hours = round(print_time_hours, 4)
+
             plates.append({
                 "name": final_name,
-                "print_time_hours": round(prediction_secs / 3600.0, 2),
+                "print_time_hours": rounded_hours,
                 "part_weight_g": round(part_weight, 2),
                 "purge_weight_g": round(purge_g, 2),
                 "filament_type": ", ".join(fil_types) if fil_types else "PLA",
@@ -1257,6 +1267,60 @@ def test_gcode_sub_minute_calibration_print_hours():
     assert res["print_time_hours"] > 0.0
     assert res["print_time_hours"] == 0.0042
     assert res["part_weight_g"] == 0.45
+
+
+def test_3mf_sub_minute_calibration_print_hours():
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        xml = """<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <plate>
+    <metadata key="index" value="1"/>
+    <metadata key="prediction" value="15"/>
+    <metadata key="weight" value="0.45"/>
+    <filament id="1" type="PLA" used_g="0.45"/>
+  </plate>
+</config>"""
+        zf.writestr("Metadata/slice_info.xml", xml)
+
+    res = python_parse_3mf(buf.getvalue(), filename="teste_rapido.3mf")
+    assert len(res) == 1
+    assert res[0]["print_time_hours"] > 0.0
+    assert res[0]["print_time_hours"] == 0.0042
+    assert res[0]["part_weight_g"] == 0.45
+
+
+def test_3mf_multi_filament_flush_accumulation():
+    # Issue #97: Multi-material flush weight must sum across all filaments
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        xml = """<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <plate>
+    <metadata key="index" value="1"/>
+    <metadata key="prediction" value="7200"/>
+    <metadata key="weight" value="65.0"/>
+    <filament id="1" type="PLA" used_g="20.0" flush_g="5.0"/>
+    <filament id="2" type="PLA" used_g="15.0" flush_g="12.0"/>
+    <filament id="3" type="PLA" used_g="30.0" flush_g="8.0"/>
+  </plate>
+</config>"""
+        zf.writestr("Metadata/slice_info.xml", xml)
+
+    res = python_parse_3mf(buf.getvalue(), filename="multicor.3mf")
+    assert len(res) == 1
+    # Total purge = 5.0 + 12.0 + 8.0 = 25.0
+    assert res[0]["purge_weight_g"] == 25.0
+    # Net part weight = total used (65.0) - total purge (25.0) = 40.0
+    assert res[0]["part_weight_g"] == 40.0
+
+
 
 
 

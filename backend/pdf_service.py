@@ -278,8 +278,13 @@ def build_pdf_document(
             for b in bom_details:
                 b_name = html.escape(str(b.get("name", "Componente")))
                 b_cat = html.escape(str(b.get("category", "Geral")))
+                notes_txt = str(b.get("notes") or "").strip()
+                cell_item = f"<b>{b_name}</b>"
+                if notes_txt:
+                    safe_notes = html.escape(notes_txt)
+                    cell_item += f"<br/><font color='#64748b' size='7'>{safe_notes}</font>"
                 bom_table_data.append([
-                    Paragraph(b_name, style_cell),
+                    Paragraph(cell_item, style_cell),
                     Paragraph(b_cat, style_cell),
                     Paragraph(str(b.get("quantity", 1)), style_cell_right),
                     Paragraph(f"R$ {b.get('subtotal', 0.0):.2f}", style_cell_right),
@@ -438,25 +443,38 @@ def build_pdf_document(
             Paragraph("Tempo Total", style_cell_header_right),
         ]]
 
-        for p in plates_details:
-            mat_name = html.escape(str(extract_clean_material(p)))
-            p_name = html.escape(str(p.get('name', 'Placa')))
-            printer_name = html.escape(str(p.get("printer_name", "Padrão")))
-            nozzle = html.escape(str(p.get('nozzle_diameter') or '0.4'))
-            bed = html.escape(str(p.get('bed_type') or 'Textured PEI'))
-            layer = html.escape(str(p.get('layer_height') or '0.20'))
-            setup_desc = f"{nozzle}mm / {layer}mm<br/><font color='#64748b' size='7'>{bed}</font>"
+        if not plates_details:
             tech_table_data.append([
-                Paragraph(f"<b>{p_name}</b>", style_cell),
-                Paragraph(printer_name, style_cell),
-                Paragraph(mat_name, style_cell),
-                Paragraph(setup_desc, style_cell),
-                Paragraph(f"{p.get('unit_print_time_hours', 0.0):.1f} h", style_cell_right),
-                Paragraph(f"{p.get('part_weight_g', p.get('unit_raw_weight_g', 0.0)):.1f} g", style_cell_right),
-                Paragraph(f"{p.get('purge_weight_g', 0.0):.1f} g", style_cell_right),
-                Paragraph(str(p.get("quantity", 1)), style_cell_right),
-                Paragraph(f"{p.get('total_time_hours', 0.0):.1f} h", style_cell_right),
+                Paragraph("Nenhuma peça impressa configurada", style_cell),
+                Paragraph("—", style_cell),
+                Paragraph("—", style_cell),
+                Paragraph("—", style_cell),
+                Paragraph("—", style_cell_right),
+                Paragraph("—", style_cell_right),
+                Paragraph("—", style_cell_right),
+                Paragraph("0", style_cell_right),
+                Paragraph("—", style_cell_right),
             ])
+        else:
+            for p in plates_details:
+                mat_name = html.escape(str(extract_clean_material(p)))
+                p_name = html.escape(str(p.get('name', 'Placa')))
+                printer_name = html.escape(str(p.get("printer_name", "Padrão")))
+                nozzle = html.escape(str(p.get('nozzle_diameter') or '0.4'))
+                bed = html.escape(str(p.get('bed_type') or 'Textured PEI'))
+                layer = html.escape(str(p.get('layer_height') or '0.20'))
+                setup_desc = f"{nozzle}mm / {layer}mm<br/><font color='#64748b' size='7'>{bed}</font>"
+                tech_table_data.append([
+                    Paragraph(f"<b>{p_name}</b>", style_cell),
+                    Paragraph(printer_name, style_cell),
+                    Paragraph(mat_name, style_cell),
+                    Paragraph(setup_desc, style_cell),
+                    Paragraph(f"{p.get('unit_print_time_hours', 0.0):.1f} h", style_cell_right),
+                    Paragraph(f"{p.get('part_weight_g', p.get('unit_raw_weight_g', 0.0)):.1f} g", style_cell_right),
+                    Paragraph(f"{p.get('purge_weight_g', 0.0):.1f} g", style_cell_right),
+                    Paragraph(str(p.get("quantity", 1)), style_cell_right),
+                    Paragraph(f"{p.get('total_time_hours', 0.0):.1f} h", style_cell_right),
+                ])
 
         tech_table = Table(tech_table_data, colWidths=[28*mm, 24*mm, 22*mm, 32*mm, 15*mm, 15*mm, 14*mm, 12*mm, 20*mm])
         tech_table.setStyle(TableStyle([
@@ -483,8 +501,13 @@ def build_pdf_document(
             for b in bom_details:
                 b_name = html.escape(str(b.get("name", "Item")))
                 b_cat = html.escape(str(b.get("category", "Geral")))
+                notes_txt = str(b.get("notes") or "").strip()
+                cell_item = f"<b>{b_name}</b>"
+                if notes_txt:
+                    safe_notes = html.escape(notes_txt)
+                    cell_item += f"<br/><font color='#64748b' size='7'>{safe_notes}</font>"
                 chk_table_data.append([
-                    Paragraph(b_name, style_cell),
+                    Paragraph(cell_item, style_cell),
                     Paragraph(b_cat, style_cell),
                     Paragraph(str(b.get("quantity", 1)), style_cell_right),
                     Paragraph("[  ] Conferido", style_cell_right),

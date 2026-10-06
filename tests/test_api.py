@@ -1780,6 +1780,81 @@ def test_dashboard_stats_total_filament_kg_includes_failure_margin_issue_80(clie
     assert stats["total_filament_kg"] == 1.1
 
 
+def test_pdf_bom_notes_rendered_issue_98(client, make_user):
+    """Issue #98: BOM notes must be rendered in client quote and technical worksheet PDFs."""
+    import base64
+    import zlib
+
+    user = make_user(email="pdf_bom_notes@example.com")
+    headers = user["headers"]
+
+    res = client.post("/api/projects", json={
+        "name": "Projeto com BOM Notes",
+        "bom_items": [{
+            "name": "Parafuso M3x12",
+            "category": "Fixadores",
+            "quantity": 10,
+            "unit_cost": 0.50,
+            "notes": "Aco Inox 304 Cabeca Abaulada"
+        }]
+    }, headers=headers)
+    assert res.status_code == 201
+    proj_id = res.json()["id"]
+
+    def extract_stream_text(raw_bytes):
+        idx1 = raw_bytes.find(b'stream\n') + len(b'stream\n')
+        idx2 = raw_bytes.find(b'endstream')
+        stream_data = raw_bytes[idx1:idx2].strip()
+        a85 = base64.a85decode(stream_data, adobe=True)
+        return zlib.decompress(a85).decode('latin-1')
+
+    # Client PDF
+    r_client = client.get(f"/api/projects/{proj_id}/pdf?type=client", headers=headers)
+    assert r_client.status_code == 200
+    text_client = extract_stream_text(r_client.content)
+    assert "Aco Inox 304 Cabeca Abaulada" in text_client
+
+    # Technical PDF
+    r_tech = client.get(f"/api/projects/{proj_id}/pdf?type=technical", headers=headers)
+    assert r_tech.status_code == 200
+    text_tech = extract_stream_text(r_tech.content)
+    assert "Aco Inox 304 Cabeca Abaulada" in text_tech
+
+
+def test_pdf_technical_empty_plates_note_issue_101(client, make_user):
+    """Issue #101: Technical PDF must render explanatory row when project has no plates."""
+    import base64
+    import zlib
+
+    user = make_user(email="pdf_empty_plates@example.com")
+    headers = user["headers"]
+
+    res = client.post("/api/projects", json={
+        "name": "Projeto Apenas Servicos",
+        "cad_hours": 3.0,
+        "cad_hourly_rate": 50.0,
+        "bom_items": [{
+            "name": "Embalagem",
+            "category": "Embalagem",
+            "quantity": 1,
+            "unit_cost": 5.0
+        }]
+    }, headers=headers)
+    assert res.status_code == 201
+    proj_id = res.json()["id"]
+
+    r_tech = client.get(f"/api/projects/{proj_id}/pdf?type=technical", headers=headers)
+    assert r_tech.status_code == 200
+
+    idx1 = r_tech.content.find(b'stream\n') + len(b'stream\n')
+    idx2 = r_tech.content.find(b'endstream')
+    stream_data = r_tech.content[idx1:idx2].strip()
+    a85 = base64.a85decode(stream_data, adobe=True)
+    text_tech = zlib.decompress(a85).decode('latin-1')
+    assert "Nenhuma pe" in text_tech or "Nenhuma" in text_tech
+
+
+
 
 
 

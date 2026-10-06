@@ -1,0 +1,102 @@
+{
+  "tests": [
+    {
+      "name": "Auth Registration",
+      "passed": true,
+      "details": {
+        "email": "audit11_1791293044854@test.com"
+      }
+    },
+    {
+      "name": "Single Plate Slicer File Hardware Setup Parameters Extraction",
+      "passed": false,
+      "details": {
+        "hasGcodeNozzleAssignment": false,
+        "has3mfNozzleAssignmentOnTargetPlate": false,
+        "omitsHardwareParamsOnSinglePlate": true
+      }
+    },
+    {
+      "name": "3MF Parser Short Print Time Precision",
+      "passed": false,
+      "details": {
+        "hasPrematureFixed2": true,
+        "simulatedHours": 0.004166666666666667,
+        "truncatedFixed2": 0
+      }
+    },
+    {
+      "name": "3MF Parser Multi-Filament Flush Purge Accumulation",
+      "passed": false,
+      "details": {
+        "dropsMultiFilamentFlush": true
+      }
+    },
+    {
+      "name": "Printer Modal Client-Side Numeric Lifespan Validation",
+      "passed": false,
+      "details": {
+        "hasLifespanPositiveCheck": false
+      }
+    },
+    {
+      "name": "Preferences Client-Side Tax Rate Bounds Validation",
+      "passed": false,
+      "details": {
+        "hasTaxBoundsCheck": false
+      }
+    }
+  ],
+  "issues": [
+    {
+      "id": "BUG-SLICER-SINGLE-PLATE-OMITS-HARDWARE-PARAMS",
+      "title": "[BUG/SLICER] Importação individual de arquivo 3MF e G-Code via handleSinglePlateFile descarta diâmetro do bico (nozzle_diameter), altura de camada (layer_height) e tipo de mesa (bed_type)",
+      "category": "frontend",
+      "severity": "high",
+      "details": {
+        "file": "frontend/js/app.js:2586-2705",
+        "explanation": "Enquanto o parser de G-Code (parseGcodeMetadata) e o leitor de 3MF (parse3mfMetadata) extraem com sucesso nozzle_diameter, layer_height e bed_type do fatiador, a função handleSinglePlateFile nunca atribui esses valores a state.currentPlates[plateIdx]. Como resultado, ao importar um arquivo 3MF ou G-Code diretamente em um card de placa existente, os parâmetros de manufatura permanecem inalterados com os padrões genéricos (0.4mm, 0.20mm, Textured PEI), descartando as configurações reais de fatiamento."
+      }
+    },
+    {
+      "id": "BUG-PARSER-3MF-PREMATURE-ROUNDING",
+      "title": "[BUG/PARSER] Leitor de arquivos 3MF (threemf.js) zera o tempo de impressão (print_time_hours = 0) para peças de calibração ou testes rápidos devido a arredondamento prematuro toFixed(2)",
+      "category": "frontend",
+      "severity": "medium",
+      "details": {
+        "file": "frontend/js/parsers/threemf.js:278 e 461",
+        "explanation": "Em threemf.js (linhas 278 e 461), o tempo em horas é calculado com parseFloat(printTimeHours.toFixed(2)) e parseFloat((secs / 3600).toFixed(2)). Para impressões de calibração rápidas (tempo inferior a 18 segundos), o valor em horas é menor que 0.005h e é arredondado para 0.00h, fazendo a placa ser importada com tempo zerado. No leitor de G-Code isso foi corrigido na Issue #87 com fallback toFixed(4), mas o leitor de 3MF permaneceu vulnerável ao arredondamento prematuro."
+      }
+    },
+    {
+      "id": "BUG-PARSER-3MF-MULTI-FILAMENT-PURGE-LOSS",
+      "title": "[BUG/SLICER] Leitor de 3MF (threemf.js) descarta o peso de purga/flush dos filamentos subsequentes em impressões multi-materiais (Bambu AMS)",
+      "category": "frontend",
+      "severity": "high",
+      "details": {
+        "file": "frontend/js/parsers/threemf.js:243-245",
+        "explanation": "Na linha 243 de threemf.js, ao iterar sobre as tags <filament> de uma placa fatiada no Bambu Studio ou OrcaSlicer, a condição if (flushG > 0 && purgeGrams === 0) purgeGrams += flushG; faz com que apenas o primeiro filamento tenha seu flush_g somado. A partir do segundo filamento, purgeGrams já é maior que zero, ignorando completamente o flush de todos os demais carretéis e subestimando expressivamente o custo real de desperdício em peças coloridas."
+      }
+    },
+    {
+      "id": "UX-PRINTER-MODAL-MISSING-NUMERIC-VALIDATION",
+      "title": "[UX/BUG] Modal de impressora não valida vida útil estritamente positiva (lifespan_hours > 0) nem impede valores negativos no frontend antes de submeter requisição à API",
+      "category": "ux",
+      "severity": "medium",
+      "details": {
+        "file": "frontend/js/app.js:2781-2804",
+        "explanation": "Enquanto o modal de filamento foi protegido contra valores zerados ou negativos na Issue #86, handleSavePrinter em app.js valida apenas se o campo nome foi preenchido. Se o operador digitar 0 ou valor negativo na vida útil (printer-lifespan) ou custos, a requisição é disparada diretamente à API, que retorna erro HTTP 422 (Input should be greater than 0) exibido como toast genérico em vez de foco no campo com mensagem amigável."
+      }
+    },
+    {
+      "id": "UX-PREFERENCES-MISSING-TAX-BOUNDS-VALIDATION",
+      "title": "[UX/BUG] Formulário de Preferências da Oficina não valida limites nos campos percentuais (alíquota de impostos até 99% e valores não-negativos) antes de submeter requisição à API",
+      "category": "ux",
+      "severity": "low",
+      "details": {
+        "file": "frontend/js/app.js:3340-3356",
+        "explanation": "Em handleSavePreferences, os valores de default_tax_rate, default_profit_margin e default_failure_rate são convertidos com parseLocaleFloat sem validação de limites ou Math.max(0, Math.min(99, ...)). Como o schema UserPreferencesUpdate no backend exige Field(None, ge=0, le=99.0), valores acima de 99% ou negativos disparam erro HTTP 422 na API."
+      }
+    }
+  ]
+}
