@@ -542,9 +542,21 @@ def build_pdf_document(
             [Paragraph("<b>Custo Base Total:</b>", style_cell_bold), Paragraph(f"<b>R$ {summary.get('base_cost', 0.0):.2f}</b>", style_cell_right)],
             [Paragraph("Margem de Lucro Alvo:", style_cell), Paragraph(f"{summary.get('profit_margin_percent', 0.0):.1f}%", style_cell_right)],
             [Paragraph("Alíquota Impostos / Taxas:", style_cell), Paragraph(f"{summary.get('tax_rate_percent', 0.0):.1f}% (R$ {summary.get('tax_amount', 0.0):.2f})", style_cell_right)],
+        ]
+        if summary.get("discount_amount", 0.0) > 0:
+            cost_breakdown_data.append([
+                Paragraph(f"Desconto Comercial ({summary.get('discount_percent', 0.0):.1f}%):", style_cell),
+                Paragraph(f"- R$ {summary.get('discount_amount', 0.0):.2f}", style_cell_right)
+            ])
+        if summary.get("shipping_cost", 0.0) > 0:
+            cost_breakdown_data.append([
+                Paragraph("Frete / Envio:", style_cell),
+                Paragraph(f"+ R$ {summary.get('shipping_cost', 0.0):.2f}", style_cell_right)
+            ])
+        cost_breakdown_data.extend([
             [Paragraph("<b>Preço Final de Venda Sugerido:</b>", ParagraphStyle("PB", parent=style_cell_bold, textColor=ACCENT)), Paragraph(f"<b>R$ {summary.get('final_price_to_client', 0.0):.2f}</b>", ParagraphStyle("PR", parent=style_cell_right, textColor=ACCENT))],
             [Paragraph("<b>Lucro Líquido Real Estimado:</b>", ParagraphStyle("LB", parent=style_cell_bold, textColor=SUCCESS)), Paragraph(f"<b>R$ {summary.get('net_profit', 0.0):.2f} ({summary.get('effective_profit_margin_percent', 0.0):.1f}%)</b>", ParagraphStyle("LR", parent=style_cell_right, textColor=SUCCESS))],
-        ]
+        ])
         cost_table = Table(cost_breakdown_data, colWidths=[110 * mm, 72 * mm])
         cost_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), BG_LIGHT),

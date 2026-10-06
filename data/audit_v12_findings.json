@@ -1,0 +1,69 @@
+{
+  "tests": [
+    {
+      "name": "Auth Registration & Clean State",
+      "passed": true,
+      "details": {
+        "email": "auditor12_1791312338448@test.com",
+        "printersCount": 0,
+        "filamentsCount": 0,
+        "projectsCount": 0
+      }
+    },
+    {
+      "name": "Plate Sub-Minute Print Time Preservation on Save",
+      "passed": true,
+      "details": {
+        "renderedH": 0,
+        "renderedM": 0,
+        "timeBefore": 0.0042,
+        "timeAfterUpdate": 0.0042,
+        "wipesOutSubMinuteTime": false
+      }
+    },
+    {
+      "name": "3MF Parser Fallbacks Hardware Setup Parameters Completeness",
+      "passed": true,
+      "details": {
+        "hasFallback3Params": true,
+        "hasFallback4Params": true,
+        "omitsFallbackHardwareParams": false
+      }
+    },
+    {
+      "name": "Technical PDF Internal Financial Demonstrative Discount & Freight Completeness",
+      "passed": true,
+      "details": {
+        "projectId": 1,
+        "pdfStatus": 200,
+        "pdfSize": 4410,
+        "discountPercent": 15,
+        "shippingCost": 35
+      }
+    },
+    {
+      "name": "Printer Rate Live Preview Real-Time Recalculation",
+      "passed": true,
+      "details": {
+        "previewVal": "R$ 2,70",
+        "expected": "R$ 2,70/h"
+      }
+    },
+    {
+      "name": "Projects Table Multi-Column Sort Mechanism",
+      "passed": true,
+      "details": {
+        "sortField": "final_price_to_client",
+        "sortAsc": false
+      }
+    },
+    {
+      "name": "Logout Confirmation Safeguard",
+      "passed": true,
+      "details": {
+        "hasConfirmCheck": true
+      }
+    }
+  ],
+  "issues": []
+}

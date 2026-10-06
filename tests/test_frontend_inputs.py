@@ -3376,6 +3376,79 @@ def test_issues_59_through_71_frontend_verification():
     assert "success" in res.stdout
 
 
+def test_issue_102_update_plate_time_preserves_sub_minute():
+    """Issue #102: updatePlateTime must preserve sub-minute durations when inputs are 0h 0m."""
+    import subprocess
+    node_test = r"""
+    const fs = require('fs');
+    const appJs = fs.readFileSync('frontend/js/app.js', 'utf8');
+
+    // Minimal state & DOM mock
+    const dom = {};
+    global.document = {
+        getElementById: (id) => dom[id] || null
+    };
+    global.state = {
+        currentPlates: [
+            { name: "Peça Calibração 15s", print_time_hours: 0.0042 }
+        ]
+    };
+    global.recalcLiveSummary = () => {};
+
+    // Extract updatePlateTime function
+    const fnMatch = appJs.match(/function updatePlateTime\(idx\) \{[\s\S]*?\n\}/);
+    if (!fnMatch) throw new Error("updatePlateTime function not found in app.js");
+    eval(fnMatch[0]);
+
+    // Setup DOM with 0h and 0m inputs (as rendered by Math.round(0.0042 * 60) === 0)
+    dom['plate-time-h-0'] = { value: '0' };
+    dom['plate-time-m-0'] = { value: '0' };
+
+    // 1. Run updatePlateTime(0) - should PRESERVE 0.0042
+    updatePlateTime(0);
+    if (global.state.currentPlates[0].print_time_hours !== 0.0042) {
+        throw new Error(`Expected print_time_hours to be preserved as 0.0042, got: ${global.state.currentPlates[0].print_time_hours}`);
+    }
+
+    // 2. If user explicitly enters 1h 30m, should update to 1.5h
+    dom['plate-time-h-0'].value = '1';
+    dom['plate-time-m-0'].value = '30';
+    updatePlateTime(0);
+    if (global.state.currentPlates[0].print_time_hours !== 1.5) {
+        throw new Error(`Expected print_time_hours to update to 1.5, got: ${global.state.currentPlates[0].print_time_hours}`);
+    }
+
+    // 3. If user now explicitly zeroes out (from 1.5h to 0h 0m), should reset to 0.0
+    dom['plate-time-h-0'].value = '0';
+    dom['plate-time-m-0'].value = '0';
+    updatePlateTime(0);
+    if (global.state.currentPlates[0].print_time_hours !== 0.0) {
+        throw new Error(`Expected print_time_hours to reset to 0.0 from >= 1min, got: ${global.state.currentPlates[0].print_time_hours}`);
+    }
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_issue_103_threemf_fallbacks_contain_manufacturing_params():
+    """Issue #103: threemf.js Fallback 3 and Fallback 4 must include nozzle_diameter, layer_height, and bed_type."""
+    with open("frontend/js/parsers/threemf.js", "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Verify Fallback 3 extracts and sets nozzle, layer, bed
+    assert "nozzle_diameter: nozzle" in content, "Fallback 3 must map nozzle_diameter"
+    assert "layer_height: layerHeight" in content, "Fallback 3 must map layer_height"
+    assert "bed_type: bedType" in content, "Fallback 3 must map bed_type"
+
+    # Verify Fallback 4 defaults
+    assert 'nozzle_diameter: "0.4"' in content, "Fallback 4 must set default nozzle_diameter"
+    assert 'layer_height: "0.20"' in content, "Fallback 4 must set default layer_height"
+    assert 'bed_type: "Textured PEI"' in content, "Fallback 4 must set default bed_type"
+
+
 
 
 

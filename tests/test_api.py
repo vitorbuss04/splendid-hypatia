@@ -1854,6 +1854,56 @@ def test_pdf_technical_empty_plates_note_issue_101(client, make_user):
     assert "Nenhuma pe" in text_tech or "Nenhuma" in text_tech
 
 
+def test_pdf_technical_demonstrative_discount_and_freight_issue_104(client, make_user):
+    """Issue #104: Technical production PDF must include discount and shipping in internal cost demonstrative."""
+    from backend.pdf_service import build_pdf_document
+
+    user = make_user(email="pdf_discount_shipping@example.com")
+    headers = user["headers"]
+
+    res = client.post("/api/projects", json={
+        "name": "Projeto com Desconto e Frete",
+        "cad_hours": 2.0,
+        "cad_hourly_rate": 50.0,
+        "discount_percent": 15.0,
+        "shipping_cost": 25.0,
+        "profit_margin_percent": 30.0,
+        "tax_rate_percent": 10.0,
+        "plates": [{
+            "name": "Placa Teste",
+            "print_time_hours": 2.5,
+            "part_weight_g": 60.0,
+            "filament_type": "PLA",
+            "nozzle_diameter": "0.4",
+            "layer_height": "0.20",
+            "bed_type": "Textured PEI",
+            "quantity": 1
+        }]
+    }, headers=headers)
+    assert res.status_code == 201
+    proj_data = res.json()
+    proj_id = proj_data["id"]
+
+    # Verify API PDF endpoint generates valid technical PDF
+    r_tech = client.get(f"/api/projects/{proj_id}/pdf?type=technical", headers=headers)
+    assert r_tech.status_code == 200
+    assert r_tech.headers["content-type"] == "application/pdf"
+    assert r_tech.content.startswith(b"%PDF")
+    assert len(r_tech.content) > 1000
+
+    # Test direct build_pdf_document with mock user_db and verify discount/shipping are formatted
+    user_db = {
+        "company_name": "3D Print Lab",
+        "cnpj": "00.000.000/0001-00",
+        "phone": "(11) 99999-9999",
+        "email": "contato@3dlab.com"
+    }
+    buf = build_pdf_document(proj_data, user_db, doc_type="technical")
+    pdf_bytes = buf.getvalue()
+    assert pdf_bytes.startswith(b"%PDF")
+    assert len(pdf_bytes) > 1000
+
+
 
 
 

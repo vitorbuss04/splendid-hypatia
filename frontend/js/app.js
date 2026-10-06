@@ -1651,6 +1651,14 @@ function updatePlateTime(idx) {
     }
     const h = Math.max(0, parseInt(hElem?.value, 10) || 0);
     const m = Math.max(0, parseInt(mElem?.value, 10) || 0);
+    const currentHours = state.currentPlates[idx]?.print_time_hours || 0;
+
+    // Se inputs estão zerados mas a placa possui tempo submétrico positivo pré-existente (ex: fatiado < 30s), preservar
+    if (h === 0 && m === 0 && currentHours > 0 && currentHours < (1 / 60)) {
+        recalcLiveSummary();
+        return;
+    }
+
     state.currentPlates[idx].print_time_hours = Number((h + (m / 60)).toFixed(4));
     recalcLiveSummary();
 }
@@ -1684,6 +1692,7 @@ function renderPlates() {
         const totalMin = Math.round((plate.print_time_hours || 0) * 60);
         const timeH = Math.floor(totalMin / 60);
         const timeM = totalMin % 60;
+        const isSubMinute = (plate.print_time_hours || 0) > 0 && totalMin === 0;
         const nozzle = plate.nozzle_diameter || '0.4';
         const bed = plate.bed_type || 'Textured PEI';
         const layer = plate.layer_height || '0.20';
@@ -1801,7 +1810,10 @@ function renderPlates() {
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 plate-grid-aligned">
                     <!-- Print Time Dual Input (Hours & Minutes) -->
                     <div class="col-span-2 plate-field-col">
-                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Tempo (h : min)</label></div>
+                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1">
+                            <label class="text-[10px] font-medium text-slate-400 leading-tight">Tempo (h : min)</label>
+                            ${isSubMinute ? `<span class="text-[9px] text-blue-400 font-medium" title="Tempo fatiado preservado: ~${Math.round((plate.print_time_hours || 0) * 3600)}s">&lt;1 min (~${Math.round((plate.print_time_hours || 0) * 3600)}s)</span>` : ''}
+                        </div>
                         <div class="flex items-center gap-1">
                             <div class="relative flex-1">
                                 <input type="number" min="0" step="1" id="plate-time-h-${idx}" value="${timeH}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full pl-2 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Horas">

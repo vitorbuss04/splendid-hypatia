@@ -1,0 +1,17 @@
+[
+  {
+    "number": 102,
+    "title": "[BUG/CÁLCULO] updatePlateTime zera o tempo de impressão (print_time_hours = 0) de peças de calibração e testes rápidos ao salvar orçamento",
+    "url": "https://github.com/vitorbuss04/splendid-hypatia/issues/102"
+  },
+  {
+    "number": 103,
+    "title": "[BUG/SLICER] Fallbacks de importação de 3MF (arquivos sem slice_info.xml e 3MF não-fatiados) omitem diâmetro do bico (nozzle_diameter), altura de camada (layer_height) e tipo de mesa (bed_type)",
+    "url": "https://github.com/vitorbuss04/splendid-hypatia/issues/103"
+  },
+  {
+    "number": 104,
+    "title": "[UX/PDF] Ficha Técnica de Produção (PDF) omite desconto comercial e frete no Demonstrativo de Custos Internos, gerando divergência entre custo/margem e preço final sugerido",
+    "url": "https://github.com/vitorbuss04/splendid-hypatia/issues/104"
+  }
+]

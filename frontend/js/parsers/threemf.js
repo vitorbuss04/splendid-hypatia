@@ -436,9 +436,9 @@ async function parse3mfMetadata(file) {
                     slicer_filament_profile: cleanFilamentProfileName(meta.slicer_filament_profile || meta.filament_type || null, file ? file.name : '') || null,
                     filament_color_hex: meta.filament_color_hex || null,
                     filament_slot: meta.filament_slot || null,
-                    nozzle_diameter: meta.nozzle_diameter || null,
-                    layer_height: meta.layer_height || null,
-                    bed_type: meta.bed_type || null,
+                    nozzle_diameter: meta.nozzle_diameter || '0.4',
+                    layer_height: meta.layer_height || '0.20',
+                    bed_type: meta.bed_type || 'Textured PEI',
                     failure_margin_percent: 10.0,
                     quantity: 1,
                 });
@@ -472,6 +472,22 @@ async function parse3mfMetadata(file) {
                 roundedHours = parseFloat(printTimeHours.toFixed(4));
             }
 
+            // Extract nozzle_diameter, layer_height, bed_type from configText
+            let nozzle = "0.4";
+            const nozzleMatch = configText.match(/"(?:nozzle_diameter|nozzle_size)":\s*\[?"?([0-9.]+)"?\]?/i) ||
+                                configText.match(/(?:nozzle_diameter|nozzle_size)(?:\s*\[\d+\])?\s*=\s*([0-9.]+)/i);
+            if (nozzleMatch) nozzle = nozzleMatch[1].trim().replace(/mm$/i, '').trim();
+
+            let layerHeight = "0.20";
+            const layerMatch = configText.match(/"(?:layer_height|layer_thickness)":\s*"?([0-9.]+)"?/i) ||
+                               configText.match(/(?:layer_height|layer_thickness)(?:\s*\[\d+\])?\s*=\s*([0-9.]+)/i);
+            if (layerMatch) layerHeight = layerMatch[1].trim().replace(/mm$/i, '').trim();
+
+            let bedType = "Textured PEI";
+            const bedMatch = configText.match(/"(?:curr_bed_type|bed_type)":\s*"([^"]+)"/i) ||
+                             configText.match(/(?:curr_bed_type|bed_type)\s*=\s*(.+)/i);
+            if (bedMatch) bedType = bedMatch[1].trim();
+
             const fallbackName = cleanFileName || "Placa 1";
             plates.push({
                 name: fallbackName,
@@ -480,6 +496,9 @@ async function parse3mfMetadata(file) {
                 purge_weight_g: 0.0,
                 filament_type: "PLA",
                 slicer_filament_profile: "PLA",
+                nozzle_diameter: nozzle,
+                layer_height: layerHeight,
+                bed_type: bedType,
                 failure_margin_percent: 10.0,
                 quantity: 1,
             });
@@ -495,6 +514,9 @@ async function parse3mfMetadata(file) {
             part_weight_g: 0.0,
             purge_weight_g: 0.0,
             filament_type: "PLA",
+            nozzle_diameter: "0.4",
+            layer_height: "0.20",
+            bed_type: "Textured PEI",
             failure_margin_percent: 10.0,
             quantity: 1,
             notes: "Arquivo 3MF sem metadados de fatiamento. Preencha o tempo e peso manualmente.",

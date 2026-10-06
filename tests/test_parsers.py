@@ -762,9 +762,77 @@ def python_parse_3mf(data: bytes, filename: str = None):
                     "purge_weight_g": 0.0,
                     "filament_type": meta["filament_type"] or "PLA",
                     "slicer_filament_profile": prof or None,
+                    "nozzle_diameter": meta.get("nozzle_diameter") or "0.4",
+                    "layer_height": meta.get("layer_height") or "0.20",
+                    "bed_type": meta.get("bed_type") or "Textured PEI",
                 })
             if gcode_plates and any(p["print_time_hours"] > 0 or p["part_weight_g"] > 0 for p in gcode_plates):
                 return gcode_plates
+
+    # 3. Fallback to slicer config files (Bambu/Orca model_settings or Prusa print_config.ini)
+    if not plates:
+        cfg_names = [n for n in zf.namelist() if any(k in n.lower() for k in ["model_settings.config", "project_settings.config", "print_config.ini"])]
+        if cfg_names:
+            cfg_text = zf.read(cfg_names[0]).decode("utf-8", errors="ignore")
+            time_match = re.search(r'"prediction":\s*"?([0-9.]+)"?', cfg_text, re.I) or \
+                         re.search(r'prediction\s*=\s*([0-9.]+)', cfg_text, re.I) or \
+                         re.search(r'estimated[ _]printing[ _]time\s*=\s*([0-9.]+)', cfg_text, re.I)
+            weight_match = re.search(r'"weight":\s*"?([0-9.]+)"?', cfg_text, re.I) or \
+                           re.search(r'weight\s*=\s*([0-9.]+)', cfg_text, re.I) or \
+                           re.search(r'filament[ _]used[ _]\[g\]\s*=\s*([0-9.]+)', cfg_text, re.I)
+
+            secs = float(time_match.group(1)) if time_match else 0.0
+            weight = float(weight_match.group(1)) if weight_match else 0.0
+
+            print_time_hours = secs / 3600.0 if secs > 0 else 0.0
+            rounded_hours = round(print_time_hours, 2)
+            if rounded_hours == 0.0 and print_time_hours > 0:
+                rounded_hours = round(print_time_hours, 4)
+
+            nozzle = "0.4"
+            nozzle_match = re.search(r'"(?:nozzle_diameter|nozzle_size)":\s*\[?"?([0-9.]+)"?\]?', cfg_text, re.I) or \
+                           re.search(r'(?:nozzle_diameter|nozzle_size)(?:\s*\[\d+\])?\s*=\s*([0-9.]+)', cfg_text, re.I)
+            if nozzle_match:
+                nozzle = nozzle_match.group(1).rstrip("mm").strip()
+
+            layer_height = "0.20"
+            layer_match = re.search(r'"(?:layer_height|layer_thickness)":\s*"?([0-9.]+)"?', cfg_text, re.I) or \
+                          re.search(r'(?:layer_height|layer_thickness)(?:\s*\[\d+\])?\s*=\s*([0-9.]+)', cfg_text, re.I)
+            if layer_match:
+                layer_height = layer_match.group(1).rstrip("mm").strip()
+
+            bed_type = "Textured PEI"
+            bed_match = re.search(r'"(?:curr_bed_type|bed_type)":\s*"([^"]+)"', cfg_text, re.I) or \
+                        re.search(r'(?:curr_bed_type|bed_type)\s*=\s*(.+)', cfg_text, re.I)
+            if bed_match:
+                bed_type = bed_match.group(1).strip()
+
+            fallback_name = clean_filename or "Placa 1"
+            plates.append({
+                "name": fallback_name,
+                "print_time_hours": rounded_hours,
+                "part_weight_g": round(weight, 2),
+                "purge_weight_g": 0.0,
+                "filament_type": "PLA",
+                "slicer_filament_profile": "PLA",
+                "nozzle_diameter": nozzle,
+                "layer_height": layer_height,
+                "bed_type": bed_type,
+            })
+
+    # 4. Default fallback if un-sliced 3MF
+    if not plates:
+        fallback_name = f"{clean_filename} (Não fatiado)" if clean_filename else "Placa 1 (Não fatiado)"
+        plates.append({
+            "name": fallback_name,
+            "print_time_hours": 0.0,
+            "part_weight_g": 0.0,
+            "purge_weight_g": 0.0,
+            "filament_type": "PLA",
+            "nozzle_diameter": "0.4",
+            "layer_height": "0.20",
+            "bed_type": "Textured PEI",
+        })
 
     return plates
 
@@ -1319,6 +1387,50 @@ def test_3mf_multi_filament_flush_accumulation():
     assert res[0]["purge_weight_g"] == 25.0
     # Net part weight = total used (65.0) - total purge (25.0) = 40.0
     assert res[0]["part_weight_g"] == 40.0
+
+
+def test_3mf_fallback_config_manufacturing_parameters():
+    """Issue #103: Fallback 3 (slicer config) extracts nozzle_diameter, layer_height, and bed_type."""
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        ini_content = """# PrusaSlicer config
+prediction = 3600
+filament used [g] = 28.5
+nozzle_diameter = 0.6
+layer_height = 0.28
+bed_type = Textured PEI
+"""
+        zf.writestr("print_config.ini", ini_content)
+
+    res = python_parse_3mf(buf.getvalue(), filename="prusa_job.3mf")
+    assert len(res) == 1
+    plate = res[0]
+    assert plate["print_time_hours"] == 1.0
+    assert plate["part_weight_g"] == 28.5
+    assert plate["nozzle_diameter"] == "0.6"
+    assert plate["layer_height"] == "0.28"
+    assert plate["bed_type"] == "Textured PEI"
+
+
+def test_3mf_fallback_unsliced_default_manufacturing_parameters():
+    """Issue #103: Fallback 4 (un-sliced 3MF) sets standard manufacturing defaults."""
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("3D/3dmodel.model", "<model></model>")
+
+    res = python_parse_3mf(buf.getvalue(), filename="raw_cad.3mf")
+    assert len(res) == 1
+    plate = res[0]
+    assert plate["print_time_hours"] == 0.0
+    assert plate["nozzle_diameter"] == "0.4"
+    assert plate["layer_height"] == "0.20"
+    assert plate["bed_type"] == "Textured PEI"
 
 
 
