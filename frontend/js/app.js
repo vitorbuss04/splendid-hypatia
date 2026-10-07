@@ -194,6 +194,17 @@ function formatCurrency(val) {
     return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function formatDisplayHours(hours) {
+    const h = parseFloat(hours) || 0;
+    if (h <= 0) return '0.0 h';
+    if (h < 0.1) {
+        const mins = Math.round(h * 60);
+        return mins < 1 ? `<1 min (~${Math.max(1, Math.round(h * 3600))}s)` : `${mins} min`;
+    }
+    return `${h.toFixed(1)} h`;
+}
+window.formatDisplayHours = formatDisplayHours;
+
 function parseLocaleFloat(val, fallback = 0) {
     if (val === null || val === undefined || val === '') return fallback;
     if (typeof val === 'number') return isNaN(val) ? fallback : val;
@@ -1176,7 +1187,7 @@ function renderRecentProjects() {
                                 ${p.plates_count} un
                             </span>
                         </td>
-                        <td class="py-3 px-3 font-mono text-slate-300">${p.total_time_hours.toFixed(1)} h</td>
+                        <td class="py-3 px-3 font-mono text-slate-300">${formatDisplayHours(p.total_time_hours)}</td>
                         <td class="py-3 px-3 font-mono font-bold text-blue-400">${formatCurrency(p.final_price_to_client)}</td>
                         <td class="py-3 px-3 text-center">
                             <span class="badge-${escapeHtml(p.status || 'draft')}">
@@ -1406,7 +1417,7 @@ function renderProjectsTable(filterText = null, statusFilter = '') {
                                 ${p.plates_count} un
                             </span>
                         </td>
-                        <td class="py-3.5 px-4 font-mono text-slate-300">${p.total_time_hours.toFixed(1)} h</td>
+                        <td class="py-3.5 px-4 font-mono text-slate-300">${formatDisplayHours(p.total_time_hours)}</td>
                         <td class="py-3.5 px-4 font-mono text-slate-400">${formatCurrency(p.base_cost)}</td>
                         <td class="py-3.5 px-4 font-mono font-bold text-blue-400 text-sm">${formatCurrency(p.final_price_to_client)}</td>
                         <td class="py-3.5 px-4 text-center">
@@ -2630,6 +2641,9 @@ async function handleSinglePlateFile(e, plateIdx) {
                 if (plates[0].nozzle_diameter) state.currentPlates[plateIdx].nozzle_diameter = plates[0].nozzle_diameter;
                 if (plates[0].layer_height) state.currentPlates[plateIdx].layer_height = plates[0].layer_height;
                 if (plates[0].bed_type) state.currentPlates[plateIdx].bed_type = plates[0].bed_type;
+                if (plates[0].notes) {
+                    state.currentPlates[plateIdx].notes = plates[0].notes;
+                }
 
                 const matchedFilament = (typeof findBestMatchingFilament === 'function')
                     ? findBestMatchingFilament(
@@ -2713,6 +2727,9 @@ async function handleSinglePlateFile(e, plateIdx) {
             if (meta.nozzle_diameter) state.currentPlates[plateIdx].nozzle_diameter = meta.nozzle_diameter;
             if (meta.layer_height) state.currentPlates[plateIdx].layer_height = meta.layer_height;
             if (meta.bed_type) state.currentPlates[plateIdx].bed_type = meta.bed_type;
+            if (meta.notes) {
+                state.currentPlates[plateIdx].notes = meta.notes;
+            }
 
             const matchedFilament = (typeof findBestMatchingFilament === 'function')
                 ? findBestMatchingFilament(
@@ -3118,6 +3135,8 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-price').value = filament.spool_price;
         const activeEl = document.getElementById('filament-active');
         if (activeEl) activeEl.value = filament.is_active !== false ? 'true' : 'false';
+        const notesInput = document.getElementById('filament-notes');
+        if (notesInput) notesInput.value = filament.notes || '';
         if (colorInput) colorInput.placeholder = 'Ex: Preto';
     } else if (filament && isDuplicate) {
         title.textContent = 'Cadastrar Filamento (Duplicar)';
@@ -3131,6 +3150,8 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-price').value = filament.spool_price;
         const activeEl = document.getElementById('filament-active');
         if (activeEl) activeEl.value = filament.is_active !== false ? 'true' : 'false';
+        const notesInput = document.getElementById('filament-notes');
+        if (notesInput) notesInput.value = filament.notes || '';
         if (colorInput) {
             colorInput.placeholder = 'Digite a nova cor...';
             try {
@@ -3156,6 +3177,8 @@ function openFilamentModal(filament = null, isDuplicate = false) {
         document.getElementById('filament-price').value = '95.00';
         const activeEl = document.getElementById('filament-active');
         if (activeEl) activeEl.value = 'true';
+        const notesInput = document.getElementById('filament-notes');
+        if (notesInput) notesInput.value = '';
         if (colorInput) colorInput.placeholder = 'Ex: Preto';
     }
     updateFilamentNamePreview();
@@ -3167,6 +3190,8 @@ function closeFilamentModal() {
     document.getElementById('filament-id').value = '';
     const colorInput = document.getElementById('filament-color');
     if (colorInput) colorInput.placeholder = 'Ex: Preto';
+    const notesInput = document.getElementById('filament-notes');
+    if (notesInput) notesInput.value = '';
 }
 
 async function handleSaveFilament(e) {
@@ -3219,6 +3244,7 @@ async function handleSaveFilament(e) {
         density_g_cm3: density,
         spool_weight_g: spoolWeight,
         spool_price: spoolPrice,
+        notes: document.getElementById('filament-notes')?.value.trim() || null,
     };
     const activeEl = document.getElementById('filament-active');
     if (activeEl) {
@@ -3387,6 +3413,11 @@ function renderFilamentsGrid(filterTerm = null, filterMaterial = null, filterSta
                     <span>Densidade: ${f.density_g_cm3 != null ? Number(f.density_g_cm3).toFixed(2) : '1.24'} g/cm³</span>
                     <span>Preço: ${formatCurrency(f.spool_price)}</span>
                 </div>
+                ${f.notes ? `
+                <div class="pt-2 border-t border-slate-800/60 text-[11px] text-slate-400 flex items-center gap-1.5 truncate" title="${esc(f.notes)}">
+                    <i data-lucide="info" class="w-3.5 h-3.5 text-blue-400 shrink-0"></i>
+                    <span class="truncate">Obs: ${esc(f.notes)}</span>
+                </div>` : ''}
             </div>
         `;
     }).join('');

@@ -254,5 +254,48 @@ def test_plate_cost_manufacturing_parameters_issue_73():
     assert cost_def["nozzle_diameter"] == "0.4"
     assert cost_def["bed_type"] == "Textured PEI"
     assert cost_def["layer_height"] == "0.20"
+    assert cost_def["notes"] == ""
+
+
+def test_issue_112_plate_cost_and_summary_preserve_notes():
+    """Issue #112: calculate_plate_cost must include 'notes' in the return dictionary,
+    ensuring calculate_project_summary propagates plate notes into summary['plates_details']."""
+    plate_with_notes = {
+        "id": 10,
+        "name": "Placa com Notas Operacionais",
+        "print_time_hours": 1.5,
+        "part_weight_g": 45.0,
+        "notes": "Pausa na camada 45 para inserção de porcas M3",
+    }
+    cost = calculate_plate_cost(plate_with_notes)
+    assert "notes" in cost
+    assert cost["notes"] == "Pausa na camada 45 para inserção de porcas M3"
+
+    # Also verify empty/None notes returns empty string
+    plate_no_notes = {
+        "id": 11,
+        "name": "Placa Sem Notas",
+        "print_time_hours": 1.0,
+        "part_weight_g": 30.0,
+        "notes": None,
+    }
+    cost_empty = calculate_plate_cost(plate_no_notes)
+    assert cost_empty["notes"] == ""
+
+    # Verify calculate_project_summary includes notes in plates_details
+    project = {
+        "cad_hours": 0.0,
+        "post_process_hours": 0.0,
+        "overhead_cost": 0.0,
+    }
+    summary = calculate_project_summary(
+        project=project,
+        plates=[plate_with_notes, plate_no_notes],
+        bom_items=[],
+    )
+    assert len(summary["plates_details"]) == 2
+    assert summary["plates_details"][0]["notes"] == "Pausa na camada 45 para inserção de porcas M3"
+    assert summary["plates_details"][1]["notes"] == ""
+
 
 

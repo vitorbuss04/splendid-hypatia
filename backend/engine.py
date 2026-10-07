@@ -157,6 +157,7 @@ def calculate_plate_cost(
         "nozzle_diameter": nozzle_diameter,
         "bed_type": bed_type,
         "layer_height": layer_height,
+        "notes": str(get_attr(plate, "notes", "") or ""),
     }
 
 

@@ -3512,6 +3512,197 @@ def test_issue_110_plate_notes_input_in_render_plates():
     assert "state.currentPlates[${idx}].notes = this.value" in content
 
 
+def test_issue_113_format_display_hours_and_projects_tables():
+    """Issue #113: formatDisplayHours properly formats sub-minute and sub-0.1h prints without zeroing."""
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const sandbox = {
+        console,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            addEventListener: () => {},
+            removeEventListener: () => {},
+            getElementById: () => null,
+            querySelectorAll: () => [],
+            body: {}
+        },
+        window: null
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(appJs, sandbox);
+
+    const formatDisplayHours = sandbox.window.formatDisplayHours;
+    if (typeof formatDisplayHours !== 'function') {
+        throw new Error('window.formatDisplayHours is not a function');
+    }
+
+    if (formatDisplayHours(0) !== '0.0 h') throw new Error(`Expected '0.0 h', got '${formatDisplayHours(0)}'`);
+    if (formatDisplayHours(null) !== '0.0 h') throw new Error(`Expected '0.0 h' for null, got '${formatDisplayHours(null)}'`);
+    if (formatDisplayHours(0.0042) !== '<1 min (~15s)') throw new Error(`Expected '<1 min (~15s)', got '${formatDisplayHours(0.0042)}'`);
+    if (formatDisplayHours(0.0333) !== '2 min') throw new Error(`Expected '2 min', got '${formatDisplayHours(0.0333)}'`);
+    if (formatDisplayHours(0.0833) !== '5 min') throw new Error(`Expected '5 min', got '${formatDisplayHours(0.0833)}'`);
+    if (formatDisplayHours(0.1) !== '0.1 h') throw new Error(`Expected '0.1 h', got '${formatDisplayHours(0.1)}'`);
+    if (formatDisplayHours(2.5) !== '2.5 h') throw new Error(`Expected '2.5 h', got '${formatDisplayHours(2.5)}'`);
+
+    console.log(JSON.stringify({ success: true }));
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+    # Verify both recent and main projects tables call formatDisplayHours
+    with open("frontend/js/app.js", "r", encoding="utf-8") as f:
+        app_js = f.read()
+
+    assert "${formatDisplayHours(p.total_time_hours)}" in app_js
+    assert "${p.total_time_hours.toFixed(1)} h" not in app_js
+
+
+def test_issue_114_handle_single_plate_file_preserves_notes():
+    """Issue #114: handleSinglePlateFile must assign plate notes from 3MF and GCode parsers."""
+    with open("frontend/js/app.js", "r", encoding="utf-8") as f:
+        app_js = f.read()
+
+    assert "state.currentPlates[plateIdx].notes = plates[0].notes" in app_js
+    assert "state.currentPlates[plateIdx].notes = meta.notes" in app_js
+
+
+def test_issue_115_filament_notes_modal_and_saving():
+    """Issue #115: Modal de filamentos possui campo de notas, carrega e salva observações técnicas."""
+    # 1. Check HTML markup
+    with open("frontend/index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+
+    assert 'id="filament-notes"' in html
+    assert "Observações Técnicas / Parâmetros" in html
+
+    # 2. Check JavaScript logic in node
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const elements = {
+        'modal-filament': { classList: { add: ()=>{}, remove: ()=>{} } },
+        'modal-filament-title': { textContent: '' },
+        'filament-id': { value: '' },
+        'filament-material': { value: 'PLA' },
+        'filament-brand': { value: '3D Prime' },
+        'filament-color': { value: 'Preto', placeholder: '' },
+        'filament-color-hex': { value: '#10b981' },
+        'filament-density': { value: '1.24' },
+        'filament-weight': { value: '1000' },
+        'filament-price': { value: '95.00' },
+        'filament-active': { value: 'true' },
+        'filament-notes': { value: '' },
+        'filaments-grid': { innerHTML: '' }
+    };
+
+    let savedPayload = null;
+    const sandbox = {
+        console,
+        elements,
+        API: {
+            filaments: {
+                create: async (p) => { savedPayload = p; return { id: 99, ...p }; },
+                update: async (id, p) => { savedPayload = p; return { id, ...p }; }
+            }
+        },
+        loadAllData: async () => {},
+        showToast: () => {},
+        refreshIcons: () => {},
+        normalizeNumericInputs: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => elements[id] || null,
+            querySelectorAll: () => [],
+            createElement: () => ({ appendChild: ()=>{}, classList: { add: ()=>{}, remove: ()=>{} }, style: {} }),
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(appJs, sandbox);
+
+    // Test 1: openFilamentModal with existing filament populates notes
+    const fil = {
+        id: 42,
+        material: 'PETG',
+        brand: 'Voolt3D',
+        color: 'Azul',
+        color_hex: '#3b82f6',
+        density_g_cm3: 1.27,
+        spool_weight_g: 1000,
+        spool_price: 110,
+        notes: 'Bico 235°C, mesa 75°C, fluxo 98%'
+    };
+    sandbox.openFilamentModal(fil, false);
+    if (elements['filament-notes'].value !== 'Bico 235°C, mesa 75°C, fluxo 98%') {
+        throw new Error('openFilamentModal failed to load notes into filament-notes input');
+    }
+
+    // Test 2: closeFilamentModal clears notes
+    sandbox.closeFilamentModal();
+    if (elements['filament-notes'].value !== '') {
+        throw new Error('closeFilamentModal failed to clear filament-notes input');
+    }
+
+    // Test 3: openFilamentModal for new filament leaves notes empty
+    sandbox.openFilamentModal();
+    if (elements['filament-notes'].value !== '') {
+        throw new Error('openFilamentModal() new filament has non-empty notes');
+    }
+
+    // Test 4: handleSaveFilament persists notes in payload
+    elements['filament-id'].value = '42';
+    elements['filament-brand'].value = 'Voolt3D';
+    elements['filament-color'].value = 'Azul';
+    elements['filament-notes'].value = 'Bico 240°C para PETG';
+    sandbox.handleSaveFilament({ preventDefault: () => {} }).then(() => {
+        if (!savedPayload || savedPayload.notes !== 'Bico 240°C para PETG') {
+            throw new Error(`handleSaveFilament did not include notes in payload: ${JSON.stringify(savedPayload)}`);
+        }
+
+        // Test 5: renderFilamentsGrid renders notes with XSS escaping
+        vm.runInContext('state.filaments = [{\n' +
+            '  id: 1, name: "PETG Azul - Voolt3D", brand: "Voolt3D", color: "Azul", material: "PETG", cost_per_gram: 0.11, spool_weight_g: 1000, spool_price: 110, notes: "<img src=x onerror=alert(1)> Notas de secagem"\n' +
+            '}];\n' +
+            'renderFilamentsGrid();\n', sandbox);
+        const html = elements['filaments-grid'].innerHTML;
+        if (html.includes('<img src=x onerror=alert(1)>')) {
+            throw new Error('Unescaped XSS in filament notes rendering');
+        }
+        if (!html.includes('&lt;img src=x onerror=alert(1)&gt; Notas de secagem')) {
+            throw new Error('Filament notes not rendered or properly escaped');
+        }
+
+        console.log(JSON.stringify({ success: true }));
+    }).catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+
+
 
 
 
