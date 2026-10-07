@@ -216,7 +216,7 @@ def get_dashboard_stats(
         elif st in ["draft", "quoted"]:
             pipeline_revenue += final_price
 
-        if base_cost > 0:
+        if st != "cancelled" and base_cost > 0:
             eff_margin = float(summary.get("effective_profit_margin_percent", 0.0) or 0.0)
             margins_sum += eff_margin
             margins_count += 1

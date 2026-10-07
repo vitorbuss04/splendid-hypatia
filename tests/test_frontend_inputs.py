@@ -3701,6 +3701,151 @@ def test_issue_115_filament_notes_modal_and_saving():
     assert "success" in res.stdout
 
 
+def test_issue_116_printer_notes_modal_and_saving():
+    """Issue #116: Modal de impressora possui campo de notas, carrega, salva e exibe observações com escape XSS."""
+    # 1. Check HTML markup
+    with open("frontend/index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+
+    assert 'id="printer-notes"' in html
+    assert "Observações Técnicas / Manutenção" in html
+
+    # 2. Check JavaScript logic in node
+    node_test = r"""
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+    const appJs = fs.readFileSync(path.resolve('frontend/js/app.js'), 'utf8');
+
+    const elements = {
+        'modal-printer': { classList: { add: ()=>{}, remove: ()=>{} } },
+        'modal-printer-title': { innerHTML: '' },
+        'printer-id': { value: '' },
+        'printer-name': { value: 'Bambu Lab P1S' },
+        'printer-model': { value: 'CoreXY' },
+        'printer-cost': { value: '4500' },
+        'printer-lifespan': { value: '5000' },
+        'printer-power': { value: '160' },
+        'printer-maintenance': { value: '1.5' },
+        'printer-energy': { value: '0.85' },
+        'printer-active': { value: 'true' },
+        'printer-notes': { value: '' },
+        'printers-grid': { innerHTML: '' },
+        'printer-rate-preview-value': { textContent: '' },
+        'printer-rate-preview-dep': { textContent: '' },
+        'printer-rate-preview-energy': { textContent: '' },
+        'printer-rate-preview-maint': { textContent: '' }
+    };
+
+    let savedPayload = null;
+    const sandbox = {
+        console,
+        elements,
+        API: {
+            printers: {
+                create: async (p) => { savedPayload = p; return { id: 88, ...p }; },
+                update: async (id, p) => { savedPayload = p; return { id, ...p }; }
+            }
+        },
+        loadAllData: async () => {},
+        showToast: () => {},
+        refreshIcons: () => {},
+        normalizeNumericInputs: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: {
+            getElementById: (id) => elements[id] || null,
+            querySelectorAll: () => [],
+            createElement: () => ({ appendChild: ()=>{}, classList: { add: ()=>{}, remove: ()=>{} }, style: {} }),
+            addEventListener: () => {},
+            removeEventListener: () => {}
+        },
+        window: null
+    };
+    sandbox.window = sandbox;
+    sandbox.global = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(appJs, sandbox);
+
+    // Test 1: openPrinterModal with existing printer populates notes
+    const printer = {
+        id: 12,
+        name: 'Voron 2.4',
+        model: 'CoreXY',
+        acquisition_cost: 6000,
+        lifespan_hours: 8000,
+        avg_power_watts: 200,
+        maintenance_cost_per_hour: 2.0,
+        energy_rate_kwh: 0.85,
+        notes: 'Bico CHT 0.4mm instalado, correias revisadas'
+    };
+    sandbox.openPrinterModal(printer);
+    if (elements['printer-notes'].value !== 'Bico CHT 0.4mm instalado, correias revisadas') {
+        throw new Error('openPrinterModal failed to load notes into printer-notes input');
+    }
+
+    // Test 2: closePrinterModal clears notes
+    sandbox.closePrinterModal();
+    if (elements['printer-notes'].value !== '') {
+        throw new Error('closePrinterModal failed to clear printer-notes input');
+    }
+
+    // Test 3: openPrinterModal for new printer leaves notes empty
+    sandbox.openPrinterModal();
+    if (elements['printer-notes'].value !== '') {
+        throw new Error('openPrinterModal() new printer has non-empty notes');
+    }
+
+    // Test 4: handleSavePrinter persists notes in payload
+    elements['printer-id'].value = '12';
+    elements['printer-name'].value = 'Voron 2.4';
+    elements['printer-notes'].value = 'Correias revisadas em Maio 2026';
+    sandbox.handleSavePrinter({ preventDefault: () => {} }).then(() => {
+        if (!savedPayload || savedPayload.notes !== 'Correias revisadas em Maio 2026') {
+            throw new Error(`handleSavePrinter did not include notes in payload: ${JSON.stringify(savedPayload)}`);
+        }
+
+        // Test 5: renderPrintersGrid renders notes with XSS escaping
+        vm.runInContext('state.printers = [{\n' +
+            '  id: 1, name: "Voron", model: "CoreXY", acquisition_cost: 5000, lifespan_hours: 5000, avg_power_watts: 150, maintenance_cost_per_hour: 1, machine_hourly_rate: 2.5,\n' +
+            '  rates_breakdown: {}, notes: "<script>alert(1)</script> Bico CHT"\n' +
+            '}];\n' +
+            'renderPrintersGrid();\n', sandbox);
+        const html = elements['printers-grid'].innerHTML;
+        if (html.includes('<script>alert(1)</script>')) {
+            throw new Error('Unescaped XSS in printer notes rendering');
+        }
+        if (!html.includes('&lt;script&gt;alert(1)&lt;/script&gt; Bico CHT')) {
+            throw new Error('Printer notes not rendered or properly escaped');
+        }
+
+        console.log(JSON.stringify({ success: true }));
+    }).catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+    res = subprocess.run(["node"], input=node_test, capture_output=True, text=True, encoding="utf-8")
+    assert res.returncode == 0, f"Node script failed: {res.stderr}\nStdout: {res.stdout}"
+    assert "success" in res.stdout
+
+
+def test_issue_117_dashboard_print_hours_and_chart_tooltip():
+    """Issue #117: renderDashboard stat-total-print-hours e tooltip do gráfico utilizam formatDisplayHours."""
+    with open("frontend/js/app.js", "r", encoding="utf-8") as f:
+        app_js = f.read()
+
+    # 1. stat-total-print-hours card uses formatDisplayHours
+    assert "printHoursEl.textContent = formatDisplayHours(hrs);" in app_js
+    assert "printHoursEl.textContent = `${hrs.toFixed(1)} h`;" not in app_js
+
+    # 2. chart-top-projects tooltip uses formatDisplayHours
+    assert "Horas de impressão: ${formatDisplayHours(p.print_hours)}" in app_js
+    assert "Horas de impressão: ${p.print_hours.toFixed(1)} h" not in app_js
+
+
+
 
 
 

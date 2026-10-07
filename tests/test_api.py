@@ -2122,6 +2122,48 @@ def test_issue_112_pdf_technical_with_summary_plates_details_notes():
     assert len(pdf_bytes) > 1000
 
 
+def test_issue_118_dashboard_stats_excludes_cancelled_from_margins(client, make_user):
+    """Issue #118: Endpoint /api/projects/dashboard-stats must exclude cancelled projects from avg profit margin."""
+    user = make_user(email="margin_test@example.com")
+    headers = user["headers"]
+
+    # 1. Project A: approved, 30% margin
+    res_a = client.post("/api/projects", json={
+        "name": "Projeto Aprovado",
+        "status": "approved",
+        "profit_margin_percent": 30.0,
+        "plates": [{
+            "name": "Placa A",
+            "print_time_hours": 1.0,
+            "part_weight_g": 50.0,
+            "quantity": 1
+        }]
+    }, headers=headers)
+    assert res_a.status_code == 201
+
+    stats1 = client.get("/api/projects/dashboard-stats", headers=headers).json()
+    assert stats1["avg_profit_margin_percent"] > 0
+
+    # 2. Project B: cancelled, extreme margin (e.g. 200%)
+    res_b = client.post("/api/projects", json={
+        "name": "Projeto Cancelado",
+        "status": "cancelled",
+        "profit_margin_percent": 200.0,
+        "plates": [{
+            "name": "Placa B",
+            "print_time_hours": 1.0,
+            "part_weight_g": 50.0,
+            "quantity": 1
+        }]
+    }, headers=headers)
+    assert res_b.status_code == 201
+
+    stats2 = client.get("/api/projects/dashboard-stats", headers=headers).json()
+    # Cancelled project must NOT skew the avg margin
+    assert stats2["avg_profit_margin_percent"] == stats1["avg_profit_margin_percent"]
+
+
+
 
 
 

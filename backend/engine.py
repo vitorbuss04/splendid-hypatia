@@ -158,6 +158,7 @@ def calculate_plate_cost(
         "bed_type": bed_type,
         "layer_height": layer_height,
         "notes": str(get_attr(plate, "notes", "") or ""),
+        "slicer_filament_profile": str(get_attr(plate, "slicer_filament_profile", "") or "") or None,
     }
 
 

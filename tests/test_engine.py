@@ -298,4 +298,39 @@ def test_issue_112_plate_cost_and_summary_preserve_notes():
     assert summary["plates_details"][1]["notes"] == ""
 
 
+def test_issue_119_plate_cost_and_summary_preserve_slicer_profile():
+    """Issue #119: calculate_plate_cost must include 'slicer_filament_profile' in the return dictionary,
+    preserving full manufacturing profile traceability in calculate_project_summary."""
+    plate_with_profile = {
+        "id": 15,
+        "name": "Placa Bambu Test",
+        "print_time_hours": 2.0,
+        "part_weight_g": 60.0,
+        "slicer_filament_profile": "Bambu PLA Basic @BBL X1C",
+    }
+    cost = calculate_plate_cost(plate_with_profile)
+    assert "slicer_filament_profile" in cost
+    assert cost["slicer_filament_profile"] == "Bambu PLA Basic @BBL X1C"
+
+    # Verify None when omitted
+    plate_no_profile = {
+        "id": 16,
+        "name": "Placa Sem Perfil",
+        "print_time_hours": 1.0,
+        "part_weight_g": 20.0,
+    }
+    cost_no_prof = calculate_plate_cost(plate_no_profile)
+    assert cost_no_prof["slicer_filament_profile"] is None
+
+    # Verify calculate_project_summary propagation
+    summary = calculate_project_summary(
+        project={"cad_hours": 0.0, "post_process_hours": 0.0, "overhead_cost": 0.0},
+        plates=[plate_with_profile, plate_no_profile],
+        bom_items=[],
+    )
+    assert summary["plates_details"][0]["slicer_filament_profile"] == "Bambu PLA Basic @BBL X1C"
+    assert summary["plates_details"][1]["slicer_filament_profile"] is None
+
+
+
 

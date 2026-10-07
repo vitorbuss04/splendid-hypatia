@@ -775,7 +775,7 @@ function renderDashboard() {
     }
     if (printHoursEl) {
         const hrs = stats ? stats.total_print_hours : 0;
-        printHoursEl.textContent = `${hrs.toFixed(1)} h`;
+        printHoursEl.textContent = formatDisplayHours(hrs);
     }
     if (filamentLabelEl) {
         const kg = stats ? stats.total_filament_kg : 0;
@@ -1119,7 +1119,7 @@ function renderDashboardCharts(stats) {
                                 label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.raw)}`,
                                 afterLabel: (ctx) => {
                                     const p = topProjects[ctx.dataIndex];
-                                    return p ? `Horas de impressão: ${p.print_hours.toFixed(1)} h` : '';
+                                    return p ? `Horas de impressão: ${formatDisplayHours(p.print_hours)}` : '';
                                 }
                             }
                         }
@@ -2815,6 +2815,8 @@ function openPrinterModal(printer = null) {
         document.getElementById('printer-energy').value = printer.energy_rate_kwh;
         const activeEl = document.getElementById('printer-active');
         if (activeEl) activeEl.value = printer.is_active !== false ? 'true' : 'false';
+        const notesEl = document.getElementById('printer-notes');
+        if (notesEl) notesEl.value = printer.notes || '';
     } else {
         title.innerHTML = `<i data-lucide="printer" class="w-5 h-5 text-blue-400"></i> Cadastrar Impressora`;
         document.getElementById('printer-id').value = '';
@@ -2827,6 +2829,8 @@ function openPrinterModal(printer = null) {
         document.getElementById('printer-energy').value = (state.user?.default_energy_rate ?? 0.85);
         const activeEl = document.getElementById('printer-active');
         if (activeEl) activeEl.value = 'true';
+        const notesEl = document.getElementById('printer-notes');
+        if (notesEl) notesEl.value = '';
     }
     updatePrinterRatePreview();
     refreshIcons();
@@ -2834,6 +2838,8 @@ function openPrinterModal(printer = null) {
 
 function closePrinterModal() {
     document.getElementById('modal-printer').classList.add('hidden');
+    const notesEl = document.getElementById('printer-notes');
+    if (notesEl) notesEl.value = '';
 }
 
 async function handleSavePrinter(e) {
@@ -2890,6 +2896,7 @@ async function handleSavePrinter(e) {
         avg_power_watts: powerWatts,
         maintenance_cost_per_hour: maintenanceCost,
         energy_rate_kwh: energyRate,
+        notes: document.getElementById('printer-notes')?.value.trim() || null,
     };
     const activeEl = document.getElementById('printer-active');
     if (activeEl) {
@@ -3065,6 +3072,11 @@ function renderPrintersGrid(filterTerm = null, filterStatus = null) {
                     <span>Vida útil: ${p.lifespan_hours} h</span>
                     <span>Aquisição: ${formatCurrency(p.acquisition_cost)}</span>
                 </div>
+                ${p.notes ? `
+                <div class="pt-2 border-t border-slate-800/60 text-[11px] text-slate-400 flex items-center gap-1.5 truncate" title="${esc(p.notes)}">
+                    <i data-lucide="info" class="w-3.5 h-3.5 text-blue-400 shrink-0"></i>
+                    <span class="truncate">Obs: ${esc(p.notes)}</span>
+                </div>` : ''}
             </div>
         `;
     }).join('');
