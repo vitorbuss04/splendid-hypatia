@@ -228,3 +228,78 @@ def test_plate_cost_with_zero_machine_hourly_rate_and_zero_filament_cost():
     assert cost["total_material_cost"] == 0.0
     assert cost["total_cost"] == 0.0
 
+
+def test_calculate_failure_cost_and_project_summary_scrap():
+    from backend.engine import calculate_failure_cost
+
+    printer = {
+        "acquisition_cost": 3000.0,
+        "lifespan_hours": 5000.0, # 0.60
+        "avg_power_watts": 150.0,
+        "energy_rate_kwh": 1.0,   # 0.15
+        "maintenance_cost_per_hour": 1.25, # total = 2.00 / h
+    }
+    filament = {
+        "spool_price": 100.0,
+        "spool_weight_g": 1000.0, # 0.10 / g
+    }
+    plate = {
+        "id": 1,
+        "name": "Placa 1",
+        "printer_id": 1,
+        "filament_id": 1,
+        "print_time_hours": 4.0,
+        "part_weight_g": 80.0,
+        "purge_weight_g": 0.0,
+        "failure_margin_percent": 0.0,
+        "quantity": 1,
+    }
+
+    # Failure 1: 2 hours and 30g wasted due to warping, not charged to client
+    fail_log = {
+        "id": 10,
+        "plate_id": 1,
+        "lost_time_hours": 2.0,
+        "lost_filament_weight_g": 30.0,
+        "reason": "warping",
+        "reprinted": True,
+        "charged_to_client": False,
+    }
+
+    fail_calc = calculate_failure_cost(fail_log, plate=plate, printer=printer, filament=filament)
+    # Material: 30g * 0.10 = 3.00
+    # Machine: 2h * 2.00 = 4.00
+    # Total: 7.00
+    assert fail_calc["calculated_material_cost"] == 3.00
+    assert fail_calc["calculated_machine_cost"] == 4.00
+    assert fail_calc["calculated_cost"] == 7.00
+
+    project = {
+        "overhead_cost": 0.0,
+        "profit_margin_percent": 30.0,
+        "tax_rate_percent": 6.0,
+        "discount_percent": 0.0,
+        "shipping_cost": 0.0,
+    }
+
+    summary = calculate_project_summary(
+        project,
+        plates=[plate],
+        bom_items=[],
+        printers_by_id={1: printer},
+        filaments_by_id={1: filament},
+        failure_logs=[fail_log]
+    )
+
+    # Base cost: Plate is 80g * 0.10 (8.00) + 4h * 2.00 (8.00) = 16.00
+    assert summary["base_cost"] == 16.00
+    # Scrap cost: 7.00
+    assert summary["total_scrap_cost"] == 7.00
+    assert summary["actual_base_cost"] == 23.00 # 16.00 + 7.00
+    assert summary["total_scrap_filament_g"] == 30.0
+    assert summary["total_scrap_time_hours"] == 2.0
+    # Check that actual net profit is reduced by the absorbed scrap
+    assert summary["actual_net_profit"] == round(summary["net_revenue"] - 23.00, 2)
+    assert summary["scrap_profit_loss"] == 7.00
+
+

@@ -10,6 +10,7 @@ const state = {
     currentProject: null,
     currentPlates: [],
     currentBOM: [],
+    currentFailures: [],
     activeView: 'dashboard',
     dashboardStats: null,
     charts: {
@@ -1323,6 +1324,7 @@ function openNewProject() {
     state.currentProject = null;
     state.currentPlates = [createDefaultPlate(1)];
     state.currentBOM = [];
+    state.currentFailures = [];
 
     // Prepopulate user defaults
     const u = state.user || {};
@@ -1368,6 +1370,7 @@ async function editProject(id) {
         state.currentProject = proj;
         state.currentPlates = (proj.plates && proj.plates.length > 0) ? proj.plates : [createDefaultPlate(1)];
         state.currentBOM = proj.bom_items || [];
+        state.currentFailures = (proj.failure_logs && proj.failure_logs.length > 0) ? JSON.parse(JSON.stringify(proj.failure_logs)) : [];
 
         document.getElementById('editor-project-title').textContent = `Editar: ${proj.name}`;
         document.getElementById('editor-project-subtitle').textContent = `Orçamento #${proj.id.toString().padStart(4, '0')} • Cliente: ${proj.client_name || 'Não informado'}`;
@@ -1499,9 +1502,14 @@ function renderPlates() {
         const bed = plate.bed_type || 'Textured PEI';
         const layer = plate.layer_height || '0.20';
 
+        const plateFailures = (state.currentFailures || []).filter(f => {
+            if (plate.id && f.plate_id) return f.plate_id === plate.id;
+            return f.plate_idx === idx;
+        });
+
         return `
         <div class="card-dark p-5 rounded-xl space-y-4 relative group transition-all">
-            <!-- Plate Header: Index, Title, Slicer Import & Delete Action -->
+            <!-- Plate Header: Index, Title, Failure & Slicer Import & Delete Action -->
             <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
                 <div class="flex items-center gap-2.5">
                     <span class="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 font-bold text-xs flex items-center justify-center border border-blue-500/30 font-mono shadow-sm">
@@ -1511,6 +1519,9 @@ function renderPlates() {
                 </div>
 
                 <div class="flex items-center gap-2">
+                    <button type="button" onclick="openFailureModal(${idx})" class="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg text-[11px] font-semibold border border-rose-500/30 hover:border-rose-500/50 flex items-center gap-1.5 transition-all shadow-sm" title="Registrar falha/refugo ocorrido nesta placa">
+                        <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Registrar Falha
+                    </button>
                     <label class="cursor-pointer px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-medium border border-slate-700 flex items-center gap-1.5 transition-all shadow-sm" title="Carregar 3MF, Gcode ou .gcode.3mf especificamente nesta placa">
                         <i data-lucide="file-up" class="w-3.5 h-3.5 text-blue-400"></i> Importar 3MF/Gcode
                         <input type="file" accept=".3mf,.gcode,.gcode.3mf" class="hidden" onchange="handleSinglePlateFile(event, ${idx})">
@@ -1594,42 +1605,94 @@ function renderPlates() {
                     <i data-lucide="sliders" class="w-3.5 h-3.5 text-indigo-400"></i> Parâmetros do Fatiador & Físicos
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 plate-grid-aligned">
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 plate-grid-aligned items-stretch">
                     <!-- Print Time Dual Input (Hours & Minutes) -->
-                    <div class="col-span-2 plate-field-col">
-                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Tempo (h : min)</label></div>
-                        <div class="flex items-center gap-1">
-                            <div class="relative flex-1">
-                                <input type="number" min="0" step="1" id="plate-time-h-${idx}" value="${timeH}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full pl-2 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Horas">
-                                <span class="absolute right-1.5 top-1.5 text-[10px] text-slate-400 pointer-events-none">h</span>
+                    <div class="col-span-2 plate-field-col flex flex-col justify-end h-full" style="display: flex; flex-direction: column; justify-content: flex-end; height: 100%;">
+                        <div class="plate-label-slot min-h-[30px] flex flex-col justify-end gap-1 mb-1" style="min-height: 30px; display: flex; flex-direction: column; justify-content: flex-end; margin-bottom: 0.25rem;">
+                            <label class="text-[10px] font-medium text-slate-400 leading-tight">Tempo (h : min)</label>
+                        </div>
+                        <div class="flex items-center gap-1 mt-auto h-[34px]" style="margin-top: auto;">
+                            <div class="relative flex-1 h-full">
+                                <input type="number" min="0" step="1" id="plate-time-h-${idx}" value="${timeH}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full h-full pl-2 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Horas">
+                                <span class="absolute right-1.5 top-2 text-[10px] text-slate-400 pointer-events-none">h</span>
                             </div>
                             <span class="text-slate-500 font-bold">:</span>
-                            <div class="relative flex-1">
-                                <input type="number" min="0" max="59" step="1" id="plate-time-m-${idx}" value="${timeM}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full pl-2 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Minutos">
-                                <span class="absolute right-1.5 top-1.5 text-[10px] text-slate-400 pointer-events-none">m</span>
+                            <div class="relative flex-1 h-full">
+                                <input type="number" min="0" max="59" step="1" id="plate-time-m-${idx}" value="${timeM}" placeholder="0" oninput="updatePlateTime(${idx})" class="w-full h-full pl-2 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white text-center font-numeric focus:outline-none focus:border-blue-500" title="Minutos">
+                                <span class="absolute right-1.5 top-2 text-[10px] text-slate-400 pointer-events-none">m</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Total Filament Used Weight -->
-                    <div class="col-span-1 plate-field-col">
-                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Filamento usado (g)</label></div>
-                        <input type="number" step="any" min="0" value="${plate.part_weight_g}" oninput="state.currentPlates[${idx}].part_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="0">
+                    <div class="col-span-1 plate-field-col flex flex-col justify-end h-full" style="display: flex; flex-direction: column; justify-content: flex-end; height: 100%;">
+                        <div class="plate-label-slot min-h-[30px] flex flex-col justify-end gap-1 mb-1" style="min-height: 30px; display: flex; flex-direction: column; justify-content: flex-end; margin-bottom: 0.25rem;">
+                            <label class="text-[10px] font-medium text-slate-400 leading-tight">Filamento usado (g)</label>
+                        </div>
+                        <input type="number" step="any" min="0" value="${plate.part_weight_g}" oninput="state.currentPlates[${idx}].part_weight_g = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full h-[34px] px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500 mt-auto" style="margin-top: auto;" placeholder="0">
                     </div>
 
                     <!-- Failure Margin -->
-                    <div class="col-span-1 plate-field-col">
-                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Falha (%)</label></div>
-                        <input type="number" step="any" min="0" value="${plate.failure_margin_percent}" oninput="state.currentPlates[${idx}].failure_margin_percent = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500" placeholder="10">
+                    <div class="col-span-1 plate-field-col flex flex-col justify-end h-full" style="display: flex; flex-direction: column; justify-content: flex-end; height: 100%;">
+                        <div class="plate-label-slot min-h-[30px] flex flex-col justify-end gap-1 mb-1" style="min-height: 30px; display: flex; flex-direction: column; justify-content: flex-end; margin-bottom: 0.25rem;">
+                            <label class="text-[10px] font-medium text-slate-400 leading-tight">Falha (%)</label>
+                        </div>
+                        <input type="number" step="any" min="0" value="${plate.failure_margin_percent}" oninput="state.currentPlates[${idx}].failure_margin_percent = parseLocaleFloat(this.value, 0); recalcLiveSummary();" class="w-full h-[34px] px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-blue-500 mt-auto" style="margin-top: auto;" placeholder="10">
                     </div>
 
                     <!-- Quantity -->
-                    <div class="col-span-1 plate-field-col">
-                        <div class="plate-label-slot flex items-start justify-between gap-1 mb-1"><label class="text-[10px] font-medium text-slate-400 leading-tight">Qtd Cópias</label></div>
-                        <input type="number" step="1" min="1" value="${plate.quantity}" oninput="state.currentPlates[${idx}].quantity = parseInt(this.value, 10) || 1; recalcLiveSummary();" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-bold font-numeric text-center focus:outline-none focus:border-blue-500" placeholder="1">
+                    <div class="col-span-1 plate-field-col flex flex-col justify-end h-full" style="display: flex; flex-direction: column; justify-content: flex-end; height: 100%;">
+                        <div class="plate-label-slot min-h-[30px] flex flex-col justify-end gap-1 mb-1" style="min-height: 30px; display: flex; flex-direction: column; justify-content: flex-end; margin-bottom: 0.25rem;">
+                            <label class="text-[10px] font-medium text-slate-400 leading-tight">Qtd Cópias</label>
+                        </div>
+                        <input type="number" step="1" min="1" value="${plate.quantity}" oninput="state.currentPlates[${idx}].quantity = parseInt(this.value, 10) || 1; recalcLiveSummary();" class="w-full h-[34px] px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-bold font-numeric text-center focus:outline-none focus:border-blue-500 mt-auto" style="margin-top: auto;" placeholder="1">
                     </div>
                 </div>
             </div>
+
+            <!-- Plate Failure Logs History (if any) -->
+            ${plateFailures.length > 0 ? `
+            <div class="bg-rose-950/20 border border-rose-500/30 rounded-xl p-3 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="flex items-center gap-1.5 text-rose-400 font-semibold text-[11px]">
+                        <i data-lucide="alert-octagon" class="w-3.5 h-3.5 text-rose-400"></i>
+                        Falhas Registradas nesta Placa (${plateFailures.length})
+                    </span>
+                    <span class="text-[11px] text-rose-300 font-mono font-medium">
+                        Perda total: ${formatCurrency(plateFailures.reduce((acc, pf) => acc + (calculateLocalFailureCost(pf, plate).total_cost || 0), 0))}
+                    </span>
+                </div>
+                <div class="space-y-1.5">
+                    ${plateFailures.map((pf) => {
+                        const globalFIdx = state.currentFailures.indexOf(pf);
+                        const costInfo = calculateLocalFailureCost(pf, plate);
+                        return `
+                        <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/60 p-2 rounded-lg border border-rose-500/20 text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                    ${getReasonLabel(pf.reason)}
+                                </span>
+                                <span class="text-slate-300 font-mono text-[11px]">
+                                    ${(pf.lost_filament_weight_g || 0).toFixed(1)}g | ${(pf.lost_time_hours || 0).toFixed(1)}h
+                                </span>
+                                ${pf.reprinted ? '<span class="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Reimpressão</span>' : ''}
+                                ${pf.charged_to_client ? '<span class="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">Cobrado do cliente</span>' : '<span class="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">Absorvido</span>'}
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-rose-400 font-mono text-xs">
+                                    - ${formatCurrency(costInfo.total_cost || 0)}
+                                </span>
+                                <button type="button" onclick="deleteFailureLog(${idx}, '${pf.id || ''}', ${globalFIdx})" class="text-slate-400 hover:text-red-400 p-1 rounded transition-colors" title="Excluir Registro de Falha">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                            ${pf.reason_notes ? `<div class="w-full text-[10px] text-slate-400 italic pl-1 border-l-2 border-slate-700">${escapeHtml(pf.reason_notes)}</div>` : ''}
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            ` : ''}
 
             <!-- Single Plate Subtotal Summary Pill -->
             <div class="flex flex-wrap items-center justify-between gap-2 pt-2 px-1 border-t border-slate-800/80 text-xs">
@@ -1964,6 +2027,53 @@ function recalcLiveSummary() {
             barOver.style.width = '20%';
         }
     }
+
+    // 6. Production Failure Logs (Scrap Cost) Math
+    let totalScrapCost = 0;
+    let totalScrapFilamentG = 0;
+    let totalScrapTimeHours = 0;
+    let totalScrapAbsorbed = 0;
+
+    (state.currentFailures || []).forEach(f => {
+        let plate = null;
+        if (f.plate_id != null) {
+            plate = state.currentPlates.find(p => p.id === f.plate_id);
+        } else if (f.plate_idx != null && state.currentPlates[f.plate_idx]) {
+            plate = state.currentPlates[f.plate_idx];
+        }
+
+        const costInfo = calculateLocalFailureCost(f, plate, printersMap, filamentsMap);
+        totalScrapCost += costInfo.total_cost;
+        totalScrapFilamentG += (f.lost_filament_weight_g || 0);
+        totalScrapTimeHours += (f.lost_time_hours || 0);
+
+        if (!f.charged_to_client) {
+            totalScrapAbsorbed += costInfo.total_cost;
+        }
+    });
+
+    const scrapSection = document.getElementById('live-scrap-section');
+    if (scrapSection) {
+        if (state.currentFailures && state.currentFailures.length > 0) {
+            scrapSection.classList.remove('hidden');
+            setText('live-scrap-cost', `- ${formatCurrency(totalScrapCost)}`);
+            setText('live-scrap-details', `${totalScrapFilamentG.toFixed(1)}g descartados • ${totalScrapTimeHours.toFixed(1)}h perdidas (${state.currentFailures.length} falha${state.currentFailures.length > 1 ? 's' : ''})`);
+            const actualNetProfit = netProfit - totalScrapAbsorbed;
+            setText('live-actual-net-profit', formatCurrency(actualNetProfit));
+            const actualProfitEl = document.getElementById('live-actual-net-profit');
+            if (actualProfitEl) {
+                if (actualNetProfit < 0) {
+                    actualProfitEl.className = 'font-mono font-bold text-xs text-rose-400';
+                } else if (actualNetProfit > 0) {
+                    actualProfitEl.className = 'font-mono font-bold text-xs text-emerald-400';
+                } else {
+                    actualProfitEl.className = 'font-mono font-bold text-xs text-slate-300';
+                }
+            }
+        } else {
+            scrapSection.classList.add('hidden');
+        }
+    }
 }
 
 function setText(id, text) {
@@ -2005,6 +2115,7 @@ async function saveCurrentProject(navigateBack = true) {
         warranty_terms: document.getElementById('proj-warranty-terms')?.value.trim() || null,
         notes: document.getElementById('proj-notes').value.trim(),
         plates: state.currentPlates.map(p => ({
+            id: p.id || null,
             name: p.name,
             printer_id: p.printer_id,
             filament_id: p.filament_id,
@@ -2019,12 +2130,34 @@ async function saveCurrentProject(navigateBack = true) {
             notes: p.notes,
         })),
         bom_items: state.currentBOM.map(b => ({
+            id: b.id || null,
             name: b.name,
             category: b.category,
             quantity: Math.max(1, parseInt(b.quantity, 10) || 1),
             unit_cost: Math.max(0, parseLocaleFloat(b.unit_cost, 0)),
             notes: b.notes,
         })),
+        failure_logs: (state.currentFailures || []).map((f, idx) => {
+            let targetPlateId = f.plate_id;
+            let targetPlateIdx = f.plate_idx;
+            if (!targetPlateId && targetPlateIdx != null && state.currentPlates[targetPlateIdx]) {
+                targetPlateId = state.currentPlates[targetPlateIdx].id || null;
+            } else if (targetPlateId) {
+                const foundIdx = state.currentPlates.findIndex(p => p.id === targetPlateId);
+                if (foundIdx !== -1) targetPlateIdx = foundIdx;
+            }
+            return {
+                id: f.id || null,
+                plate_id: targetPlateId,
+                plate_idx: targetPlateIdx != null ? targetPlateIdx : null,
+                lost_time_hours: parseLocaleFloat(f.lost_time_hours, 0),
+                lost_filament_weight_g: parseLocaleFloat(f.lost_filament_weight_g, 0),
+                reason: f.reason || 'other',
+                reason_notes: f.reason_notes || null,
+                reprinted: Boolean(f.reprinted),
+                charged_to_client: Boolean(f.charged_to_client),
+            };
+        }),
     };
 
     try {
@@ -2033,11 +2166,29 @@ async function saveCurrentProject(navigateBack = true) {
             const updated = await API.projects.update(state.currentProject.id, payload);
             showToast('Projeto atualizado com sucesso!', 'success');
             state.currentProject = updated;
+            if (updated.plates) {
+                state.currentPlates = updated.plates;
+            }
+            if (updated.bom_items) {
+                state.currentBOM = updated.bom_items;
+            }
+            if (updated.failure_logs) {
+                state.currentFailures = updated.failure_logs;
+            }
         } else {
             // Create new
             const created = await API.projects.create(payload);
             showToast('Projeto criado com sucesso!', 'success');
             state.currentProject = created;
+            if (created.plates) {
+                state.currentPlates = created.plates;
+            }
+            if (created.bom_items) {
+                state.currentBOM = created.bom_items;
+            }
+            if (created.failure_logs) {
+                state.currentFailures = created.failure_logs;
+            }
         }
 
         await loadAllData();
@@ -3123,6 +3274,225 @@ function updateSidebarToggleIcons(isCollapsed) {
 }
 window.updateSidebarToggleIcons = updateSidebarToggleIcons;
 
+// ================= PRODUCTION FAILURE & SCRAP LOGGING =================
+
+function openFailureModal(plateIdx) {
+    const plate = state.currentPlates[plateIdx];
+    if (!plate) return;
+
+    document.getElementById('fail-plate-idx').value = plateIdx;
+    document.getElementById('fail-plate-id').value = plate.id || '';
+    document.getElementById('fail-plate-name').textContent = plate.name || `Placa ${plateIdx + 1}`;
+    
+    const timeH = Math.floor(plate.print_time_hours || 0);
+    const timeM = Math.round(((plate.print_time_hours || 0) - timeH) * 60);
+    const weight = plate.part_weight_g || 0;
+    document.getElementById('fail-plate-specs').textContent = `Total previsto: ${(plate.print_time_hours || 0).toFixed(1)}h • ${weight.toFixed(1)}g`;
+
+    const defaultLostH = Math.max(0, Math.floor((plate.print_time_hours || 0) / 2));
+    const defaultLostM = Math.max(0, Math.round(((plate.print_time_hours || 0) / 2 - defaultLostH) * 60));
+    document.getElementById('fail-time-h').value = defaultLostH;
+    document.getElementById('fail-time-m').value = defaultLostM;
+
+    document.getElementById('fail-filament-g').value = (weight > 0 ? (weight / 2).toFixed(1) : '0');
+    document.getElementById('fail-reason').value = 'warping';
+    document.getElementById('fail-notes').value = '';
+    document.getElementById('fail-reprinted').checked = true;
+    document.getElementById('fail-charge-client').checked = false;
+
+    updateLiveFailureCostPreview();
+    document.getElementById('modal-failure').classList.remove('hidden');
+    refreshIcons();
+}
+
+function closeFailureModal() {
+    const modal = document.getElementById('modal-failure');
+    if (modal) modal.classList.add('hidden');
+}
+
+function fillFailureFullWeight() {
+    const plateIdx = parseInt(document.getElementById('fail-plate-idx').value, 10);
+    const plate = state.currentPlates[plateIdx];
+    if (plate) {
+        document.getElementById('fail-filament-g').value = (plate.part_weight_g || 0);
+        updateLiveFailureCostPreview();
+    }
+}
+
+function updateLiveFailureCostPreview() {
+    const plateIdx = parseInt(document.getElementById('fail-plate-idx').value, 10);
+    const plate = state.currentPlates[plateIdx];
+
+    const h = parseInt(document.getElementById('fail-time-h').value, 10) || 0;
+    const m = parseInt(document.getElementById('fail-time-m').value, 10) || 0;
+    const lostHours = Math.max(0, h + (m / 60.0));
+    const lostGrams = Math.max(0, parseLocaleFloat(document.getElementById('fail-filament-g').value, 0));
+
+    const costInfo = calculateLocalFailureCost({
+        lost_time_hours: lostHours,
+        lost_filament_weight_g: lostGrams
+    }, plate);
+
+    const costTotalEl = document.getElementById('fail-cost-total');
+    const costCalcEl = document.getElementById('fail-cost-calc-text');
+    if (costTotalEl) costTotalEl.textContent = formatCurrency(costInfo.total_cost);
+    if (costCalcEl) {
+        costCalcEl.textContent = `Filamento: ${formatCurrency(costInfo.material_loss)} + Máquina: ${formatCurrency(costInfo.machine_loss)}`;
+    }
+}
+
+async function submitPlateFailure(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const plateIdx = parseInt(document.getElementById('fail-plate-idx').value, 10);
+    const plateIdStr = document.getElementById('fail-plate-id').value;
+    const plateId = plateIdStr ? parseInt(plateIdStr, 10) : null;
+    const plate = state.currentPlates[plateIdx];
+
+    const h = parseInt(document.getElementById('fail-time-h').value, 10) || 0;
+    const m = parseInt(document.getElementById('fail-time-m').value, 10) || 0;
+    const lostHours = Math.max(0, h + (m / 60.0));
+    const lostGrams = Math.max(0, parseLocaleFloat(document.getElementById('fail-filament-g').value, 0));
+    const reason = document.getElementById('fail-reason').value;
+    const notes = document.getElementById('fail-notes').value.trim();
+    const reprinted = document.getElementById('fail-reprinted').checked;
+    const chargedToClient = document.getElementById('fail-charge-client').checked;
+
+    const failureObj = {
+        plate_id: plateId,
+        plate_idx: plateIdx,
+        lost_time_hours: lostHours,
+        lost_filament_weight_g: lostGrams,
+        reason: reason,
+        reason_notes: notes || null,
+        reprinted: reprinted,
+        charged_to_client: chargedToClient,
+    };
+
+    if (state.currentProject && state.currentProject.id && plateId) {
+        try {
+            const savedLog = await API.projects.addFailure(state.currentProject.id, failureObj);
+            failureObj.id = savedLog.id;
+            failureObj.calculated_cost = savedLog.calculated_cost;
+            failureObj.calculated_material_cost = savedLog.calculated_material_cost;
+            failureObj.calculated_machine_cost = savedLog.calculated_machine_cost;
+            showToast('Falha registrada e salva no projeto!', 'success');
+        } catch (err) {
+            console.warn('Erro ao salvar falha via API direta, mantendo em memória:', err);
+            showToast('Falha adicionada. Salve o projeto para persistir.', 'info');
+        }
+    } else {
+        showToast('Falha registrada na placa! Salve o projeto para persistir no banco.', 'info');
+    }
+
+    if (!state.currentFailures) state.currentFailures = [];
+    state.currentFailures.push(failureObj);
+
+    closeFailureModal();
+    renderPlates();
+    recalcLiveSummary();
+}
+
+async function deleteFailureLog(plateIdx, failId, fIdx) {
+    if (!confirm('Deseja realmente remover este registro de falha/refugo?')) return;
+
+    if (failId && state.currentProject && state.currentProject.id) {
+        try {
+            await API.projects.deleteFailure(state.currentProject.id, failId);
+            showToast('Registro de falha excluído.', 'success');
+        } catch (err) {
+            showToast('Erro ao excluir no servidor: ' + err.message, 'error');
+            return;
+        }
+    }
+
+    if (fIdx >= 0 && fIdx < state.currentFailures.length) {
+        state.currentFailures.splice(fIdx, 1);
+    } else if (failId) {
+        state.currentFailures = state.currentFailures.filter(f => String(f.id) !== String(failId));
+    }
+
+    renderPlates();
+    recalcLiveSummary();
+}
+
+function calculateLocalFailureCost(f, plate, printersMap = null, filamentsMap = null) {
+    if (!printersMap) {
+        printersMap = {};
+        (state.printers || []).forEach(p => { printersMap[p.id] = p; });
+    }
+    if (!filamentsMap) {
+        filamentsMap = {};
+        (state.filaments || []).forEach(fil => { filamentsMap[fil.id] = fil; });
+    }
+
+    let costPerGram = 0.09;
+    let machineRate = 2.0;
+
+    if (plate) {
+        const filament = plate.filament_id ? filamentsMap[plate.filament_id] : null;
+        if (filament && filament.spool_weight_g > 0) {
+            costPerGram = filament.spool_price / filament.spool_weight_g;
+        } else if (plate.custom_filament_cost_per_g != null) {
+            costPerGram = parseLocaleFloat(plate.custom_filament_cost_per_g, 0.09);
+        }
+
+        const printer = plate.printer_id ? printersMap[plate.printer_id] : null;
+        if (printer) {
+            machineRate = printer.machine_hourly_rate ?? 2.0;
+        } else if (plate.custom_printer_hourly_rate != null) {
+            machineRate = parseLocaleFloat(plate.custom_printer_hourly_rate, 2.0);
+        }
+    }
+
+    const lostGrams = f.lost_filament_weight_g || 0;
+    const lostHours = f.lost_time_hours || 0;
+    const materialLoss = lostGrams * costPerGram;
+    const machineLoss = lostHours * machineRate;
+    const totalCost = materialLoss + machineLoss;
+
+    return {
+        cost_per_gram: costPerGram,
+        machine_hourly_rate: machineRate,
+        material_loss: materialLoss,
+        machine_loss: machineLoss,
+        total_cost: totalCost,
+    };
+}
+
+function getReasonLabel(reason) {
+    const map = {
+        'warping': 'Descolamento da mesa / Warping',
+        'nozzle_clog': 'Entupimento do Bico',
+        'filament_runout': 'Falta/Quebra de Filamento',
+        'layer_shift': 'Perda de Passos (Layer Shift)',
+        'spaghetti': 'Spaghetti / Peça Soltou',
+        'power_loss': 'Queda de Energia',
+        'slicing_error': 'Erro de Fatiamento',
+        'other': 'Outro Motivo'
+    };
+    return map[reason] || reason || 'Falha Desconhecida';
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+window.openFailureModal = openFailureModal;
+window.closeFailureModal = closeFailureModal;
+window.fillFailureFullWeight = fillFailureFullWeight;
+window.updateLiveFailureCostPreview = updateLiveFailureCostPreview;
+window.submitPlateFailure = submitPlateFailure;
+window.deleteFailureLog = deleteFailureLog;
+window.calculateLocalFailureCost = calculateLocalFailureCost;
+window.getReasonLabel = getReasonLabel;
+window.escapeHtml = escapeHtml;
+
 // ================= INITIALIZATION =================
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -3145,11 +3515,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     attachPhoneMask(document.getElementById('proj-client-phone'));
     attachPhoneMask(document.getElementById('pref-phone'));
 
-    // Issue #19: Close filament/printer modals with ESC key (WAI-ARIA dialog pattern)
+    // Issue #19: Close filament/printer/failure modals with ESC key (WAI-ARIA dialog pattern)
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' || e.key === 'Esc') {
             closeFilamentModal();
             closePrinterModal();
+            closeFailureModal();
         }
     });
 
@@ -3159,6 +3530,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     document.getElementById('modal-printer')?.addEventListener('click', (e) => {
         if (e.target === e.currentTarget) closePrinterModal();
+    });
+    document.getElementById('modal-failure')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeFailureModal();
     });
 
     window.addEventListener('auth:unauthorized', () => {

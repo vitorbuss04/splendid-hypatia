@@ -1025,6 +1025,89 @@ def test_bom_items_negative_validation_rejection(client, make_user):
     assert res_cost.status_code == 422
 
 
+def test_plate_failure_logs_api(client, make_user):
+    user = make_user(email="failures_api@example.com")
+    headers = user["headers"]
+
+    # 1. Create Printer & Filament
+    pr_res = client.post("/api/printers", json={
+        "name": "Bambu P1S Farm",
+        "acquisition_cost": 4500.0,
+        "lifespan_hours": 5000.0,
+        "avg_power_watts": 160.0,
+        "energy_rate_kwh": 0.90,
+        "maintenance_cost_per_hour": 1.50
+    }, headers=headers)
+    printer_id = pr_res.json()["id"]
+
+    fl_res = client.post("/api/filaments", json={
+        "name": "PETG Cinza",
+        "material": "PETG",
+        "spool_weight_g": 1000.0,
+        "spool_price": 95.0, # 0.095/g
+    }, headers=headers)
+    filament_id = fl_res.json()["id"]
+
+    # 2. Create Project with Plate
+    proj_res = client.post("/api/projects", json={
+        "name": "Projeto com Falha Teste",
+        "profit_margin_percent": 30.0,
+        "plates": [
+            {
+                "name": "Placa Principal",
+                "printer_id": printer_id,
+                "filament_id": filament_id,
+                "print_time_hours": 6.0,
+                "part_weight_g": 120.0,
+                "purge_weight_g": 0.0,
+                "quantity": 1
+            }
+        ]
+    }, headers=headers)
+    assert proj_res.status_code == 201
+    proj_data = proj_res.json()
+    project_id = proj_data["id"]
+    plate_id = proj_data["plates"][0]["id"]
+
+    # 3. Register a failure log on this plate: 2 hours and 50g lost due to nozzle clog
+    fail_res = client.post(f"/api/projects/{project_id}/failures", json={
+        "plate_id": plate_id,
+        "lost_time_hours": 2.0,
+        "lost_filament_weight_g": 50.0,
+        "reason": "nozzle_clog",
+        "reason_notes": "Bico 0.4mm entupiu após troca de carretel",
+        "reprinted": True,
+        "charged_to_client": False
+    }, headers=headers)
+    assert fail_res.status_code == 200
+    fail_data = fail_res.json()
+    assert fail_data["plate_id"] == plate_id
+    assert fail_data["reason"] == "nozzle_clog"
+    assert fail_data["calculated_material_cost"] == round(50.0 * 0.095, 2)
+    assert fail_data["calculated_cost"] > 0
+    failure_id = fail_data["id"]
+
+    # 4. Fetch project and verify failure is reflected in summary
+    get_res = client.get(f"/api/projects/{project_id}", headers=headers)
+    assert get_res.status_code == 200
+    p_updated = get_res.json()
+    assert len(p_updated["failure_logs"]) == 1
+    assert p_updated["failure_logs"][0]["id"] == failure_id
+    summary = p_updated["summary"]
+    assert summary["total_scrap_cost"] == fail_data["calculated_cost"]
+    assert summary["actual_base_cost"] > summary["base_cost"]
+    assert summary["actual_net_profit"] < summary["net_profit"]
+
+    # 5. Delete failure log
+    del_res = client.delete(f"/api/projects/{project_id}/failures/{failure_id}", headers=headers)
+    assert del_res.status_code == 204
+
+    # 6. Verify failure log is gone
+    get_res2 = client.get(f"/api/projects/{project_id}", headers=headers)
+    assert len(get_res2.json()["failure_logs"]) == 0
+
+
+
 
 
 

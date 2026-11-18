@@ -116,6 +116,7 @@ class Project(Base):
     user = relationship("User", back_populates="projects")
     plates = relationship("Plate", back_populates="project", cascade="all, delete-orphan")
     bom_items = relationship("BOMItem", back_populates="project", cascade="all, delete-orphan")
+    failure_logs = relationship("PlateFailureLog", back_populates="project", cascade="all, delete-orphan")
 
 
 class Plate(Base):
@@ -143,6 +144,7 @@ class Plate(Base):
     project = relationship("Project", back_populates="plates")
     printer = relationship("Printer", back_populates="plates")
     filament = relationship("Filament", back_populates="plates")
+    failure_logs = relationship("PlateFailureLog", back_populates="plate")
 
 
 class BOMItem(Base):
@@ -158,3 +160,29 @@ class BOMItem(Base):
     notes = Column(Text, nullable=True)
 
     project = relationship("Project", back_populates="bom_items")
+
+
+class PlateFailureLog(Base):
+    __tablename__ = "plate_failure_logs"
+    __table_args__ = {"schema": DB_SCHEMA} if DB_SCHEMA else {}
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey(f"{DB_SCHEMA}.projects.id" if DB_SCHEMA else "projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    plate_id = Column(Integer, ForeignKey(f"{DB_SCHEMA}.plates.id" if DB_SCHEMA else "plates.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    lost_time_hours = Column(Float, default=0.0)  # Horas de máquina perdidas
+    lost_filament_weight_g = Column(Float, default=0.0)  # Gramas de filamento perdidos
+    reason = Column(String(100), default="other")  # warping, nozzle_clog, filament_runout, layer_shift, spaghetti, power_loss, slicing_error, other
+    reason_notes = Column(Text, nullable=True)
+    reprinted = Column(Boolean, default=True)  # Se a placa necessita de nova impressão
+    charged_to_client = Column(Boolean, default=False)  # Se o custo é repassado ao cliente ou absorvido pela oficina
+
+    calculated_material_cost = Column(Float, default=0.0)  # Custo do filamento perdido
+    calculated_machine_cost = Column(Float, default=0.0)   # Custo da máquina e energia perdidos
+    calculated_cost = Column(Float, default=0.0)           # Custo total do refugo
+
+    created_at = Column(DateTime, default=get_utc_now)
+
+    project = relationship("Project", back_populates="failure_logs")
+    plate = relationship("Plate", back_populates="failure_logs")
+

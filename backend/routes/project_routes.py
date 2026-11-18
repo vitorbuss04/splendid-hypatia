@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from backend.database import get_db
 from backend import models, schemas
 from backend.auth import get_current_user, get_user_from_token, security
-from backend.engine import calculate_project_summary, calculate_plate_cost
+from backend.engine import calculate_project_summary, calculate_plate_cost, calculate_failure_cost
 from backend.pdf_service import build_pdf_document
 
 router = APIRouter(prefix="/api/projects", tags=["Projetos & Orçamentos"])
@@ -33,7 +33,8 @@ def build_project_response(project: models.Project, db: Session) -> schemas.Proj
         plates=project.plates,
         bom_items=project.bom_items,
         printers_by_id=printers_map,
-        filaments_by_id=filaments_map
+        filaments_by_id=filaments_map,
+        failure_logs=project.failure_logs,
     )
 
     # Enrich plates with cost breakdown
@@ -53,9 +54,16 @@ def build_project_response(project: models.Project, db: Session) -> schemas.Proj
         b_res.subtotal = round(b.quantity * b.unit_cost, 2)
         bom_responses.append(b_res)
 
+    # Enrich failure logs
+    failure_responses = []
+    for f in project.failure_logs:
+        f_res = schemas.PlateFailureLogResponse.model_validate(f)
+        failure_responses.append(f_res)
+
     res = schemas.ProjectResponse.model_validate(project)
     res.plates = plate_responses
     res.bom_items = bom_responses
+    res.failure_logs = failure_responses
     res.summary = summary
     return res
 
@@ -126,6 +134,8 @@ def get_dashboard_stats(
     total_net_profit = 0.0
     total_print_hours = 0.0
     total_filament_g = 0.0
+    total_scrap_cost = 0.0
+    total_scrap_filament_g = 0.0
     margins_sum = 0.0
     margins_count = 0
 
@@ -162,7 +172,8 @@ def get_dashboard_stats(
             plates=proj.plates,
             bom_items=proj.bom_items,
             printers_by_id=printers_map,
-            filaments_by_id=filaments_map
+            filaments_by_id=filaments_map,
+            failure_logs=proj.failure_logs,
         )
 
         st = proj.status or "draft"
@@ -176,6 +187,11 @@ def get_dashboard_stats(
         net_profit = float(summary.get("net_profit", 0.0) or 0.0)
         hours = float(summary.get("total_print_time_hours", 0.0) or 0.0)
         weight = float(summary.get("total_filament_weight_g", 0.0) or 0.0)
+        scrap_c = float(summary.get("total_scrap_cost", 0.0) or 0.0)
+        scrap_w = float(summary.get("total_scrap_filament_g", 0.0) or 0.0)
+
+        total_scrap_cost += scrap_c
+        total_scrap_filament_g += scrap_w
 
         status_values[st] = round(status_values[st] + final_price, 2)
 
@@ -260,6 +276,8 @@ def get_dashboard_stats(
 
     top_projects = sorted(project_items, key=lambda x: x.final_price, reverse=True)[:5]
     avg_margin = round(margins_sum / margins_count, 1) if margins_count > 0 else 0.0
+    total_all_filament_g = total_filament_g + total_scrap_filament_g
+    overall_scrap_rate = round((total_scrap_filament_g / total_all_filament_g * 100.0), 1) if total_all_filament_g > 0 else 0.0
 
     return schemas.DashboardStatsResponse(
         total_projects=total_projects,
@@ -284,6 +302,9 @@ def get_dashboard_stats(
             net_profit=round(profit_acc, 2),
         ),
         top_projects=top_projects,
+        total_scrap_cost=round(total_scrap_cost, 2),
+        total_scrap_filament_g=round(total_scrap_filament_g, 2),
+        scrap_rate_percent=overall_scrap_rate,
     )
 
 @router.post("", response_model=schemas.ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -293,7 +314,7 @@ def create_project(
     db: Session = Depends(get_db)
 ):
     # If project margins/rates are default 0 or user wants their profile defaults
-    proj_data = proj_in.model_dump(exclude={"plates", "bom_items"})
+    proj_data = proj_in.model_dump(exclude={"plates", "bom_items", "failure_logs"})
     project = models.Project(
         user_id=current_user.id,
         **proj_data
@@ -301,21 +322,59 @@ def create_project(
     db.add(project)
     db.flush()
 
+    inserted_plates = []
     if proj_in.plates:
         for p_data in proj_in.plates:
+            plate_dict = p_data.model_dump(exclude={"id"})
             plate = models.Plate(
                 project_id=project.id,
-                **p_data.model_dump()
+                **plate_dict
             )
             db.add(plate)
+            inserted_plates.append(plate)
+        db.flush()
 
     if proj_in.bom_items:
         for b_data in proj_in.bom_items:
+            bom_dict = b_data.model_dump(exclude={"id"})
             bom = models.BOMItem(
                 project_id=project.id,
-                **b_data.model_dump()
+                **bom_dict
             )
             db.add(bom)
+        db.flush()
+
+    if proj_in.failure_logs:
+        printers_map = {pr.id: pr for pr in db.query(models.Printer).filter(models.Printer.user_id == current_user.id).all()}
+        filaments_map = {fl.id: fl for fl in db.query(models.Filament).filter(models.Filament.user_id == current_user.id).all()}
+
+        for f_data in proj_in.failure_logs:
+            target_plate_id = f_data.plate_id
+            target_plate = None
+            if target_plate_id:
+                target_plate = next((p for p in inserted_plates if p.id == target_plate_id), None)
+            elif f_data.plate_idx is not None and 0 <= f_data.plate_idx < len(inserted_plates):
+                target_plate = inserted_plates[f_data.plate_idx]
+                target_plate_id = target_plate.id
+
+            printer = printers_map.get(target_plate.printer_id) if (target_plate and target_plate.printer_id) else None
+            filament = filaments_map.get(target_plate.filament_id) if (target_plate and target_plate.filament_id) else None
+            cost_info = calculate_failure_cost(f_data, plate=target_plate, printer=printer, filament=filament)
+
+            f_log = models.PlateFailureLog(
+                project_id=project.id,
+                plate_id=target_plate_id,
+                lost_time_hours=cost_info["lost_time_hours"],
+                lost_filament_weight_g=cost_info["lost_filament_weight_g"],
+                reason=cost_info["reason"],
+                reason_notes=cost_info["reason_notes"],
+                reprinted=cost_info["reprinted"],
+                charged_to_client=cost_info["charged_to_client"],
+                calculated_material_cost=cost_info["calculated_material_cost"],
+                calculated_machine_cost=cost_info["calculated_machine_cost"],
+                calculated_cost=cost_info["calculated_cost"],
+            )
+            db.add(f_log)
 
     db.commit()
     db.refresh(project)
@@ -338,31 +397,202 @@ def update_project(
     db: Session = Depends(get_db)
 ):
     project = get_user_project(project_id, current_user.id, db)
-    update_data = proj_update.model_dump(exclude_unset=True, exclude={"plates", "bom_items"})
+    update_data = proj_update.model_dump(exclude_unset=True, exclude={"plates", "bom_items", "failure_logs"})
     for field, value in update_data.items():
         setattr(project, field, value)
 
+    # 1. Update Plates in-place without destroying untouched plate IDs
+    active_plates = []
     if proj_update.plates is not None:
-        project.plates.clear()
-        for p_data in proj_update.plates:
-            plate = models.Plate(
-                project_id=project.id,
-                **p_data.model_dump()
-            )
-            db.add(plate)
+        existing_plates_list = list(project.plates)
+        existing_plates_by_id = {p.id: p for p in existing_plates_list}
+        used_plate_ids = set()
 
+        for idx, p_data in enumerate(proj_update.plates):
+            p_dict = p_data.model_dump(exclude_unset=True)
+            p_id = p_dict.pop("id", None)
+
+            plate = None
+            if p_id and p_id in existing_plates_by_id:
+                plate = existing_plates_by_id[p_id]
+            elif not p_id and idx < len(existing_plates_list) and existing_plates_list[idx].id not in used_plate_ids:
+                plate = existing_plates_list[idx]
+
+            if plate:
+                for k, v in p_dict.items():
+                    setattr(plate, k, v)
+                used_plate_ids.add(plate.id)
+                active_plates.append(plate)
+            else:
+                new_plate = models.Plate(project_id=project.id, **p_dict)
+                db.add(new_plate)
+                active_plates.append(new_plate)
+
+        # Remove deleted plates
+        for p in existing_plates_list:
+            if p.id not in used_plate_ids:
+                db.delete(p)
+
+        db.flush()
+
+    # 2. Update BOM Items in-place
     if proj_update.bom_items is not None:
-        project.bom_items.clear()
-        for b_data in proj_update.bom_items:
-            bom = models.BOMItem(
-                project_id=project.id,
-                **b_data.model_dump()
-            )
-            db.add(bom)
+        existing_bom_list = list(project.bom_items)
+        existing_bom_by_id = {b.id: b for b in existing_bom_list}
+        used_bom_ids = set()
+
+        for idx, b_data in enumerate(proj_update.bom_items):
+            b_dict = b_data.model_dump(exclude_unset=True)
+            b_id = b_dict.pop("id", None)
+
+            bom = None
+            if b_id and b_id in existing_bom_by_id:
+                bom = existing_bom_by_id[b_id]
+            elif not b_id and idx < len(existing_bom_list) and existing_bom_list[idx].id not in used_bom_ids:
+                bom = existing_bom_list[idx]
+
+            if bom:
+                for k, v in b_dict.items():
+                    setattr(bom, k, v)
+                used_bom_ids.add(bom.id)
+            else:
+                bom = models.BOMItem(project_id=project.id, **b_dict)
+                db.add(bom)
+
+        for b in existing_bom_list:
+            if b.id not in used_bom_ids:
+                db.delete(b)
+
+        db.flush()
+
+    # 3. Update Failure Logs in-place with recalculation
+    if proj_update.failure_logs is not None:
+        printers_map = {pr.id: pr for pr in db.query(models.Printer).filter(models.Printer.user_id == current_user.id).all()}
+        filaments_map = {fl.id: fl for fl in db.query(models.Filament).filter(models.Filament.user_id == current_user.id).all()}
+        existing_failures_list = list(project.failure_logs)
+        existing_failures_by_id = {f.id: f for f in existing_failures_list}
+        used_fail_ids = set()
+
+        # Current plates map for lookup
+        current_plates_list = active_plates if proj_update.plates is not None else list(project.plates)
+        plates_map = {p.id: p for p in current_plates_list}
+
+        for idx, f_data in enumerate(proj_update.failure_logs):
+            target_plate_id = f_data.plate_id
+            target_plate = None
+            if target_plate_id and target_plate_id in plates_map:
+                target_plate = plates_map[target_plate_id]
+            elif f_data.plate_idx is not None and 0 <= f_data.plate_idx < len(current_plates_list):
+                target_plate = current_plates_list[f_data.plate_idx]
+                target_plate_id = target_plate.id
+            elif not target_plate_id and len(current_plates_list) == 1:
+                target_plate = current_plates_list[0]
+                target_plate_id = target_plate.id
+            else:
+                target_plate_id = None
+
+            printer = printers_map.get(target_plate.printer_id) if (target_plate and target_plate.printer_id) else None
+            filament = filaments_map.get(target_plate.filament_id) if (target_plate and target_plate.filament_id) else None
+            cost_info = calculate_failure_cost(f_data, plate=target_plate, printer=printer, filament=filament)
+
+            f_log = None
+            if f_data.id and f_data.id in existing_failures_by_id:
+                f_log = existing_failures_by_id[f_data.id]
+            elif not f_data.id and idx < len(existing_failures_list) and existing_failures_list[idx].id not in used_fail_ids:
+                f_log = existing_failures_list[idx]
+
+            if f_log:
+                f_log.plate_id = target_plate_id
+                f_log.lost_time_hours = cost_info["lost_time_hours"]
+                f_log.lost_filament_weight_g = cost_info["lost_filament_weight_g"]
+                f_log.reason = cost_info["reason"]
+                f_log.reason_notes = cost_info["reason_notes"]
+                f_log.reprinted = cost_info["reprinted"]
+                f_log.charged_to_client = cost_info["charged_to_client"]
+                f_log.calculated_material_cost = cost_info["calculated_material_cost"]
+                f_log.calculated_machine_cost = cost_info["calculated_machine_cost"]
+                f_log.calculated_cost = cost_info["calculated_cost"]
+                used_fail_ids.add(f_log.id)
+            else:
+                new_f = models.PlateFailureLog(
+                    project_id=project.id,
+                    plate_id=target_plate_id,
+                    lost_time_hours=cost_info["lost_time_hours"],
+                    lost_filament_weight_g=cost_info["lost_filament_weight_g"],
+                    reason=cost_info["reason"],
+                    reason_notes=cost_info["reason_notes"],
+                    reprinted=cost_info["reprinted"],
+                    charged_to_client=cost_info["charged_to_client"],
+                    calculated_material_cost=cost_info["calculated_material_cost"],
+                    calculated_machine_cost=cost_info["calculated_machine_cost"],
+                    calculated_cost=cost_info["calculated_cost"],
+                )
+                db.add(new_f)
+
+        for f in existing_failures_list:
+            if f.id not in used_fail_ids:
+                db.delete(f)
 
     db.commit()
     db.refresh(project)
     return build_project_response(project, db)
+
+@router.post("/{project_id}/failures", response_model=schemas.PlateFailureLogResponse)
+def add_plate_failure_log(
+    project_id: int,
+    log_in: schemas.PlateFailureLogCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    project = get_user_project(project_id, current_user.id, db)
+    plate = None
+    if log_in.plate_id:
+        plate = db.query(models.Plate).filter(
+            models.Plate.id == log_in.plate_id,
+            models.Plate.project_id == project.id
+        ).first()
+
+    printer = db.query(models.Printer).filter(models.Printer.id == plate.printer_id).first() if (plate and plate.printer_id) else None
+    filament = db.query(models.Filament).filter(models.Filament.id == plate.filament_id).first() if (plate and plate.filament_id) else None
+
+    cost_info = calculate_failure_cost(log_in, plate=plate, printer=printer, filament=filament)
+
+    failure = models.PlateFailureLog(
+        project_id=project.id,
+        plate_id=log_in.plate_id,
+        lost_time_hours=cost_info["lost_time_hours"],
+        lost_filament_weight_g=cost_info["lost_filament_weight_g"],
+        reason=cost_info["reason"],
+        reason_notes=cost_info["reason_notes"],
+        reprinted=cost_info["reprinted"],
+        charged_to_client=cost_info["charged_to_client"],
+        calculated_material_cost=cost_info["calculated_material_cost"],
+        calculated_machine_cost=cost_info["calculated_machine_cost"],
+        calculated_cost=cost_info["calculated_cost"],
+    )
+    db.add(failure)
+    db.commit()
+    db.refresh(failure)
+    return failure
+
+@router.delete("/{project_id}/failures/{failure_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_plate_failure_log(
+    project_id: int,
+    failure_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    project = get_user_project(project_id, current_user.id, db)
+    failure = db.query(models.PlateFailureLog).filter(
+        models.PlateFailureLog.id == failure_id,
+        models.PlateFailureLog.project_id == project.id
+    ).first()
+    if not failure:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registro de falha não encontrado.")
+
+    db.delete(failure)
+    db.commit()
+    return None
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(

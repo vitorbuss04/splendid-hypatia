@@ -91,8 +91,9 @@
     <!-- Chart.js for Dashboard Visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
     
-    <link rel="stylesheet" href="/static/css/styles.css?v=1.3.6">
-    <link rel="stylesheet" href="/static/css/components.css?v=1.3.6">
+    <link rel="stylesheet" href="/static/css/styles.css?v=1.4.0">
+    <link rel="stylesheet" href="/static/css/components.css?v=1.4.0">
+    <link rel="stylesheet" href="/static/css/views.css?v=1.4.0">
 </head>
 <body class="bg-darkbg text-slate-100 flex min-h-screen font-sans antialiased">
 
@@ -993,6 +994,24 @@
                                             <span class="profit-margin-pill px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">+0.0%</span>
                                         </div>
                                     </div>
+
+                                    <!-- 2.1 Scrap Loss & Actual Profit Pod (Shown if failures recorded) -->
+                                    <div id="live-scrap-section" class="hidden p-2.5 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-1.5 transition-all">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="flex items-center gap-1.5 text-rose-400 font-semibold">
+                                                <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Perdas de Impressão (Refugo):
+                                            </span>
+                                            <span class="font-mono font-bold text-rose-400" id="live-scrap-cost">R$ 0,00</span>
+                                        </div>
+                                        <div class="flex items-center justify-between text-[10px] text-slate-400">
+                                            <span>Desperdiçado:</span>
+                                            <span class="font-mono text-slate-300" id="live-scrap-details">0.0g • 0.0h</span>
+                                        </div>
+                                        <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-rose-900/40">
+                                            <span>Lucro Realizado (c/ perdas):</span>
+                                            <span class="font-mono font-bold text-emerald-400" id="live-actual-net-profit">R$ 0,00</span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- 2. Middle Section (Scrollable Breakdown) -->
@@ -1460,10 +1479,133 @@
         </div>
     </div>
 
+    <!-- ================= MODAL REGISTRO DE FALHA / REFUGO ================= -->
+    <div id="modal-failure" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="card-dark max-w-lg w-full p-6 shadow-2xl animate-fade-in border border-rose-500/30 rounded-2xl space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-600/30 to-amber-600/20 text-rose-400 flex items-center justify-center border border-rose-500/30 shadow-md">
+                        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white tracking-tight" id="modal-failure-title">
+                            Registrar Falha / Descarte
+                        </h3>
+                        <p class="text-xs text-slate-400" id="modal-failure-subtitle">Apontamento de perda de filamento e horas de máquina</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeFailureModal()" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="form-plate-failure" onsubmit="submitPlateFailure(event)" class="space-y-4">
+                <input type="hidden" id="fail-plate-idx" value="0">
+                <input type="hidden" id="fail-plate-id" value="">
+
+                <!-- Target Plate Indicator -->
+                <div class="p-3 bg-slate-900/70 border border-slate-800 rounded-xl flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Placa Afetada</span>
+                        <span class="text-xs font-semibold text-white" id="fail-plate-name">Placa 1</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-400 block" id="fail-plate-specs">Tempo: 0.0h • Filamento: 0g</span>
+                    </div>
+                </div>
+
+                <!-- Lost Time Dual Input -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">
+                        Tempo de Máquina Perdido até a Falha (h : min)
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <div class="relative flex-1">
+                            <input type="number" min="0" step="1" id="fail-time-h" value="1" oninput="updateLiveFailureCostPreview()" class="w-full pl-3 pr-8 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white font-mono focus:outline-none focus:border-rose-500" placeholder="0">
+                            <span class="absolute right-3 top-2.5 text-xs text-slate-400 pointer-events-none">h</span>
+                        </div>
+                        <span class="text-slate-500 font-bold">:</span>
+                        <div class="relative flex-1">
+                            <input type="number" min="0" max="59" step="1" id="fail-time-m" value="30" oninput="updateLiveFailureCostPreview()" class="w-full pl-3 pr-8 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white font-mono focus:outline-none focus:border-rose-500" placeholder="0">
+                            <span class="absolute right-3 top-2.5 text-xs text-slate-400 pointer-events-none">m</span>
+                        </div>
+                    </div>
+                    <span class="block text-[10px] text-slate-500 mt-1">Tempo em que a impressora operou antes de abortar</span>
+                </div>
+
+                <!-- Lost Filament Weight -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-xs font-medium text-slate-300">Filamento Desperdiçado (Gramas)</label>
+                        <button type="button" onclick="fillFailureFullWeight()" class="text-[10px] text-blue-400 hover:text-blue-300 font-medium transition-colors">
+                            Usar peso total da placa
+                        </button>
+                    </div>
+                    <div class="relative flex items-center">
+                        <input type="number" step="any" min="0" id="fail-filament-g" required oninput="updateLiveFailureCostPreview()" class="w-full pl-3 pr-8 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white font-mono focus:outline-none focus:border-rose-500 transition-colors" placeholder="0.0">
+                        <span class="absolute right-3 text-xs font-mono font-medium text-slate-400 pointer-events-none select-none">g</span>
+                    </div>
+                    <span class="block text-[10px] text-slate-500 mt-1">Peso da peça defeituosa pesada na balança</span>
+                </div>
+
+                <!-- Failure Reason -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Motivo Principal da Falha</label>
+                    <select id="fail-reason" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-rose-500">
+                        <option value="warping">Descolamento da mesa / Warping</option>
+                        <option value="nozzle_clog">Entupimento do Bico (Clog)</option>
+                        <option value="filament_runout">Falta ou quebra de filamento</option>
+                        <option value="layer_shift">Perda de passos / Desalinhamento (Layer Shift)</option>
+                        <option value="spaghetti">Peça soltou / Spaghetti</option>
+                        <option value="power_loss">Queda ou oscilação de energia</option>
+                        <option value="slicing_error">Erro de fatiamento ou suportes insuficientes</option>
+                        <option value="other">Outro motivo</option>
+                    </select>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Anotações / Causa Raiz (Opcional)</label>
+                    <textarea id="fail-notes" rows="2" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-rose-500 placeholder:text-slate-500 resize-none" placeholder="Ex: Primeiro carretel de PETG estava úmido; foi preciso secar antes de reimprimir"></textarea>
+                </div>
+
+                <!-- Checkboxes: Repassa ao cliente? Reimpressao? -->
+                <div class="space-y-2 p-3 bg-slate-900/60 border border-slate-800 rounded-xl text-xs">
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" id="fail-reprinted" checked class="w-4 h-4 rounded text-blue-600 bg-slate-800 border-slate-700 focus:ring-0">
+                        <span class="text-slate-200 font-medium">Requer reimpressão da placa</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" id="fail-charge-client" class="w-4 h-4 rounded text-rose-600 bg-slate-800 border-slate-700 focus:ring-0">
+                        <span class="text-slate-300">Repassar custo desta falha ao cliente (alteração solicitada)</span>
+                    </label>
+                </div>
+
+                <!-- Live Failure Financial Impact Box -->
+                <div class="p-3 bg-gradient-to-br from-rose-950/40 to-slate-900 border border-rose-500/30 rounded-xl flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-rose-400 tracking-wider block">Custo Desta Perda</span>
+                        <span class="text-[11px] text-slate-400" id="fail-cost-calc-text">Filamento: R$ 0,00 + Máquina: R$ 0,00</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-mono text-lg font-bold text-rose-300" id="fail-cost-total">R$ 0,00</span>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeFailureModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-600/20 hover:shadow-rose-500/30 transition-all flex items-center gap-1.5">
+                        <i data-lucide="check" class="w-4 h-4"></i> Confirmar Falha
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="/static/js/api.js?v=1.3.2"></script>
-    <script src="/static/js/parsers/gcode.js?v=1.3.2"></script>
-    <script src="/static/js/parsers/threemf.js?v=1.3.2"></script>
-    <script src="/static/js/app.js?v=1.3.6"></script>
+    <script src="/static/js/api.js?v=1.4.0"></script>
+    <script src="/static/js/parsers/gcode.js?v=1.4.0"></script>
+    <script src="/static/js/parsers/threemf.js?v=1.4.0"></script>
+    <script src="/static/js/app.js?v=1.4.0"></script>
 </body>
 </html>

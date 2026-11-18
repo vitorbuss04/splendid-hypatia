@@ -901,63 +901,37 @@ div:has(> #live-final-price)::before {
     }
 }
 
-/* Plate Card Subgrid Alignment */
+/* Plate Card Field Grid & Baseline Alignment */
 .plate-grid-aligned {
-    display: grid;
-    align-items: end;
+    display: grid !important;
+    align-items: stretch !important;
 }
 
-@supports (grid-template-rows: subgrid) {
-    .plate-grid-aligned {
-        grid-auto-rows: auto;
-    }
-
-    .plate-field-col {
-        display: grid !important;
-        grid-row: span 2;
-        grid-template-rows: subgrid;
-        row-gap: 0.25rem;
-        height: auto !important;
-    }
-
-    .plate-label-slot {
-        align-self: end !important;
-        min-height: 0 !important;
-        margin-bottom: 0 !important;
-    }
-
-    .plate-field-col > input,
-    .plate-field-col > select,
-    .plate-field-col > .relative,
-    .plate-field-col > .flex:not(.plate-label-slot) {
-        align-self: end !important;
-        margin-top: 0 !important;
-    }
+.plate-field-col {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+    height: 100% !important;
+    min-height: 100% !important;
 }
 
-/* Fallback for browsers without CSS subgrid */
-@supports not (grid-template-rows: subgrid) {
-    .plate-field-col {
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        height: 100%;
-    }
-
-    .plate-label-slot {
-        min-height: 2.25rem;
-        display: flex;
-        align-items: flex-end;
-        margin-bottom: 0.25rem;
-    }
-
-    .plate-field-col > input,
-    .plate-field-col > select,
-    .plate-field-col > .relative,
-    .plate-field-col > .flex:not(.plate-label-slot) {
-        margin-top: auto;
-    }
+.plate-label-slot {
+    min-height: 30px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+    margin-bottom: 0.25rem !important;
+    flex-shrink: 0 !important;
 }
+
+.plate-field-col > input,
+.plate-field-col > select,
+.plate-field-col > .relative,
+.plate-field-col > .flex:not(.plate-label-slot) {
+    margin-top: auto !important;
+    width: 100% !important;
+}
+
 
 
 

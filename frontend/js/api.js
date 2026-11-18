@@ -149,6 +149,8 @@ const API = {
         delete: (id) => API.request(`/api/projects/${id}`, { method: "DELETE" }),
         duplicate: (id) => API.request(`/api/projects/${id}/duplicate`, { method: "POST" }),
         getSummary: (id) => API.request(`/api/projects/${id}/summary`),
+        addFailure: (projectId, data) => API.request(`/api/projects/${projectId}/failures`, { method: "POST", body: JSON.stringify(data) }),
+        deleteFailure: (projectId, failureId) => API.request(`/api/projects/${projectId}/failures/${failureId}`, { method: "DELETE" }),
     },
 
     // Plates endpoints

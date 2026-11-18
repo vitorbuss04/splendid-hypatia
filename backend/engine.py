@@ -148,12 +148,82 @@ def calculate_plate_cost(
     }
 
 
+def calculate_failure_cost(
+    log: Any,
+    plate: Optional[Any] = None,
+    printer: Optional[Any] = None,
+    filament: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Calculates the financial loss of a failed print run (Scrap Cost):
+    - Material wasted: lost_filament_weight_g * cost_per_gram
+    - Machine & energy wasted: lost_time_hours * machine_hourly_rate
+    """
+    def get_attr(obj, attr, default=0.0):
+        if obj is None:
+            return default
+        if isinstance(obj, dict):
+            return obj.get(attr, default)
+        return getattr(obj, attr, default)
+
+    lost_time_hours = max(0.0, float(get_attr(log, "lost_time_hours", 0.0) or 0.0))
+    lost_filament_weight_g = max(0.0, float(get_attr(log, "lost_filament_weight_g", 0.0) or 0.0))
+    charged_to_client = bool(get_attr(log, "charged_to_client", False))
+    reprinted = bool(get_attr(log, "reprinted", True))
+    reason = str(get_attr(log, "reason", "other") or "other")
+    reason_notes = str(get_attr(log, "reason_notes", "") or "")
+
+    cost_per_gram = 0.09
+    if filament is not None:
+        spool_price = max(0.0, float(get_attr(filament, "spool_price", 0.0) or 0.0))
+        spool_weight_g = float(get_attr(filament, "spool_weight_g", 1000.0) or 1000.0)
+        cost_per_gram = (spool_price / spool_weight_g) if spool_weight_g > 0 else 0.0
+    elif plate is not None:
+        custom_g = get_attr(plate, "custom_filament_cost_per_g", None)
+        if custom_g is not None:
+            cost_per_gram = max(0.0, float(custom_g or 0.0))
+
+    machine_hourly_rate = 2.0
+    if printer is not None:
+        rates = calculate_printer_hourly_rate(
+            acquisition_cost=get_attr(printer, "acquisition_cost", 0.0),
+            lifespan_hours=get_attr(printer, "lifespan_hours", 5000.0),
+            avg_power_watts=get_attr(printer, "avg_power_watts", 150.0),
+            energy_rate_kwh=get_attr(printer, "energy_rate_kwh", 0.85),
+            maintenance_cost_per_hour=get_attr(printer, "maintenance_cost_per_hour", 1.0),
+        )
+        machine_hourly_rate = rates["machine_hourly_rate"]
+    elif plate is not None:
+        custom_hr = get_attr(plate, "custom_printer_hourly_rate", None)
+        if custom_hr is not None:
+            machine_hourly_rate = max(0.0, float(custom_hr or 0.0))
+
+    calculated_material_cost = round(lost_filament_weight_g * cost_per_gram, 2)
+    calculated_machine_cost = round(lost_time_hours * machine_hourly_rate, 2)
+    calculated_cost = round(calculated_material_cost + calculated_machine_cost, 2)
+
+    return {
+        "id": get_attr(log, "id", None),
+        "plate_id": get_attr(log, "plate_id", None),
+        "lost_time_hours": round(lost_time_hours, 2),
+        "lost_filament_weight_g": round(lost_filament_weight_g, 2),
+        "reason": reason,
+        "reason_notes": reason_notes,
+        "reprinted": reprinted,
+        "charged_to_client": charged_to_client,
+        "calculated_material_cost": calculated_material_cost,
+        "calculated_machine_cost": calculated_machine_cost,
+        "calculated_cost": calculated_cost,
+    }
+
+
 def calculate_project_summary(
     project: Any,
     plates: List[Any],
     bom_items: List[Any],
     printers_by_id: Optional[Dict[int, Any]] = None,
     filaments_by_id: Optional[Dict[int, Any]] = None,
+    failure_logs: Optional[List[Any]] = None,
 ) -> Dict[str, Any]:
     """
     Computes complete project financials:
@@ -277,6 +347,60 @@ def calculate_project_summary(
 
     final_price_to_client = round(subtotal_after_discount + shipping_cost, 2)
 
+    # 5.5 Failure Logs / Scrap Calculation
+    failure_details = []
+    total_scrap_cost = 0.0
+    total_scrap_material_cost = 0.0
+    total_scrap_machine_cost = 0.0
+    total_scrap_filament_g = 0.0
+    total_scrap_time_hours = 0.0
+    total_scrap_absorbed = 0.0
+    total_scrap_charged = 0.0
+
+    plates_by_id = {}
+    for pl in plates:
+        pl_id = get_attr(pl, "id", None)
+        if pl_id is not None:
+            plates_by_id[pl_id] = pl
+
+    raw_failures = failure_logs if failure_logs is not None else (getattr(project, "failure_logs", None) or [])
+
+    for f in raw_failures:
+        p_id = get_attr(f, "plate_id", None)
+        pl = plates_by_id.get(p_id) if p_id else (plates[0] if plates else None)
+        pr = None
+        fl = None
+        if pl:
+            pr_id = get_attr(pl, "printer_id", None)
+            fl_id = get_attr(pl, "filament_id", None)
+            pr = printers_map.get(pr_id) if pr_id else getattr(pl, "printer", None)
+            fl = filaments_map.get(fl_id) if fl_id else getattr(pl, "filament", None)
+
+        f_calc = calculate_failure_cost(f, plate=pl, printer=pr, filament=fl)
+        if hasattr(f, "calculated_cost"):
+            f.calculated_material_cost = f_calc["calculated_material_cost"]
+            f.calculated_machine_cost = f_calc["calculated_machine_cost"]
+            f.calculated_cost = f_calc["calculated_cost"]
+
+        failure_details.append(f_calc)
+        total_scrap_cost += f_calc["calculated_cost"]
+        total_scrap_material_cost += f_calc["calculated_material_cost"]
+        total_scrap_machine_cost += f_calc["calculated_machine_cost"]
+        total_scrap_filament_g += f_calc["lost_filament_weight_g"]
+        total_scrap_time_hours += f_calc["lost_time_hours"]
+        if f_calc["charged_to_client"]:
+            total_scrap_charged += f_calc["calculated_cost"]
+        else:
+            total_scrap_absorbed += f_calc["calculated_cost"]
+
+    # Actual costs and real net profit considering real scrap losses
+    actual_base_cost = round(base_cost + total_scrap_cost, 2)
+    actual_net_profit = round(net_revenue - (base_cost + total_scrap_absorbed), 2)
+    actual_profit_margin_percent = round((actual_net_profit / actual_base_cost * 100.0), 2) if actual_base_cost > 0 else 0.0
+    scrap_profit_loss = round(total_scrap_absorbed, 2)
+    total_all_filament_g = total_filament_weight_g + total_scrap_filament_g
+    scrap_rate_percent = round((total_scrap_filament_g / total_all_filament_g * 100.0), 1) if total_all_filament_g > 0 else 0.0
+
     return {
         "plates_details": plates_details,
         "bom_details": bom_details,
@@ -316,4 +440,18 @@ def calculate_project_summary(
         "net_revenue": round(net_revenue, 2),
         "net_profit": round(net_profit, 2),
         "effective_profit_margin_percent": round(effective_profit_margin_percent, 2),
+        # Failure / Scrap Breakdown
+        "failure_details": failure_details,
+        "total_scrap_cost": round(total_scrap_cost, 2),
+        "total_scrap_material_cost": round(total_scrap_material_cost, 2),
+        "total_scrap_machine_cost": round(total_scrap_machine_cost, 2),
+        "total_scrap_filament_g": round(total_scrap_filament_g, 2),
+        "total_scrap_time_hours": round(total_scrap_time_hours, 2),
+        "total_scrap_absorbed": round(total_scrap_absorbed, 2),
+        "total_scrap_charged": round(total_scrap_charged, 2),
+        "actual_base_cost": actual_base_cost,
+        "actual_net_profit": actual_net_profit,
+        "actual_profit_margin_percent": actual_profit_margin_percent,
+        "scrap_profit_loss": scrap_profit_loss,
+        "scrap_rate_percent": scrap_rate_percent,
     }

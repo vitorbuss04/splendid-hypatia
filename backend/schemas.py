@@ -135,6 +135,7 @@ class FilamentResponse(FilamentBase):
 # ----------------- Plate Schemas -----------------
 
 class PlateBase(BaseModel):
+    id: Optional[int] = None
     name: str = "Placa 1"
     printer_id: Optional[int] = None
     filament_id: Optional[int] = None
@@ -152,6 +153,7 @@ class PlateCreate(PlateBase):
     pass
 
 class PlateUpdate(BaseModel):
+    id: Optional[int] = None
     name: Optional[str] = None
     printer_id: Optional[int] = None
     filament_id: Optional[int] = None
@@ -176,6 +178,7 @@ class PlateResponse(PlateBase):
 # ----------------- BOM Items Schemas -----------------
 
 class BOMItemBase(BaseModel):
+    id: Optional[int] = None
     name: str
     category: str = "Fixadores"
     quantity: int = Field(1, ge=1)
@@ -186,6 +189,7 @@ class BOMItemCreate(BOMItemBase):
     pass
 
 class BOMItemUpdate(BaseModel):
+    id: Optional[int] = None
     name: Optional[str] = None
     category: Optional[str] = None
     quantity: Optional[int] = Field(None, ge=1)
@@ -196,6 +200,33 @@ class BOMItemResponse(BOMItemBase):
     id: int
     project_id: int
     subtotal: float = 0.0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ----------------- Plate Failure Log Schemas -----------------
+
+class PlateFailureLogBase(BaseModel):
+    id: Optional[int] = None
+    plate_id: Optional[int] = None
+    plate_idx: Optional[int] = None
+    lost_time_hours: float = Field(0.0, ge=0)
+    lost_filament_weight_g: float = Field(0.0, ge=0)
+    reason: str = "other"  # warping, nozzle_clog, filament_runout, layer_shift, spaghetti, power_loss, slicing_error, other
+    reason_notes: Optional[str] = None
+    reprinted: bool = True
+    charged_to_client: bool = False
+
+class PlateFailureLogCreate(PlateFailureLogBase):
+    pass
+
+class PlateFailureLogResponse(PlateFailureLogBase):
+    id: int
+    project_id: int
+    calculated_material_cost: float = 0.0
+    calculated_machine_cost: float = 0.0
+    calculated_cost: float = 0.0
+    created_at: Optional[datetime.datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -225,6 +256,7 @@ class ProjectBase(BaseModel):
 class ProjectCreate(ProjectBase):
     plates: Optional[List[PlateCreate]] = None
     bom_items: Optional[List[BOMItemCreate]] = None
+    failure_logs: Optional[List[PlateFailureLogCreate]] = None
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
@@ -247,6 +279,7 @@ class ProjectUpdate(BaseModel):
     notes: Optional[str] = None
     plates: Optional[List[PlateCreate]] = None
     bom_items: Optional[List[BOMItemCreate]] = None
+    failure_logs: Optional[List[PlateFailureLogCreate]] = None
 
 class ProjectListItem(BaseModel):
     id: int
@@ -268,6 +301,7 @@ class ProjectResponse(ProjectBase):
     updated_at: Optional[datetime.datetime] = None
     plates: List[PlateResponse] = []
     bom_items: List[BOMItemResponse] = []
+    failure_logs: List[PlateFailureLogResponse] = []
     summary: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -317,3 +351,6 @@ class DashboardStatsResponse(BaseModel):
     monthly_timeline: List[MonthlyTimelineItem] = []
     cost_breakdown: CostBreakdownTotals = CostBreakdownTotals()
     top_projects: List[TopProjectItem] = []
+    total_scrap_cost: float = 0.0
+    total_scrap_filament_g: float = 0.0
+    scrap_rate_percent: float = 0.0

@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 import pytest
 
+FRONTEND_DIR = Path("frontend")
 CSS_DIR = Path("frontend/css")
 INDEX_HTML = Path("frontend/index.html")
 PREVIEW_HTML = Path("frontend/preview.html")
@@ -219,3 +220,20 @@ def test_resina_material_badge_exists():
     """Verify that .badge-mat-resina is present in components.css."""
     content = (CSS_DIR / "components.css").read_text(encoding="utf-8")
     assert ".badge-mat-resina" in content, "Missing .badge-mat-resina in components.css"
+
+
+def test_plate_card_field_alignment_css():
+    """Verify that views.css enforces bottom alignment of plate card inputs across label line breaks."""
+    content = (CSS_DIR / "views.css").read_text(encoding="utf-8")
+    assert ".plate-grid-aligned" in content, "Missing .plate-grid-aligned in views.css"
+    assert ".plate-field-col" in content, "Missing .plate-field-col in views.css"
+    assert ".plate-label-slot" in content, "Missing .plate-label-slot in views.css"
+    assert "margin-top: auto" in content, "Missing margin-top: auto on inputs in views.css"
+    assert "min-height: 30px" in content, "Missing min-height on .plate-label-slot in views.css"
+    assert "justify-content: flex-end" in content, "Missing justify-content: flex-end in views.css"
+
+    # Also verify inline styles in frontend/js/app.js guarantee baseline alignment independent of stylesheet loading
+    app_js = (FRONTEND_DIR / "js" / "app.js").read_text(encoding="utf-8")
+    assert "min-height: 30px; display: flex; flex-direction: column; justify-content: flex-end" in app_js, "app.js must enforce inline min-height and flex-end on plate-label-slot"
+
+
