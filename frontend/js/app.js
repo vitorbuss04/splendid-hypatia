@@ -1093,7 +1093,7 @@ function renderRecentProjects() {
                     <th class="py-3 px-3 text-center">Placas</th>
                     <th class="py-3 px-3">Tempo Est.</th>
                     <th class="py-3 px-3">Valor Final</th>
-                    <th class="py-3 px-3 text-center">Status</th>
+                    <th class="py-3 px-3 text-center whitespace-nowrap">Status</th>
                     <th class="py-3 px-3 text-right">Ações</th>
                 </tr>
             </thead>
@@ -1118,7 +1118,7 @@ function renderRecentProjects() {
                         </td>
                         <td class="py-3 px-3 font-mono text-slate-300">${p.total_time_hours.toFixed(1)} h</td>
                         <td class="py-3 px-3 font-mono font-bold text-blue-400">${formatCurrency(p.final_price_to_client)}</td>
-                        <td class="py-3 px-3 text-center">
+                        <td class="py-3 px-3 text-center whitespace-nowrap">
                             <span class="badge-${p.status}">
                                 ${formatStatus(p.status)}
                             </span>
@@ -1215,66 +1215,66 @@ function renderProjectsTable(filterText = null, statusFilter = '') {
         <table class="w-full text-left text-xs">
             <thead>
                 <tr class="border-b border-slate-800 bg-slate-900/70 text-slate-400 uppercase tracking-wider font-semibold text-[11px]">
-                    <th class="py-3 px-4">Projeto & Referência</th>
-                    <th class="py-3 px-4">Cliente</th>
-                    <th class="py-3 px-4 text-center">Placas</th>
-                    <th class="py-3 px-4">Tempo Total</th>
-                    <th class="py-3 px-4">Custo Base</th>
-                    <th class="py-3 px-4">Preço de Venda</th>
-                    <th class="py-3 px-4 text-center">Status</th>
-                    <th class="py-3 px-4 text-right">Ações</th>
+                    <th class="py-3 px-3 w-36 sm:w-44 lg:w-48">Projeto</th>
+                    <th class="py-3 px-3 w-24 sm:w-32">Cliente</th>
+                    <th class="py-3 px-3 text-center w-16">Placas</th>
+                    <th class="py-3 px-3 whitespace-nowrap w-20 sm:w-24">Tempo Total</th>
+                    <th class="py-3 px-3 whitespace-nowrap w-20 sm:w-24">Custo Base</th>
+                    <th class="py-3 px-3 whitespace-nowrap w-24 sm:w-28">Preço Venda</th>
+                    <th class="py-3 px-3 text-center whitespace-nowrap w-24 sm:w-28">Status</th>
+                    <th class="py-3 px-3 text-right whitespace-nowrap w-28 sm:w-32">Ações</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-800/60">
                 ${items.map(p => `
                     <tr class="hover:bg-slate-800/40 transition-colors group">
-                        <td class="py-3.5 px-4 font-semibold text-white">
-                            <div class="flex items-center gap-2.5">
+                        <td class="py-3 px-3 font-semibold text-white w-36 sm:w-44 lg:w-48">
+                            <div class="flex items-center gap-2 min-w-0 max-w-[130px] sm:max-w-[160px] lg:max-w-[180px]">
                                 <div class="w-8 h-8 rounded-lg bg-blue-600/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                                     <i data-lucide="box" class="w-4 h-4"></i>
                                 </div>
-                                <div class="min-w-0">
-                                    <p class="font-bold text-white group-hover:text-blue-400 transition-colors truncate">${p.name}</p>
+                                <div class="min-w-0 flex-1">
+                                    <p class="font-bold text-white group-hover:text-blue-400 transition-colors truncate" title="${p.name}">${p.name}</p>
                                     <p class="text-[10px] text-slate-500 font-mono">#${p.id.toString().padStart(4, '0')}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="py-3.5 px-4 text-slate-300">
+                        <td class="py-3 px-3 text-slate-300 w-24 sm:w-32">
                             ${p.client_name ? `
-                                <div class="flex items-center gap-1.5">
+                                <div class="flex items-center gap-1.5 min-w-0 max-w-[85px] sm:max-w-[110px] lg:max-w-[130px]" title="${p.client_name}">
                                     <i data-lucide="user" class="w-3.5 h-3.5 text-slate-500 shrink-0"></i>
                                     <span class="truncate">${p.client_name}</span>
                                 </div>
                             ` : '<span class="text-slate-500">—</span>'}
                         </td>
-                        <td class="py-3.5 px-4 text-center">
+                        <td class="py-3 px-3 text-center w-16">
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
                                 ${p.plates_count} un
                             </span>
                         </td>
-                        <td class="py-3.5 px-4 font-mono text-slate-300">${p.total_time_hours.toFixed(1)} h</td>
-                        <td class="py-3.5 px-4 font-mono text-slate-400">${formatCurrency(p.base_cost)}</td>
-                        <td class="py-3.5 px-4 font-mono font-bold text-blue-400 text-sm">${formatCurrency(p.final_price_to_client)}</td>
-                        <td class="py-3.5 px-4 text-center">
+                        <td class="py-3 px-3 font-mono text-slate-300 whitespace-nowrap w-20 sm:w-24">${p.total_time_hours.toFixed(1)} h</td>
+                        <td class="py-3 px-3 font-mono text-slate-400 whitespace-nowrap w-20 sm:w-24">${formatCurrency(p.base_cost)}</td>
+                        <td class="py-3 px-3 font-mono font-bold text-blue-400 text-sm whitespace-nowrap w-24 sm:w-28">${formatCurrency(p.final_price_to_client)}</td>
+                        <td class="py-3 px-3 text-center whitespace-nowrap w-24 sm:w-28">
                             <span class="badge-${p.status}">
                                 ${formatStatus(p.status)}
                             </span>
                         </td>
-                        <td class="py-3.5 px-4 text-right">
-                            <div class="flex items-center justify-end gap-1">
-                                <button onclick="editProject(${p.id})" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors" title="Editar">
+                        <td class="py-3 px-3 text-right whitespace-nowrap w-28 sm:w-32">
+                            <div class="flex items-center justify-end gap-0.5">
+                                <button onclick="editProject(${p.id})" class="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors" title="Editar">
                                     <i data-lucide="edit-3" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="duplicateProject(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-md transition-colors" title="Duplicar">
+                                <button onclick="duplicateProject(${p.id})" class="p-1 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-md transition-colors" title="Duplicar">
                                     <i data-lucide="copy" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="API.pdf.preview(${p.id}, 'client')" class="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-md transition-colors" title="Visualizar Orçamento PDF">
+                                <button onclick="API.pdf.preview(${p.id}, 'client')" class="p-1 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-md transition-colors" title="Visualizar Orçamento PDF">
                                     <i data-lucide="eye" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="API.pdf.preview(${p.id}, 'technical')" class="p-1.5 text-slate-400 hover:text-purple-400 hover:bg-slate-800 rounded-md transition-colors" title="Ficha Técnica de Produção">
+                                <button onclick="API.pdf.preview(${p.id}, 'technical')" class="p-1 text-slate-400 hover:text-purple-400 hover:bg-slate-800 rounded-md transition-colors" title="Ficha Técnica de Produção">
                                     <i data-lucide="clipboard-list" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="deleteProject(${p.id})" class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors" title="Excluir">
+                                <button onclick="deleteProject(${p.id})" class="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors" title="Excluir">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
@@ -1283,9 +1283,8 @@ function renderProjectsTable(filterText = null, statusFilter = '') {
                 `).join('')}
             </tbody>
         </table>
-        <div class="px-4 py-3 bg-slate-900/50 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+        <div class="px-3 py-3 bg-slate-900/50 border-t border-slate-800/80 flex items-center text-[11px] text-slate-400">
             <span>Exibindo <b>${items.length}</b> de <b>${state.projects.length}</b> projetos</span>
-            <span class="text-slate-500 font-mono">3D Print Calc Pro</span>
         </div>
     `;
     refreshIcons();
@@ -1563,7 +1562,7 @@ function renderPlates() {
                         ` : ''}
                     </div>
 
-                    <!-- Filament Selector with Dynamic Dot -->
+                    <!-- Filament Selector with Custom Dropdown -->
                     <div class="plate-field-col">
                         <div class="plate-label-slot flex items-start justify-between gap-1 mb-1 w-full">
                             <div class="flex items-center gap-1.5 min-w-0">
@@ -1576,16 +1575,72 @@ function renderPlates() {
                             </div>
                             ${selFil ? `<span class="flex items-center gap-1 text-[10px] text-slate-400 font-normal shrink-0 max-w-[55%] truncate" title="${selFil.material} ${selFil.color || ''}"><span class="w-2 h-2 rounded-full inline-block border border-slate-600 shadow-sm shrink-0" style="background-color: ${selFil.color_hex || '#10b981'};"></span> <span class="truncate">${selFil.material} ${selFil.color || ''}</span></span>` : ''}
                         </div>
-                        <div class="relative flex items-center">
-                            <span class="absolute left-2.5 w-3 h-3 rounded-full border border-white/20 pointer-events-none shadow-sm" style="background-color: ${selFil ? (selFil.color_hex || '#10b981') : '#64748b'};"></span>
-                            <select onchange="updatePlateFilament(${idx}, this.value)" class="w-full pl-8 pr-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500">
-                                <option value="">Personalizado (Manual)</option>
-                                ${state.filaments.map(f => `
-                                    <option value="${f.id}" ${plate.filament_id === f.id ? 'selected' : ''}>
-                                        ${f.name} (R$ ${(Number(f.cost_per_gram) || 0).toFixed(2)}/g)
-                                    </option>
-                                `).join('')}
-                            </select>
+                        <div class="relative filament-dropdown-container" id="plate-filament-container-${idx}">
+                            <!-- Trigger Button -->
+                            <button type="button"
+                                id="plate-filament-btn-${idx}"
+                                onclick="togglePlateFilamentDropdown(${idx}, event)"
+                                class="filament-dropdown-trigger w-full flex items-center justify-between gap-2 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-slate-600 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 transition-colors text-left cursor-pointer min-h-[34px] shadow-sm"
+                                aria-haspopup="listbox"
+                                aria-expanded="false"
+                                title="${selFil ? selFil.name.replace(/"/g, '&quot;') : 'Personalizado (Manual)'}"
+                            >
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    ${selFil ? `
+                                        <span class="w-3 h-3 rounded-full border border-white/20 shrink-0 shadow-sm" style="background-color: ${selFil.color_hex || '#10b981'};"></span>
+                                        <span class="truncate font-medium text-slate-200">${selFil.name}</span>
+                                    ` : `
+                                        <span class="w-3 h-3 rounded-full border border-dashed border-slate-400 bg-slate-700/60 shrink-0"></span>
+                                        <span class="truncate font-medium text-slate-300">Personalizado (Manual)</span>
+                                    `}
+                                </div>
+                                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 filament-chevron"></i>
+                            </button>
+
+                            <!-- Custom Dropdown Menu (Option B - sem badge de material, sem preço) -->
+                            <div id="plate-filament-menu-${idx}"
+                                onwheel="handleFilamentDropdownWheel(event)"
+                                class="filament-dropdown-menu hidden absolute top-full left-0 right-0 mt-1 z-50 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden"
+                                role="listbox"
+                            >
+                                <div class="max-h-56 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+                                    <!-- Option Personalizado (Manual) -->
+                                    <button type="button"
+                                        onclick="choosePlateFilament(${idx}, '', event)"
+                                        class="filament-dropdown-item w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer text-left ${!plate.filament_id ? 'bg-blue-600/15 text-blue-400 font-medium' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}"
+                                        role="option"
+                                        aria-selected="${!plate.filament_id ? 'true' : 'false'}"
+                                    >
+                                        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                                            <span class="w-3.5 h-3.5 rounded-full border border-dashed border-slate-400 bg-slate-700/60 shrink-0"></span>
+                                            <span class="truncate">Personalizado (Manual)</span>
+                                        </div>
+                                        ${!plate.filament_id ? '<i data-lucide="check" class="w-3.5 h-3.5 text-blue-400 shrink-0"></i>' : ''}
+                                    </button>
+
+                                    ${state.filaments && state.filaments.length > 0 ? `
+                                        <div class="my-1 border-t border-slate-800/80"></div>
+                                        ${state.filaments.map(f => {
+                                            const isSelected = String(plate.filament_id) === String(f.id);
+                                            return `
+                                            <button type="button"
+                                                onclick="choosePlateFilament(${idx}, '${f.id}', event)"
+                                                class="filament-dropdown-item w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer text-left ${isSelected ? 'bg-blue-600/15 text-blue-400 font-medium' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}"
+                                                role="option"
+                                                aria-selected="${isSelected ? 'true' : 'false'}"
+                                                title="${f.name.replace(/"/g, '&quot;')}"
+                                            >
+                                                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                                                    <span class="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0 shadow-sm" style="background-color: ${f.color_hex || '#10b981'};"></span>
+                                                    <span class="truncate">${f.name}</span>
+                                                </div>
+                                                ${isSelected ? '<i data-lucide="check" class="w-3.5 h-3.5 text-blue-400 shrink-0"></i>' : ''}
+                                            </button>
+                                            `;
+                                        }).join('')}
+                                    ` : ''}
+                                </div>
+                            </div>
                         </div>
                         ${!plate.filament_id ? `
                             <div class="mt-1.5 flex items-center gap-1.5 bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/60">
@@ -1737,6 +1792,142 @@ function updatePlateFilament(idx, val) {
     renderPlates();
     recalcLiveSummary();
 }
+
+function handleFilamentDropdownWheel(e) {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    e.stopPropagation();
+    if (typeof e.preventDefault === 'function') {
+        e.preventDefault();
+    }
+
+    const scrollContainer = e.currentTarget.querySelector('.overflow-y-auto') || e.currentTarget;
+    if (!scrollContainer) return;
+
+    const maxScroll = (scrollContainer.scrollHeight || 0) - (scrollContainer.clientHeight || 0);
+    if (maxScroll <= 0) return;
+
+    if (!scrollContainer._smoothState) {
+        scrollContainer._smoothState = {
+            targetY: scrollContainer.scrollTop || 0,
+            currentY: scrollContainer.scrollTop || 0,
+            isRunning: false,
+            animId: null
+        };
+
+        scrollContainer.addEventListener('scroll', () => {
+            if (!scrollContainer._smoothState.isRunning) {
+                scrollContainer._smoothState.currentY = scrollContainer.scrollTop;
+                scrollContainer._smoothState.targetY = scrollContainer.scrollTop;
+            }
+        }, { passive: true });
+    }
+
+    const sState = scrollContainer._smoothState;
+
+    if (!sState.isRunning) {
+        sState.currentY = scrollContainer.scrollTop;
+        sState.targetY = scrollContainer.scrollTop;
+    }
+
+    let delta = e.deltaY;
+    if (e.deltaMode === 1) delta *= 33; // Line delta
+    else if (e.deltaMode === 2) delta *= (scrollContainer.clientHeight || 200); // Page delta
+
+    sState.targetY = Math.max(0, Math.min(maxScroll, sState.targetY + delta));
+
+    if (!sState.isRunning) {
+        sState.isRunning = true;
+
+        function step() {
+            const diff = sState.targetY - sState.currentY;
+            if (Math.abs(diff) < 0.75) {
+                sState.currentY = sState.targetY;
+                scrollContainer.scrollTop = Math.round(sState.currentY);
+                sState.isRunning = false;
+                sState.animId = null;
+                return;
+            }
+
+            // Snappy momentum easing (0.18) for buttery-smooth fluid scrolling
+            sState.currentY += diff * 0.18;
+            scrollContainer.scrollTop = Math.round(sState.currentY);
+            sState.animId = requestAnimationFrame(step);
+        }
+
+        sState.animId = requestAnimationFrame(step);
+    }
+}
+
+function togglePlateFilamentDropdown(idx, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    const menu = document.getElementById(`plate-filament-menu-${idx}`);
+    const btn = document.getElementById(`plate-filament-btn-${idx}`);
+    if (!menu) return;
+
+    const isCurrentlyOpen = !menu.classList.contains('hidden');
+    closeAllFilamentDropdowns();
+
+    if (!isCurrentlyOpen) {
+        menu.classList.remove('hidden');
+        if (!menu._hasWheelHandler) {
+            menu._hasWheelHandler = true;
+            menu.addEventListener('wheel', handleFilamentDropdownWheel, { passive: false });
+        }
+        const scrollContainer = menu.querySelector('.overflow-y-auto') || menu;
+        if (scrollContainer && scrollContainer._smoothState) {
+            if (scrollContainer._smoothState.animId) {
+                cancelAnimationFrame(scrollContainer._smoothState.animId);
+            }
+            scrollContainer._smoothState.isRunning = false;
+            scrollContainer._smoothState.currentY = scrollContainer.scrollTop;
+            scrollContainer._smoothState.targetY = scrollContainer.scrollTop;
+        }
+        const card = menu.closest('.card-dark');
+        if (card) card.style.zIndex = '40';
+        if (btn) {
+            btn.setAttribute('aria-expanded', 'true');
+            const chevron = btn.querySelector('.filament-chevron');
+            if (chevron) chevron.classList.add('rotate-180');
+        }
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    }
+}
+
+function closeAllFilamentDropdowns() {
+    document.querySelectorAll('.filament-dropdown-menu').forEach(menu => {
+        menu.classList.add('hidden');
+        const scrollContainer = menu.querySelector('.overflow-y-auto') || menu;
+        if (scrollContainer && scrollContainer._smoothState && scrollContainer._smoothState.animId) {
+            cancelAnimationFrame(scrollContainer._smoothState.animId);
+            scrollContainer._smoothState.isRunning = false;
+        }
+    });
+    document.querySelectorAll('#plates-container .card-dark').forEach(card => {
+        card.style.zIndex = '';
+    });
+    document.querySelectorAll('.filament-dropdown-trigger').forEach(btn => {
+        btn.setAttribute('aria-expanded', 'false');
+        const chevron = btn.querySelector('.filament-chevron');
+        if (chevron) chevron.classList.remove('rotate-180');
+    });
+}
+
+function choosePlateFilament(idx, val, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    closeAllFilamentDropdowns();
+    updatePlateFilament(idx, val);
+}
+
+window.togglePlateFilamentDropdown = togglePlateFilamentDropdown;
+window.closeAllFilamentDropdowns = closeAllFilamentDropdowns;
+window.choosePlateFilament = choosePlateFilament;
+window.handleFilamentDropdownWheel = handleFilamentDropdownWheel;
 
 // ================= BOM (BILL OF MATERIALS) INSUMOS MANAGER =================
 
@@ -2980,25 +3171,20 @@ function renderFilamentsGrid(filterTerm = null, filterMaterial = null) {
         return `
             <div class="card-dark p-6 space-y-4 hover:border-slate-600 transition-all flex flex-col justify-between">
                 <div>
-                    <div class="flex items-start justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl border border-slate-700/60 flex items-center justify-center relative shadow-sm" style="background-color: ${f.color_hex || '#10b981'}22;">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-center gap-3 min-w-0 flex-1">
+                            <div class="w-10 h-10 rounded-xl border border-slate-700/60 flex items-center justify-center relative shadow-sm shrink-0" style="background-color: ${f.color_hex || '#10b981'}22;">
                                 <span class="w-4 h-4 rounded-full border border-white/30 shadow-sm" style="background-color: ${f.color_hex || '#10b981'};"></span>
                             </div>
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider badge-mat-${matLower}">
-                                        ${f.material}
-                                    </span>
-                                    <h4 class="font-bold text-white text-sm">${f.name}</h4>
-                                </div>
-                                <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-                                    <span class="inline-block w-2.5 h-2.5 rounded-full border border-white/20 shadow-sm" style="background-color: ${f.color_hex || '#10b981'};"></span>
-                                    <span>${f.brand || 'Genérico'} • ${f.color || 'Cor padrão'}</span>
+                            <div class="min-w-0 flex-1">
+                                <h4 class="font-bold text-white text-sm truncate" title="${f.name}">${f.name}</h4>
+                                <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5 truncate">
+                                    <span class="inline-block w-2.5 h-2.5 rounded-full border border-white/20 shadow-sm shrink-0" style="background-color: ${f.color_hex || '#10b981'};"></span>
+                                    <span class="truncate">${f.brand || 'Genérico'} • ${f.color || 'Cor padrão'}</span>
                                 </p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center gap-1 shrink-0">
                             <button onclick="duplicateFilament(${f.id})" class="p-1 text-slate-400 hover:text-blue-400 transition-colors" title="Duplicar">
                                 <i data-lucide="copy" class="w-4 h-4"></i>
                             </button>
@@ -3153,6 +3339,9 @@ function initSmoothScroll() {
             // Ignore horizontal wheel, zoom gestures (ctrl/meta), or shift modifier
             if (e.ctrlKey || e.metaKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
 
+            // Do not hijack scroll if user is scrolling over a filament dropdown menu
+            if (e.target && typeof e.target.closest === 'function' && e.target.closest('.filament-dropdown-menu')) return;
+
             // Sync position if user scrolled via scrollbar thumb or keyboard
             if (!isRunning) {
                 currentY = element.scrollTop;
@@ -3200,6 +3389,28 @@ function initSmoothScroll() {
 
     const panelBody = typeof document.querySelector === 'function' ? document.querySelector('.summary-panel-body') : null;
     if (panelBody) attachSmoothScroll(panelBody);
+
+    // Isolate summary card scroll completely from main page (plates & info)
+    const summaryCard = typeof document.querySelector === 'function' ? document.querySelector('.summary-panel-card') : null;
+    if (summaryCard && panelBody) {
+        summaryCard.addEventListener('wheel', (e) => {
+            if (e.ctrlKey || e.metaKey) return;
+            // Always prevent bubbling to <main> so the left section (placas) never moves
+            e.stopPropagation();
+
+            const maxScroll = (panelBody.scrollHeight || 0) - (panelBody.clientHeight || 0);
+            if (maxScroll > 0) {
+                let delta = e.deltaY;
+                if (e.deltaMode === 1) delta *= 33;
+                else if (e.deltaMode === 2) delta *= (panelBody.clientHeight || 400);
+
+                panelBody.scrollTop = Math.max(0, Math.min(maxScroll, panelBody.scrollTop + delta));
+            }
+            if (typeof e.preventDefault === 'function') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
 }
 
 // ================= COLLAPSIBLE SIDEBAR ENGINE =================
@@ -3264,6 +3475,12 @@ function updateSidebarToggleIcons(isCollapsed) {
             icon.setAttribute('data-lucide', isCollapsed ? 'panel-left-open' : 'panel-left-close');
         }
     }
+    const topbarBtns = [document.getElementById('topbar-sidebar-toggle'), document.getElementById('topbar-editor-sidebar-toggle')];
+    topbarBtns.forEach(btn => {
+        if (btn) {
+            btn.setAttribute('title', isCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral');
+        }
+    });
     const brandInfo = document.querySelector('.brand-info');
     if (brandInfo) {
         brandInfo.setAttribute('title', isCollapsed ? 'Clique para expandir a barra lateral' : 'PrintCalc 3D');
@@ -3515,12 +3732,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     attachPhoneMask(document.getElementById('proj-client-phone'));
     attachPhoneMask(document.getElementById('pref-phone'));
 
-    // Issue #19: Close filament/printer/failure modals with ESC key (WAI-ARIA dialog pattern)
+    // Issue #19: Close filament/printer/failure modals and dropdowns with ESC key (WAI-ARIA dialog pattern)
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' || e.key === 'Esc') {
             closeFilamentModal();
             closePrinterModal();
             closeFailureModal();
+            closeAllFilamentDropdowns();
+        }
+    });
+
+    // Close filament custom dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.filament-dropdown-container')) {
+            closeAllFilamentDropdowns();
         }
     });
 

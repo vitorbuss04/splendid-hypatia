@@ -143,7 +143,7 @@ def test_design_dna_versioned_stylesheet_links(design_dna_content):
     """Verifies that versioned stylesheet links in index.html are cited correctly in DESIGN_DNA.md."""
     index_html = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
     
-    for link in ["styles.css?v=1.4.0", "components.css?v=1.4.0", "views.css?v=1.4.0"]:
+    for link in ["styles.css?v=1.4.3", "components.css?v=1.4.3", "views.css?v=1.4.3"]:
         assert link in index_html, f"Link {link} must exist in frontend/index.html"
         assert link in design_dna_content, f"Link {link} must be cited in DESIGN_DNA.md"
 

@@ -114,7 +114,7 @@ The design system employs a synchronized hybrid architecture combining two compl
    - Configured via an inline JavaScript object `tailwind.config` embedded in the `<head>` of `frontend/index.html:15-86` and `frontend/preview.html:14-85`.
    - Used throughout templates for responsive layouts (`grid-cols-1 lg:grid-cols-12`), flex alignment, and structural spacing.
 2. **Layer 2: Modular CSS Cascade (Authoritative Design System)**:
-   - Modular CSS stylesheets linked in document `<head>`: `<link rel="stylesheet" href="/static/css/styles.css?v=1.4.0">`, `<link rel="stylesheet" href="/static/css/components.css?v=1.4.0">`, and `<link rel="stylesheet" href="/static/css/views.css?v=1.4.0">` (`frontend/index.html:94-96`; standalone preview uses `/static/css/styles.css` at `frontend/preview.html:89`).
+   - Modular CSS stylesheets linked in document `<head>`: `<link rel="stylesheet" href="/static/css/styles.css?v=1.4.3">`, `<link rel="stylesheet" href="/static/css/components.css?v=1.4.3">`, and `<link rel="stylesheet" href="/static/css/views.css?v=1.4.3">` (`frontend/index.html:94-96`; standalone preview uses `/static/css/styles.css` at `frontend/preview.html:89`).
    - Governs visual tokens, physical rim lighting, glassmorphism filters, scrollbars, tabular numbers, and component states.
    - Component rules intentionally utilize `!important` flags where necessary to strictly override Tailwind CDN defaults and preserve the design system contract.
 

@@ -90,26 +90,35 @@ aside nav button:hover:not(.bg-blue-600) i {
 aside nav button.bg-blue-600,
 aside nav button.nav-active {
     position: relative;
-    background: linear-gradient(90deg, rgba(37, 99, 235, 0.22) 0%, rgba(37, 99, 235, 0.08) 100%) !important;
-    border: 1px solid rgba(59, 130, 246, 0.40) !important;
+    background: rgba(37, 99, 235, 0.14) !important;
+    border: 1px solid rgba(59, 130, 246, 0.30) !important;
     color: #ffffff !important;
     font-weight: 600 !important;
-    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.20),
-        inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.20) !important;
 }
 
-/* Micro-Active Indicator (Glow Bar on Left Edge) */
+/* Active Navigation Hover State (Neutral, subtle feedback without aggressive neon glow) */
+aside nav button.bg-blue-600:hover,
+aside nav button.nav-active:hover {
+    background: rgba(37, 99, 235, 0.20) !important;
+    border-color: rgba(59, 130, 246, 0.45) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+    transform: none !important;
+}
+
+/* Micro-Active Indicator (Clean subtle accent bar on left edge) */
 aside nav button.bg-blue-600::before,
 aside nav button.nav-active::before {
     content: '';
     position: absolute;
     left: 0;
-    top: 18%;
-    bottom: 18%;
+    top: 22%;
+    bottom: 22%;
     width: 3px;
-    background: #60a5fa;
+    background: #3b82f6;
     border-radius: 0 4px 4px 0;
-    box-shadow: 0 0 10px #3b82f6, 0 0 4px #60a5fa;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.50);
     transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
 }
 
@@ -122,7 +131,7 @@ aside nav button i {
 aside nav button.bg-blue-600 i,
 aside nav button.nav-active i {
     color: #60a5fa !important;
-    transform: scale(1.08);
+    transform: scale(1.04);
 }
 
 /* User Profile & Footer Area */
@@ -364,6 +373,8 @@ div[class*="col-span-4"].sticky {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    overflow: hidden;
+    overscroll-behavior: contain !important;
 }
 
 @media (min-width: 1024px) {
@@ -381,7 +392,8 @@ div[class*="col-span-4"].sticky {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain !important;
 }
 
 .summary-panel-bottom {
@@ -440,15 +452,81 @@ div[class*="col-span-4"].sticky {
     letter-spacing: -0.01em;
 }
 
+/* Live Numeric Breakdown — Clean Ledger Aesthetics (No Clunky Boxed Rectangles) */
 .summary-panel-card span.font-mono,
 .card-dark:has(#live-final-price) span.font-mono {
-    background: rgba(30, 58, 138, 0.50) !important;
-    color: #93c5fd !important;
-    border: 1px solid rgba(59, 130, 246, 0.40) !important;
-    padding: 0.15rem 0.5rem;
-    border-radius: var(--radius-xs, 0.25rem);
-    font-size: 0.625rem;
-    letter-spacing: 0.05em;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.01em;
+}
+
+/* Telemetry & Cost Breakdown List: Clean right-aligned tabular numbers */
+.summary-panel-body span.font-mono {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+/* Net Profit Box Value & Margin Pill */
+.summary-panel-card #live-net-profit {
+    color: #34d399 !important;
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.summary-panel-card .profit-margin-pill {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.30) !important;
+    border-radius: var(--radius-sm, 0.375rem) !important;
+    padding: 0.15rem 0.5rem !important;
+    font-size: 0.6875rem !important;
+    font-weight: 700 !important;
+}
+
+/* Scrap Section Values: Rose and Neutral instead of clashing blue */
+.summary-panel-card #live-scrap-cost {
+    color: #f87171 !important;
+    font-size: 0.8125rem !important;
+    font-weight: 700 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.summary-panel-card #live-scrap-details {
+    color: #94a3b8 !important;
+    font-size: 0.6875rem !important;
+    font-weight: 500 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.summary-panel-card #live-actual-net-profit {
+    color: #34d399 !important;
+    font-size: 0.8125rem !important;
+    font-weight: 700 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+/* Sub-pills (BRL tag & CPV header) */
+.summary-panel-card .cost-distribution-summary {
+    color: #64748b !important;
+    font-size: 0.625rem !important;
+    font-weight: 600 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 /* Live Numeric Breakdown Text Alignment */
@@ -474,7 +552,9 @@ div:has(> #live-base-cost) {
     background: rgba(255, 255, 255, 0.03);
     padding: 0.35rem 0.5rem;
     border-radius: var(--radius-sm, 0.375rem);
-    margin: 0.25rem -0.5rem 0;
+    margin: 0.25rem 0 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #live-base-cost {
@@ -931,6 +1011,67 @@ div:has(> #live-final-price)::before {
     margin-top: auto !important;
     width: 100% !important;
 }
+
+/* ==========================================================================
+   11. CUSTOM FILAMENT DROPDOWN MENU (OPTION B)
+   ========================================================================== */
+.filament-dropdown-container {
+    position: relative;
+    width: 100%;
+}
+
+.filament-dropdown-trigger {
+    min-height: 34px;
+    height: 34px;
+}
+
+.filament-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(51, 65, 85, 0.85);
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.65), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    transform-origin: top center;
+    overscroll-behavior: contain;
+}
+
+.filament-dropdown-menu * {
+    overscroll-behavior: contain;
+}
+
+.filament-dropdown-menu:not(.hidden) {
+    animation: filamentDropdownFadeIn 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes filamentDropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.filament-dropdown-item {
+    transition: background-color var(--transition-fast, 150ms ease), color var(--transition-fast, 150ms ease);
+}
+
+#plates-container .card-dark:has(.filament-dropdown-menu:not(.hidden)) {
+    z-index: 40 !important;
+}
+
+.filament-dropdown-menu .overflow-y-auto {
+    scroll-behavior: auto !important;
+}
+
 
 
 

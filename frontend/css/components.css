@@ -297,7 +297,7 @@ input[type="color"]::-webkit-color-swatch {
 
 /* Primary Button: Royal Blue Gradient with Subtle Top Bevel */
 .btn-primary,
-button.bg-blue-600 {
+button.bg-blue-600:not(.sidebar-nav-item) {
     background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%) !important;
     border: 1px solid rgba(255, 255, 255, 0.16) !important;
     color: #ffffff !important;
@@ -307,7 +307,7 @@ button.bg-blue-600 {
 }
 
 .btn-primary:hover,
-button.bg-blue-600:hover {
+button.bg-blue-600:not(.sidebar-nav-item):hover {
     background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%) !important;
     box-shadow: 0 4px 16px rgba(37, 99, 235, 0.50),
                 inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
@@ -315,7 +315,7 @@ button.bg-blue-600:hover {
 }
 
 .btn-primary:active,
-button.bg-blue-600:active {
+button.bg-blue-600:not(.sidebar-nav-item):active {
     transform: translateY(0) scale(0.98);
     box-shadow: 0 1px 3px rgba(37, 99, 235, 0.40) !important;
     background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%) !important;
@@ -415,6 +415,7 @@ button:disabled,
     font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.025em;
+    white-space: nowrap;
     border-radius: var(--radius-full, 9999px);
     padding: 0.2rem 0.6rem;
     line-height: 1rem;
