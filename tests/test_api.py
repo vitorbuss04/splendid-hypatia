@@ -1107,6 +1107,44 @@ def test_plate_failure_logs_api(client, make_user):
     assert len(get_res2.json()["failure_logs"]) == 0
 
 
+def test_plate_parts_per_plate_batch_persistence(client, make_user):
+    """Verify parts_per_plate persists when creating and updating project plates."""
+    user = make_user()
+    headers = user["headers"]
+    # 1. Create project with a plate having parts_per_plate
+    proj_resp = client.post("/api/projects", json={
+        "name": "Projeto Lote 100",
+        "plates": [{
+            "name": "Placa Corpo",
+            "print_time_hours": 4.0,
+            "part_weight_g": 120.0,
+            "quantity": 7,
+            "parts_per_plate": 15,
+        }]
+    }, headers=headers)
+    assert proj_resp.status_code == 201
+    proj = proj_resp.json()
+    assert proj["plates"][0]["quantity"] == 7
+    assert proj["plates"][0]["parts_per_plate"] == 15
+    plate_id = proj["plates"][0]["id"]
+
+    # 2. Update plate parts_per_plate and quantity
+    update_resp = client.put(f"/api/projects/{proj['id']}", json={
+        "name": "Projeto Lote 100",
+        "plates": [{
+            "id": plate_id,
+            "name": "Placa Corpo",
+            "quantity": 10,
+            "parts_per_plate": 10,
+        }]
+    }, headers=headers)
+    assert update_resp.status_code == 200
+    updated_proj = update_resp.json()
+    assert updated_proj["plates"][0]["quantity"] == 10
+    assert updated_proj["plates"][0]["parts_per_plate"] == 10
+
+
+
 
 
 

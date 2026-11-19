@@ -123,6 +123,8 @@ def calculate_plate_cost(
         "plate_id": get_attr(plate, "id", None),
         "name": name,
         "quantity": quantity,
+        "parts_per_plate": max(1, int(get_attr(plate, "parts_per_plate", 1) or 1)),
+        "total_parts_produced": quantity * max(1, int(get_attr(plate, "parts_per_plate", 1) or 1)),
         "printer_name": printer_name,
         "filament_name": filament_name,
         "filament_material": filament_material,

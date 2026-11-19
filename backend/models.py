@@ -138,6 +138,7 @@ class Plate(Base):
     purge_weight_g = Column(Float, default=0.0)
     failure_margin_percent = Column(Float, default=10.0)
     quantity = Column(Integer, default=1)  # Number of times this plate is printed
+    parts_per_plate = Column(Integer, default=1, nullable=True)  # Pieces produced per single plate print (nesting)
     slicer_filament_profile = Column(String(255), nullable=True)  # Profile name from slicer G-code / 3MF
     notes = Column(Text, nullable=True)
 

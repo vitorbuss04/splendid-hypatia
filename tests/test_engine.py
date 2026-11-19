@@ -86,6 +86,27 @@ def test_plate_cost_with_printer_and_filament():
     assert res["total_weight_g"] == 200.0
     assert res["total_effective_weight_g"] == 220.0
 
+
+def test_plate_cost_with_parts_per_plate():
+    """Verify that parts_per_plate and total_parts_produced are correctly calculated."""
+    plate = {
+        "name": "Placa Lote",
+        "print_time_hours": 2.0,
+        "part_weight_g": 50.0,
+        "purge_weight_g": 0.0,
+        "failure_margin_percent": 0.0,
+        "custom_printer_hourly_rate": 2.0,
+        "custom_filament_cost_per_g": 0.10,
+        "quantity": 7,
+        "parts_per_plate": 15,
+    }
+    res = calculate_plate_cost(plate)
+    assert res["quantity"] == 7
+    assert res["parts_per_plate"] == 15
+    assert res["total_parts_produced"] == 105
+    assert res["total_time_hours"] == 14.0
+
+
 def test_plate_cost_custom_overrides_when_no_device():
     plate = {
         "name": "Placa Avulsa",

@@ -1429,6 +1429,7 @@ function createDefaultPlate(idx = 1) {
         slicer_filament_profile: null,
         failure_margin_percent: (state.user?.default_failure_rate ?? 10),
         quantity: 1,
+        parts_per_plate: 1,
         notes: '',
     };
 }
@@ -1515,6 +1516,11 @@ function renderPlates() {
                         #${idx + 1}
                     </span>
                     <input type="text" value="${(plate.name || `Placa ${idx + 1}`).replace(/"/g, '&quot;')}" oninput="state.currentPlates[${idx}].name = this.value" class="px-3 py-1.5 bg-slate-800/80 border border-slate-700 rounded-lg text-xs font-semibold text-white focus:outline-none focus:border-blue-500 w-48 sm:w-56 transition-colors placeholder:text-slate-500" placeholder="Nome da Placa">
+                    ${plate.quantity > 1 ? `
+                        <span class="px-2 py-0.5 bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 rounded-md text-[10px] font-bold font-mono flex items-center gap-1 shadow-sm" title="Esta placa será impressa ${plate.quantity} vezes no projeto">
+                            <i data-lucide="layers" class="w-3 h-3 text-indigo-400"></i> ${plate.quantity}x impressões
+                        </span>
+                    ` : ''}
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -1698,7 +1704,12 @@ function renderPlates() {
                     <!-- Quantity -->
                     <div class="col-span-1 plate-field-col flex flex-col justify-end h-full" style="display: flex; flex-direction: column; justify-content: flex-end; height: 100%;">
                         <div class="plate-label-slot min-h-[30px] flex flex-col justify-end gap-1 mb-1" style="min-height: 30px; display: flex; flex-direction: column; justify-content: flex-end; margin-bottom: 0.25rem;">
-                            <label class="text-[10px] font-medium text-slate-400 leading-tight">Qtd Cópias</label>
+                            <div class="flex items-center justify-between w-full">
+                                <label class="text-[10px] font-medium text-slate-400 leading-tight">Qtd Cópias</label>
+                                <button type="button" onclick="openPlateBatchModal(${idx})" class="flex items-center gap-0.5 text-[9px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-1 py-0.5 rounded border border-indigo-500/30 transition-all font-semibold" title="Calcular cópias por lote do cliente">
+                                    <i data-lucide="calculator" class="w-2.5 h-2.5"></i> Lote
+                                </button>
+                            </div>
                         </div>
                         <input type="number" step="1" min="1" value="${plate.quantity}" oninput="state.currentPlates[${idx}].quantity = parseInt(this.value, 10) || 1; recalcLiveSummary();" class="w-full h-[34px] px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-bold font-numeric text-center focus:outline-none focus:border-blue-500 mt-auto" style="margin-top: auto;" placeholder="1">
                     </div>
@@ -2317,6 +2328,7 @@ async function saveCurrentProject(navigateBack = true) {
             purge_weight_g: parseLocaleFloat(p.purge_weight_g, 0),
             failure_margin_percent: parseLocaleFloat(p.failure_margin_percent, 0),
             quantity: parseInt(p.quantity, 10) || 1,
+            parts_per_plate: parseInt(p.parts_per_plate, 10) || 1,
             slicer_filament_profile: p.slicer_filament_profile || null,
             notes: p.notes,
         })),
@@ -3710,6 +3722,208 @@ window.calculateLocalFailureCost = calculateLocalFailureCost;
 window.getReasonLabel = getReasonLabel;
 window.escapeHtml = escapeHtml;
 
+// ================= PLATE BATCH CALCULATOR MODAL =================
+
+const batchModalState = {
+    targetPlateIdx: null,
+    targetUnits: 100,
+};
+
+function openPlateBatchModal(targetIdx = null) {
+    batchModalState.targetPlateIdx = (targetIdx !== null && targetIdx !== undefined && targetIdx >= 0) ? targetIdx : null;
+
+    const modal = document.getElementById('modal-plate-batch');
+    if (!modal) return;
+
+    const targetInput = document.getElementById('batch-target-units');
+    if (targetInput) {
+        if (!targetInput.value || parseInt(targetInput.value, 10) <= 0) {
+            targetInput.value = batchModalState.targetUnits || 100;
+        } else {
+            batchModalState.targetUnits = parseInt(targetInput.value, 10) || 100;
+        }
+    }
+
+    const titleEl = document.getElementById('modal-batch-title');
+    if (titleEl) {
+        if (batchModalState.targetPlateIdx !== null && state.currentPlates[batchModalState.targetPlateIdx]) {
+            const p = state.currentPlates[batchModalState.targetPlateIdx];
+            titleEl.textContent = `Calculadora de Lote — #${batchModalState.targetPlateIdx + 1} ${p.name || 'Placa'}`;
+        } else {
+            titleEl.textContent = 'Calculadora de Lotes & Cópias';
+        }
+    }
+
+    renderBatchModalPlates();
+    modal.classList.remove('hidden');
+    refreshIcons();
+}
+
+function closePlateBatchModal() {
+    const modal = document.getElementById('modal-plate-batch');
+    if (modal) modal.classList.add('hidden');
+}
+
+function setBatchTargetUnits(units) {
+    const input = document.getElementById('batch-target-units');
+    if (input) {
+        input.value = units;
+        updateBatchModalCalculations();
+    }
+}
+
+function updateBatchModalCalculations() {
+    const input = document.getElementById('batch-target-units');
+    const units = Math.max(1, parseInt(input?.value, 10) || 1);
+    batchModalState.targetUnits = units;
+    renderBatchModalPlates();
+}
+
+function renderBatchModalPlates() {
+    const container = document.getElementById('batch-plates-list');
+    if (!container) return;
+
+    const targetUnits = Math.max(1, parseInt(document.getElementById('batch-target-units')?.value, 10) || batchModalState.targetUnits || 100);
+
+    if (!state.currentPlates || state.currentPlates.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-6 text-slate-500 text-xs">
+                Nenhuma placa cadastrada neste projeto.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = state.currentPlates.map((plate, idx) => {
+        const isTarget = (batchModalState.targetPlateIdx === idx);
+        const partsPerPlate = Math.max(1, parseInt(plate.parts_per_plate, 10) || 1);
+        const copies = Math.ceil(targetUnits / partsPerPlate);
+        const totalProduced = copies * partsPerPlate;
+        const surplus = totalProduced - targetUnits;
+
+        return `
+            <div class="p-3 rounded-xl border ${isTarget ? 'bg-indigo-950/30 border-indigo-500/50 shadow-sm' : 'bg-slate-900/40 border-slate-800'} space-y-2 transition-all">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="w-5 h-5 rounded-md bg-blue-600/20 text-blue-400 font-bold text-[10px] flex items-center justify-center border border-blue-500/30 font-mono shrink-0">
+                            #${idx + 1}
+                        </span>
+                        <span class="text-xs font-bold text-white truncate">${escapeHtml(plate.name || `Placa ${idx + 1}`)}</span>
+                        ${isTarget ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">Foco</span>` : ''}
+                    </div>
+                    <span class="text-[11px] text-slate-400 font-numeric shrink-0">
+                        Atual: <strong class="text-slate-200">${plate.quantity || 1}x</strong>
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1 font-medium">Peças que cabem em 1 mesa impressa:</label>
+                        <div class="relative">
+                            <input type="number" min="1" step="1" id="batch-parts-input-${idx}" value="${partsPerPlate}" oninput="handleBatchPartsChange(${idx}, this.value)" class="w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white font-numeric focus:outline-none focus:border-indigo-500" placeholder="1">
+                            <span class="absolute right-2.5 top-1.5 text-[10px] text-slate-500 pointer-events-none">peças/mesa</span>
+                        </div>
+                    </div>
+
+                    <div class="p-2 bg-slate-800/60 rounded-lg border border-slate-700/60 flex items-center justify-between">
+                        <div>
+                            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">Necessário</span>
+                            <span class="text-xs font-bold font-numeric text-indigo-300">
+                                ${copies} ${copies === 1 ? 'impressão' : 'impressões'}
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[9px] text-slate-400 block font-numeric">Rende: <strong class="text-emerald-400 font-bold">${totalProduced} un</strong></span>
+                            ${surplus > 0 ? `<span class="text-[9px] text-slate-500 font-numeric">(+${surplus} sobra)</span>` : `<span class="text-[9px] text-slate-500 font-numeric">(exato)</span>`}
+                        </div>
+                    </div>
+                </div>
+
+                ${isTarget ? `
+                    <div class="flex justify-end pt-1">
+                        <button type="button" onclick="applySinglePlateBatchCopy(${idx}, ${copies}, ${partsPerPlate})" class="px-2.5 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 text-[11px] font-semibold rounded-lg border border-indigo-500/40 transition-all flex items-center gap-1">
+                            <i data-lucide="check" class="w-3 h-3"></i> Aplicar apenas nesta placa (${copies}x)
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+
+    const actionBtnContainer = document.getElementById('batch-modal-action-buttons');
+    if (actionBtnContainer) {
+        actionBtnContainer.innerHTML = `
+            <button type="button" onclick="applyCalculatedBatchCopies()" class="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 hover:shadow-blue-500/30 transition-all flex items-center gap-1.5">
+                <i data-lucide="check" class="w-4 h-4"></i> Aplicar Cópias a Todas as Placas
+            </button>
+        `;
+    }
+
+    refreshIcons();
+}
+
+function handleBatchPartsChange(idx, val) {
+    const parts = Math.max(1, parseInt(val, 10) || 1);
+    if (state.currentPlates[idx]) {
+        state.currentPlates[idx].parts_per_plate = parts;
+    }
+    renderBatchModalPlates();
+}
+
+function applySinglePlateBatchCopy(idx, copies, partsPerPlate) {
+    if (state.currentPlates[idx]) {
+        state.currentPlates[idx].quantity = Math.max(1, copies);
+        state.currentPlates[idx].parts_per_plate = Math.max(1, partsPerPlate);
+        renderPlates();
+        recalcLiveSummary();
+        showToast(`Placa #${idx + 1} configurada para ${copies} impressões!`, 'success');
+        closePlateBatchModal();
+    }
+}
+
+function applyCalculatedBatchCopies() {
+    const targetUnits = Math.max(1, parseInt(document.getElementById('batch-target-units')?.value, 10) || batchModalState.targetUnits || 100);
+
+    state.currentPlates.forEach((plate) => {
+        const partsPerPlate = Math.max(1, parseInt(plate.parts_per_plate, 10) || 1);
+        const copies = Math.ceil(targetUnits / partsPerPlate);
+        plate.quantity = Math.max(1, copies);
+    });
+
+    renderPlates();
+    recalcLiveSummary();
+    showToast(`Cópias calculadas com sucesso para o lote de ${targetUnits} peças!`, 'success');
+    closePlateBatchModal();
+}
+
+function applyQuickBatchMultiplier(factor) {
+    factor = Math.max(1, parseInt(factor, 10) || 1);
+
+    if (factor === 1) {
+        state.currentPlates.forEach(p => { p.quantity = 1; });
+        showToast('Todas as placas foram redefinidas para 1 cópia.', 'info');
+    } else {
+        state.currentPlates.forEach(p => {
+            p.quantity = Math.max(1, (p.quantity || 1) * factor);
+        });
+        showToast(`Quantidades multiplicadas por ${factor}x com sucesso!`, 'success');
+    }
+
+    renderPlates();
+    recalcLiveSummary();
+    renderBatchModalPlates();
+}
+
+window.openPlateBatchModal = openPlateBatchModal;
+window.closePlateBatchModal = closePlateBatchModal;
+window.setBatchTargetUnits = setBatchTargetUnits;
+window.updateBatchModalCalculations = updateBatchModalCalculations;
+window.renderBatchModalPlates = renderBatchModalPlates;
+window.handleBatchPartsChange = handleBatchPartsChange;
+window.applySinglePlateBatchCopy = applySinglePlateBatchCopy;
+window.applyCalculatedBatchCopies = applyCalculatedBatchCopies;
+window.applyQuickBatchMultiplier = applyQuickBatchMultiplier;
+
 // ================= INITIALIZATION =================
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -3732,12 +3946,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     attachPhoneMask(document.getElementById('proj-client-phone'));
     attachPhoneMask(document.getElementById('pref-phone'));
 
-    // Issue #19: Close filament/printer/failure modals and dropdowns with ESC key (WAI-ARIA dialog pattern)
+    // Issue #19: Close filament/printer/failure/batch modals and dropdowns with ESC key (WAI-ARIA dialog pattern)
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' || e.key === 'Esc') {
             closeFilamentModal();
             closePrinterModal();
             closeFailureModal();
+            closePlateBatchModal();
             closeAllFilamentDropdowns();
         }
     });
@@ -3758,6 +3973,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     document.getElementById('modal-failure')?.addEventListener('click', (e) => {
         if (e.target === e.currentTarget) closeFailureModal();
+    });
+    document.getElementById('modal-plate-batch')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closePlateBatchModal();
     });
 
     window.addEventListener('auth:unauthorized', () => {
