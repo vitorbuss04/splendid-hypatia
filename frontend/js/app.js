@@ -3567,6 +3567,9 @@ function openFailureModal(plateIdx) {
 function closeFailureModal() {
     const modal = document.getElementById('modal-failure');
     if (modal) modal.classList.add('hidden');
+    if (typeof toggleFailureAssistant === 'function') {
+        toggleFailureAssistant(false);
+    }
 }
 
 function fillFailureFullWeight() {
@@ -3752,22 +3755,25 @@ const failureAssistantState = {
     currentZ: 0.20,
 };
 
-function toggleFailureAssistant() {
-    failureAssistantState.isOpen = !failureAssistantState.isOpen;
+function toggleFailureAssistant(forceOpen = null) {
     const body = document.getElementById('fail-assistant-body');
     const text = document.getElementById('fail-assistant-toggle-text');
     const chevron = document.getElementById('fail-assistant-chevron');
+    if (!body) return;
 
-    if (body) {
-        if (failureAssistantState.isOpen) {
-            body.classList.remove('hidden');
-            if (text) text.textContent = 'Fechar Assistente';
-            if (chevron) chevron.classList.add('rotate-180');
-        } else {
-            body.classList.add('hidden');
-            if (text) text.textContent = 'Abrir Assistente';
-            if (chevron) chevron.classList.remove('rotate-180');
-        }
+    const isCurrentlyHidden = body.classList.contains('hidden');
+    const shouldOpen = (forceOpen !== null) ? Boolean(forceOpen) : isCurrentlyHidden;
+
+    if (shouldOpen) {
+        body.classList.remove('hidden');
+        if (text) text.textContent = 'Fechar Assistente';
+        if (chevron) chevron.classList.add('rotate-180');
+        failureAssistantState.isOpen = true;
+    } else {
+        body.classList.add('hidden');
+        if (text) text.textContent = 'Abrir Assistente';
+        if (chevron) chevron.classList.remove('rotate-180');
+        failureAssistantState.isOpen = false;
     }
 }
 
@@ -3780,11 +3786,10 @@ function initFailureAssistantUI(plateIdx) {
     // Check if plate already has layers analyzed in memory during plate creation
     if (plate && plate._layersAnalysis && plate._layersAnalysis.totalLayers > 0) {
         setFailureAssistantAnalysis(plate._layersAnalysis, plate._layersFileName || 'Arquivo da Placa');
-        if (!failureAssistantState.isOpen) {
-            toggleFailureAssistant();
-        }
+        toggleFailureAssistant(true);
     } else {
         failureAssistantState.analysis = null;
+        toggleFailureAssistant(false);
         const dropzone = document.getElementById('fail-file-dropzone');
         const controls = document.getElementById('fail-layer-controls');
         const fileLabel = document.getElementById('fail-file-label');
