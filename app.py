@@ -118,6 +118,13 @@ if FRONTEND_DIR.exists():
     def serve_preview():
         return FileResponse(str(FRONTEND_DIR / "preview.html"))
 
+    @app.get("/test-material")
+    def serve_test_material():
+        return FileResponse(
+            str(FRONTEND_DIR / "test-material.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
     @app.get("/{catchall:path}")
     def serve_spa(catchall: str):
         # Do not catch API routes

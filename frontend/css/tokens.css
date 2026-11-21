@@ -1,30 +1,55 @@
 /**
- * 3D Print Calc Pro — Design System Tokens
+ * 3D Print Calc Pro — Design System Tokens & M3 Design Kit Specification
  * File: frontend/css/tokens.css
- * Architecture: Dark Mode SaaS Premium (Obsidian Canvas, Layered Slates, Royal Blue, Emerald, Violet)
+ * Architecture: M3 HCT Dark Theme integrated with Deep Obsidian SaaS Foundation
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
 
 :root {
   /* ==========================================================================
-     1. COLOR SYSTEM: Deep Obsidian Canvas & Layered Elevation
+     1. M3 REFERENCE TOKENS (Typography & Base Font Families)
      ========================================================================== */
-  
-  /* Base Canvas & Background Layers */
-  --bg-app: #080b11;                  /* Ultra-deep obsidian viewport canvas */
-  --bg-canvas: #0b0f17;               /* Primary workspace container canvas */
-  --bg-surface: #111827;              /* Elevated surface: sidebar, topbar, modal backdrops */
-  --bg-surface-elevated: #151d2e;     /* High-elevation container surface */
-  --bg-card: #151d2e;                 /* Standard elevated SaaS card */
-  --bg-card-hover: #1a2438;           /* Interactive card hover state */
-  --bg-card-active: #1f2b42;          /* Selected / active card state */
-  --bg-glass: rgba(17, 24, 39, 0.75); /* Glassmorphism translucent backdrop */
-  --bg-glass-card: rgba(21, 29, 46, 0.85); /* Glassmorphism card surface */
-  --bg-input: #0c121e;                /* Recessed form field surface */
-  --bg-input-focus: #0f1726;          /* Active focused input surface */
+  --md-ref-typeface-brand: 'Inter', system-ui, -apple-system, sans-serif;
+  --md-ref-typeface-plain: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: var(--md-ref-typeface-plain);
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, monospace;
 
-  /* Backward Compatibility Aliases (Preserves 100% legacy variable compatibility) */
+  /* ==========================================================================
+     2. M3 SURFACE CONTAINER TIERS (Harmonized with Deep Obsidian Canvas)
+     ========================================================================== */
+  --md-sys-color-background: #080b11;
+  --md-sys-color-on-background: #f8fafc;
+  --md-sys-color-surface: #080b11;
+  --md-sys-color-on-surface: #f1f5f9;
+  --md-sys-color-surface-variant: #151d2e;
+  --md-sys-color-on-surface-variant: #94a3b8;
+  --md-sys-color-inverse-surface: #f1f5f9;
+  --md-sys-color-inverse-on-surface: #080b11;
+
+  /* 5 M3 Tonal Surface Elevation Container Tiers */
+  --md-sys-color-surface-container-lowest: #0b0f17;  /* Main Canvas workspace */
+  --md-sys-color-surface-container-low: #111827;     /* Recessed surfaces / inputs */
+  --md-sys-color-surface-container: #151d2e;         /* Default cards (.card-dark) */
+  --md-sys-color-surface-container-high: #1a2438;    /* Fixed Topbar, card hover, dialogs */
+  --md-sys-color-surface-container-highest: #243044; /* Sticky financial terminal, borders */
+
+  /* Legacy Base Canvas Aliases (Bidirectional Mapping) */
+  --bg-app: var(--md-sys-color-surface);
+  --bg-canvas: var(--md-sys-color-surface-container-lowest);
+  --bg-surface: var(--md-sys-color-surface-container-low);
+  --bg-surface-elevated: var(--md-sys-color-surface-container);
+  --bg-card: var(--md-sys-color-surface-container);
+  --bg-card-hover: var(--md-sys-color-surface-container-high);
+  --bg-card-active: #1f2b42;
+  --bg-glass: rgba(17, 24, 39, 0.75);
+  --bg-glass-card: rgba(21, 29, 46, 0.85);
+  --bg-input: #0c121e;
+  --bg-input-focus: #0f1726;
+
+  /* ==========================================================================
+     3. 11 MANDATORY LEGACY ALIASES (Strictly preserved for test suite safety)
+     ========================================================================== */
   --bg-primary: var(--bg-canvas);
   --bg-secondary: var(--bg-surface);
   --border-color: var(--border-default);
@@ -34,52 +59,83 @@
   --warning: var(--amber-500);
   --danger: var(--rose-500);
 
-  /* Borders & Dividers */
-  --border-subtle: rgba(255, 255, 255, 0.06);     /* Hairline internal dividers */
-  --border-default: #243044;                      /* Standard card, panel & input border */
-  --border-hover: #334155;                        /* Interactive border hover */
-  --border-focus: #3b82f6;                        /* Input focus ring */
-  --border-highlight: rgba(255, 255, 255, 0.12); /* Subtle top hairline gradient sheen */
+  /* ==========================================================================
+     4. M3 TONAL ROLES & SEMANTIC ACCENTS
+     ========================================================================== */
+  /* Primary Role: Royal Blue / Cobalt */
+  --md-sys-color-primary: #3b82f6;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #1e3a8a;
+  --md-sys-color-on-primary-container: #dbeafe;
+  --md-sys-color-inverse-primary: #1d4ed8;
+
+  /* Secondary Role: Cyan/Slate Tonal (Navigation active pills & filter chips) */
+  --md-sys-color-secondary: #60a5fa;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #1e293b;
+  --md-sys-color-on-secondary-container: #93c5fd;
+
+  /* Tertiary Role: Royal Violet & Emerald */
+  --md-sys-color-tertiary: #8b5cf6;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #3b1d82;
+  --md-sys-color-on-tertiary-container: #c4b5fd;
+
+  /* Error Role */
+  --md-sys-color-error: #ef4444;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #7f1d1d;
+  --md-sys-color-on-error-container: #fecaca;
+
+  /* Outlines & Scrim */
+  --md-sys-color-outline: #334155;
+  --md-sys-color-outline-variant: #1e293b;
+  --md-sys-color-scrim: #000000;
+  --md-sys-color-shadow: #000000;
+
+  /* Legacy Borders & Dividers */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: #243044;
+  --border-hover: #334155;
+  --border-focus: #3b82f6;
+  --border-highlight: rgba(255, 255, 255, 0.12);
   --border-glow-blue: rgba(59, 130, 246, 0.45);
   --border-glow-emerald: rgba(16, 185, 129, 0.45);
   --border-glow-violet: rgba(139, 92, 246, 0.45);
 
-  /* Primary Accent: Royal Blue (Action, CTAs, Highlights) */
+  /* Legacy Brand, Emerald, Violet, Amber, Rose Scales */
   --brand-50: #eff6ff;
   --brand-100: #dbeafe;
   --brand-200: #bfdbfe;
   --brand-300: #93c5fd;
   --brand-400: #60a5fa;
-  --brand-500: #3b82f6;                           /* Vibrant interactive blue */
-  --brand-600: #2563eb;                           /* Primary SaaS CTA button */
-  --brand-700: #1d4ed8;                           /* Pressed button state */
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
   --brand-800: #1e40af;
   --brand-900: #1e3a8a;
   --brand-surface: rgba(37, 99, 235, 0.12);
   --brand-border: rgba(59, 130, 246, 0.35);
   --brand-glow: rgba(37, 99, 235, 0.30);
 
-  /* Secondary Accent: Emerald (Profits, Approved, Completed, Success) */
   --emerald-300: #6ee7b7;
   --emerald-400: #34d399;
-  --emerald-500: #10b981;                         /* Vibrant emerald */
-  --emerald-600: #059669;                         /* Success button */
+  --emerald-500: #10b981;
+  --emerald-600: #059669;
   --emerald-700: #047857;
   --emerald-surface: rgba(16, 185, 129, 0.12);
   --emerald-border: rgba(16, 185, 129, 0.35);
   --emerald-glow: rgba(16, 185, 129, 0.25);
 
-  /* Tertiary Accent: Royal Violet (Hardware, Technical Specs, Printers) */
   --violet-300: #c4b5fd;
   --violet-400: #a78bfa;
-  --violet-500: #8b5cf6;                          /* Hardware accent */
+  --violet-500: #8b5cf6;
   --violet-600: #7c3aed;
   --violet-700: #6d28d9;
   --violet-surface: rgba(139, 92, 246, 0.12);
   --violet-border: rgba(139, 92, 246, 0.35);
   --violet-glow: rgba(139, 92, 246, 0.25);
 
-  /* Warning / Quoted Accent: Amber */
   --amber-300: #fcd34d;
   --amber-400: #fbbf24;
   --amber-500: #f59e0b;
@@ -88,7 +144,6 @@
   --amber-border: rgba(245, 158, 11, 0.35);
   --amber-glow: rgba(245, 158, 11, 0.25);
 
-  /* Danger / Cancelled / Error: Rose */
   --rose-300: #fca5a5;
   --rose-400: #f87171;
   --rose-500: #ef4444;
@@ -98,19 +153,71 @@
   --rose-glow: rgba(239, 68, 68, 0.25);
 
   /* Text & Foreground Hierarchy */
-  --text-primary: #f8fafc;                        /* Crisp white (98% luminance) */
-  --text-secondary: #94a3b8;                      /* Slate 400 (Labels, descriptions) */
-  --text-muted: #64748b;                          /* Slate 500 (Captions, placeholders) */
-  --text-accent: #60a5fa;                         /* Light blue (Interactive links) */
-  --text-inverse: #080b11;                        /* Inverted obsidian */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-accent: #60a5fa;
+  --text-inverse: #080b11;
 
   /* ==========================================================================
-     2. TYPOGRAPHY SYSTEM
+     5. M3 SHAPE SCALE & RADIUS
      ========================================================================== */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --md-sys-shape-corner-none: 0px;
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-full: 9999px;
 
-  /* Type Scale */
+  /* Legacy Radius Aliases */
+  --radius-xs: var(--md-sys-shape-corner-extra-small);
+  --radius-sm: 0.375rem; /* 6px */
+  --radius-md: var(--md-sys-shape-corner-small);
+  --radius-lg: var(--md-sys-shape-corner-large);
+  --radius-xl: var(--md-sys-shape-corner-large);
+  --radius-2xl: 1.25rem; /* 20px */
+  --radius-full: var(--md-sys-shape-corner-full);
+
+  /* ==========================================================================
+     6. M3 TYPOGRAPHIC SCALE HIERARCHY
+     ========================================================================== */
+  --md-sys-typescale-display-large-size: 57px;
+  --md-sys-typescale-display-large-line-height: 64px;
+  --md-sys-typescale-display-medium-size: 45px;
+  --md-sys-typescale-display-medium-line-height: 52px;
+  --md-sys-typescale-display-small-size: 36px;
+  --md-sys-typescale-display-small-line-height: 44px;
+
+  --md-sys-typescale-headline-large-size: 32px;
+  --md-sys-typescale-headline-large-line-height: 40px;
+  --md-sys-typescale-headline-medium-size: 28px;
+  --md-sys-typescale-headline-medium-line-height: 36px;
+  --md-sys-typescale-headline-small-size: 24px;
+  --md-sys-typescale-headline-small-line-height: 32px;
+
+  --md-sys-typescale-title-large-size: 20px;
+  --md-sys-typescale-title-large-line-height: 28px;
+  --md-sys-typescale-title-medium-size: 16px;
+  --md-sys-typescale-title-medium-line-height: 24px;
+  --md-sys-typescale-title-small-size: 14px;
+  --md-sys-typescale-title-small-line-height: 20px;
+
+  --md-sys-typescale-body-large-size: 16px;
+  --md-sys-typescale-body-large-line-height: 24px;
+  --md-sys-typescale-body-medium-size: 14px;
+  --md-sys-typescale-body-medium-line-height: 20px;
+  --md-sys-typescale-body-small-size: 12px;
+  --md-sys-typescale-body-small-line-height: 16px;
+
+  --md-sys-typescale-label-large-size: 14px;
+  --md-sys-typescale-label-large-line-height: 20px;
+  --md-sys-typescale-label-medium-size: 12px;
+  --md-sys-typescale-label-medium-line-height: 16px;
+  --md-sys-typescale-label-small-size: 11px;
+  --md-sys-typescale-label-small-line-height: 16px;
+
+  /* Legacy Type Scale */
   --text-2xs: 0.6875rem; /* 11px */
   --text-xs: 0.75rem;    /* 12px */
   --text-sm: 0.875rem;   /* 14px */
@@ -121,14 +228,21 @@
   --text-3xl: 1.875rem;  /* 30px */
   --text-4xl: 2.25rem;   /* 36px */
 
-  /* Font Weights */
   --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
   --font-bold: 700;
 
   /* ==========================================================================
-     3. DEPTH, ELEVATION & SHADOWS
+     7. M3 STATE LAYERS (Opacities)
+     ========================================================================== */
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-focus-opacity: 0.12;
+  --md-sys-state-pressed-opacity: 0.12;
+  --md-sys-state-dragged-opacity: 0.16;
+
+  /* ==========================================================================
+     8. SHADOWS, ELEVATION & TIMING
      ========================================================================== */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.30);
   --shadow-sm: 0 2px 4px 0 rgba(0, 0, 0, 0.35);
@@ -136,35 +250,23 @@
   --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.55), 0 4px 8px -2px rgba(0, 0, 0, 0.40);
   --shadow-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.70), 0 8px 16px -4px rgba(0, 0, 0, 0.50);
   
-  /* Inner highlights for subtle glass bevel */
   --shadow-inner-glow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
   --shadow-input-focus: 0 0 0 3px rgba(37, 99, 235, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.35);
 
-  /* Ambient Halo Glows */
   --glow-brand: 0 0 20px -3px rgba(37, 99, 235, 0.35);
   --glow-emerald: 0 0 20px -3px rgba(16, 185, 129, 0.35);
   --glow-violet: 0 0 20px -3px rgba(139, 92, 246, 0.35);
   --glow-amber: 0 0 20px -3px rgba(245, 158, 11, 0.35);
   --glow-card-hover: 0 8px 30px -4px rgba(0, 0, 0, 0.60), 0 0 16px -2px rgba(59, 130, 246, 0.15);
 
-  /* ==========================================================================
-     4. RADIUS
-     ========================================================================== */
-  --radius-xs: 0.25rem;   /* 4px */
-  --radius-sm: 0.375rem;  /* 6px */
-  --radius-md: 0.5rem;    /* 8px */
-  --radius-lg: 0.75rem;   /* 12px */
-  --radius-xl: 1rem;      /* 16px */
-  --radius-2xl: 1.25rem;  /* 20px */
-  --radius-full: 9999px;
-
-  /* ==========================================================================
-     5. TRANSITIONS & TIMING
-     ========================================================================== */
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
   --transition-fast: 150ms var(--ease-spring);
   --transition-normal: 250ms var(--ease-spring);
   --transition-slow: 350ms var(--ease-spring);
+
+  /* Material Symbols Font Variable Configuration */
+  --md-icon-font: 'Material Symbols Outlined';
+  --md-icon-size: 20px;
 }

@@ -90,47 +90,41 @@ aside nav button:hover:not(.bg-blue-600) i {
 aside nav button.bg-blue-600,
 aside nav button.nav-active {
     position: relative;
-    background: rgba(37, 99, 235, 0.14) !important;
-    border: 1px solid rgba(59, 130, 246, 0.30) !important;
-    color: #ffffff !important;
+    background: var(--md-sys-color-secondary-container, #1e293b) !important;
+    border: 1px solid transparent !important;
+    color: var(--md-sys-color-on-secondary-container, #93c5fd) !important;
     font-weight: 600 !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.20) !important;
+    box-shadow: none !important;
 }
 
-/* Active Navigation Hover State (Neutral, subtle feedback without aggressive neon glow) */
+/* Active Navigation Hover State */
 aside nav button.bg-blue-600:hover,
 aside nav button.nav-active:hover {
-    background: rgba(37, 99, 235, 0.20) !important;
-    border-color: rgba(59, 130, 246, 0.45) !important;
-    color: #ffffff !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+    background: var(--md-sys-color-secondary-container, #1e293b) !important;
+    border-color: transparent !important;
+    color: var(--md-sys-color-on-secondary-container, #93c5fd) !important;
+    box-shadow: none !important;
     transform: none !important;
 }
 
-/* Micro-Active Indicator (Clean subtle accent bar on left edge) */
+/* Micro-Active Indicator suppressed for M3 full-pill and rail indicator */
 aside nav button.bg-blue-600::before,
 aside nav button.nav-active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 22%;
-    bottom: 22%;
-    width: 3px;
-    background: #3b82f6;
-    border-radius: 0 4px 4px 0;
-    box-shadow: 0 0 6px rgba(59, 130, 246, 0.50);
-    transition: all var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
+    display: none !important;
 }
 
-aside nav button i {
+aside nav button i,
+aside nav button .material-symbols-outlined {
     flex-shrink: 0;
     transition: transform var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1)),
         color var(--transition-fast, 150ms cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 aside nav button.bg-blue-600 i,
-aside nav button.nav-active i {
-    color: #60a5fa !important;
+aside nav button.nav-active i,
+aside nav button.bg-blue-600 .material-symbols-outlined,
+aside nav button.nav-active .material-symbols-outlined {
+    color: var(--md-sys-color-on-secondary-container, #93c5fd) !important;
     transform: scale(1.04);
 }
 
@@ -170,20 +164,22 @@ aside button[title*="Sair"]:hover i {
    ========================================================================== */
 
 main header.sticky {
-    background: var(--bg-glass, rgba(17, 24, 39, 0.75)) !important;
+    background: var(--md-sys-color-surface-container-high, #1a2438) !important;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06)) !important;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant, #1e293b) !important;
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
     z-index: 20;
-    padding: 32px;
+    padding: 0 32px;
+    height: 64px;
 }
 
 #view-title {
-    color: var(--text-primary, #f8fafc);
-    font-size: 1.125rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    color: var(--md-sys-color-on-surface, #f1f5f9);
+    font-size: var(--md-sys-typescale-title-large-size, 20px);
+    line-height: var(--md-sys-typescale-title-large-line-height, 28px);
+    font-weight: 600;
+    letter-spacing: -0.01em;
 }
 
 #topbar-actions {
@@ -201,10 +197,12 @@ main header.sticky {
     position: relative;
 }
 
-/* Dashboard Metric Cards Grid */
+/* Dashboard Metric Cards Grid (8dp grid: 24px = 1.5rem padding, 16px radius) */
 #view-dashboard .grid>.card-dark {
     position: relative;
-    padding: 1.25rem;
+    padding: 1.5rem;
+    border-radius: var(--md-sys-shape-corner-large, 16px);
+    background: var(--md-sys-color-surface-container, #151d2e);
     overflow: hidden;
     cursor: default;
 }
@@ -934,7 +932,7 @@ div:has(> #live-final-price)::before {
     box-shadow: var(--shadow-md, 0 4px 12px -2px rgba(0, 0, 0, 0.45));
 }
 
-/* Responsive Sidebar Collapse on Narrow Displays */
+/* Responsive Sidebar Collapse on Narrow Displays (72px / 4.5rem Navigation Rail) */
 @media (max-width: 1024px) {
     aside {
         width: 4.5rem;
@@ -942,14 +940,25 @@ div:has(> #live-final-price)::before {
     }
 
     aside .h-16 div:last-child,
-    aside nav button span,
+    aside nav button span.sidebar-text,
+    aside nav button .sidebar-label,
     aside .border-t .min-w-0 {
-        display: none;
+        display: none !important;
     }
 
     aside nav button {
-        justify-content: center;
-        padding: 0.75rem;
+        justify-content: center !important;
+        padding: 0 !important;
+        width: 56px !important;
+        height: 44px !important;
+        margin: 4px auto !important;
+        background: transparent !important;
+        border: none !important;
+    }
+
+    aside nav button .m3-nav-pill {
+        width: 56px !important;
+        height: 32px !important;
     }
 }
 

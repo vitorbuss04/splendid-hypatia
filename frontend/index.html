@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Print Calc Pro | Calculadora & Orçamentos 3D</title>
     
-    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <!-- Google Fonts: Inter, JetBrains Mono & Material Symbols Outlined -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -174,7 +174,7 @@
                 <div class="h-16 flex items-center justify-between px-4 border-b border-slate-800/80 bg-slate-950/20 brand-header">
                     <div class="flex items-center gap-3 min-w-0 brand-info" onclick="toggleSidebarIfCollapsed()" style="cursor: pointer;" title="PrintCalc 3D">
                         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white shadow-lg shadow-blue-600/30 border border-blue-400/30 shrink-0">
-                            <i data-lucide="box" class="w-5 h-5"></i>
+                            <span class="material-symbols-outlined text-xl">precision_manufacturing</span>
                         </div>
                         <div class="min-w-0 sidebar-text">
                             <h2 class="font-bold text-white text-sm tracking-tight leading-none truncate">PrintCalc 3D</h2>
@@ -188,23 +188,33 @@
                         Menu Principal
                     </div>
                     <button onclick="navigateTo('dashboard')" id="nav-dashboard" title="Visão Geral" class="sidebar-nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors bg-blue-600 text-white">
-                        <i data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i>
+                        <div class="m3-nav-pill">
+                            <span class="material-symbols-outlined text-[20px] shrink-0">dashboard</span>
+                        </div>
                         <span class="sidebar-text flex-1 text-left truncate">Visão Geral</span>
                     </button>
                     <button onclick="navigateTo('projects')" id="nav-projects" title="Projetos & Orçamentos" class="sidebar-nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
-                        <i data-lucide="folder-kanban" class="w-4 h-4 shrink-0"></i>
+                        <div class="m3-nav-pill">
+                            <span class="material-symbols-outlined text-[20px] shrink-0">folder_open</span>
+                        </div>
                         <span class="sidebar-text flex-1 text-left truncate">Projetos & Orçamentos</span>
                     </button>
                     <button onclick="navigateTo('printers')" id="nav-printers" title="Minhas Impressoras" class="sidebar-nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
-                        <i data-lucide="printer" class="w-4 h-4 shrink-0"></i>
+                        <div class="m3-nav-pill">
+                            <span class="material-symbols-outlined text-[20px] shrink-0">print</span>
+                        </div>
                         <span class="sidebar-text flex-1 text-left truncate">Minhas Impressoras</span>
                     </button>
                     <button onclick="navigateTo('filaments')" id="nav-filaments" title="Meus Filamentos" class="sidebar-nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
-                        <i data-lucide="cylinder" class="w-4 h-4 shrink-0"></i>
+                        <div class="m3-nav-pill">
+                            <span class="material-symbols-outlined text-[20px] shrink-0">layers</span>
+                        </div>
                         <span class="sidebar-text flex-1 text-left truncate">Meus Filamentos</span>
                     </button>
                     <button onclick="navigateTo('settings')" id="nav-settings" title="Configurações & Taxas" class="sidebar-nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
-                        <i data-lucide="settings" class="w-4 h-4 shrink-0"></i>
+                        <div class="m3-nav-pill">
+                            <span class="material-symbols-outlined text-[20px] shrink-0">settings</span>
+                        </div>
                         <span class="sidebar-text flex-1 text-left truncate">Configurações & Taxas</span>
                     </button>
                 </nav>
@@ -225,7 +235,7 @@
                         </div>
                     </div>
                     <button onclick="API.auth.logout()" title="Sair da conta" class="sidebar-logout-btn p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0">
-                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                        <span class="material-symbols-outlined text-lg">logout</span>
                     </button>
                 </div>
             </div>
@@ -239,7 +249,7 @@
                 <!-- Standard Navigation Title (Dashboard, Projects, Printers, etc.) -->
                 <div id="topbar-default-title" class="flex items-center gap-3">
                     <button id="topbar-sidebar-toggle" onclick="toggleSidebar()" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700/60 shrink-0" title="Alternar barra lateral">
-                        <i data-lucide="panel-left" class="w-4 h-4"></i>
+                        <span class="material-symbols-outlined text-lg text-slate-300">menu</span>
                     </button>
                     <div class="flex items-center gap-2">
                         <span class="text-xs text-slate-500 font-medium">Workspace</span>
@@ -251,10 +261,10 @@
                 <!-- Project Editor Header (Back Button, Project Title & Subtitle) -->
                 <div id="topbar-editor-title" class="hidden items-center gap-3 min-w-0">
                     <button id="topbar-editor-sidebar-toggle" onclick="toggleSidebar()" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700/60 shrink-0" title="Alternar barra lateral">
-                        <i data-lucide="panel-left" class="w-4 h-4"></i>
+                        <span class="material-symbols-outlined text-lg text-slate-300">menu</span>
                     </button>
                     <button onclick="navigateTo('projects')" class="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors shrink-0" title="Voltar para Projetos">
-                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        <span class="material-symbols-outlined text-lg">arrow_back</span>
                     </button>
                     <div class="min-w-0">
                         <h2 class="text-sm sm:text-base font-bold text-white tracking-tight leading-tight truncate" id="editor-project-title">Editar Orçamento</h2>
@@ -263,8 +273,8 @@
                 </div>
 
                 <div class="flex items-center gap-3" id="topbar-actions">
-                    <button onclick="openNewProject()" class="btn-primary py-2 px-3.5 text-xs font-semibold rounded-lg shadow-md shadow-blue-600/25 flex items-center gap-1.5 transition-all">
-                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo Orçamento
+                    <button onclick="openNewProject()" class="btn-primary py-2 px-4 text-xs font-semibold rounded-full shadow-md shadow-blue-600/25 flex items-center gap-1.5 transition-all">
+                        <span class="material-symbols-outlined text-base">add</span> Novo Orçamento
                     </button>
                 </div>
             </header>
@@ -273,10 +283,10 @@
                 
                 <!-- 1. DASHBOARD VIEW -->
                 <section id="view-dashboard" class="space-y-8 animate-fade-in">
-                    <!-- Metric Cards Grid (4 Stat Cards) -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <!-- Metric Cards Grid (4 Stat Cards - 8dp grid spacing) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         <!-- Stat 1: Total Projects -->
-                        <div onclick="navigateTo('projects')" class="card-dark card-interactive p-5 flex items-center justify-between cursor-pointer group">
+                        <div onclick="navigateTo('projects')" class="card-dark card-interactive p-6 flex items-center justify-between cursor-pointer group">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -287,13 +297,13 @@
                                     <i data-lucide="folder" class="w-3 h-3 text-blue-400"></i> Histórico cadastrado
                                 </p>
                             </div>
-                            <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/25 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/10 group-hover:scale-110 transition-transform">
+                            <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/25 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/10 group-hover:scale-110 transition-transform">
                                 <i data-lucide="folder-kanban" class="w-6 h-6"></i>
                             </div>
                         </div>
 
                         <!-- Stat 2: Active Quotes -->
-                        <div onclick="navigateTo('projects')" class="card-dark card-interactive p-5 flex items-center justify-between cursor-pointer group">
+                        <div onclick="navigateTo('projects')" class="card-dark card-interactive p-6 flex items-center justify-between cursor-pointer group">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -304,13 +314,13 @@
                                     <i data-lucide="trending-up" class="w-3 h-3"></i> Em andamento
                                 </p>
                             </div>
-                            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/10 group-hover:scale-110 transition-transform">
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/10 group-hover:scale-110 transition-transform">
                                 <i data-lucide="badge-dollar-sign" class="w-6 h-6"></i>
                             </div>
                         </div>
 
                         <!-- Stat 3: Printers -->
-                        <div onclick="navigateTo('printers')" class="card-dark card-interactive p-5 flex items-center justify-between cursor-pointer group">
+                        <div onclick="navigateTo('printers')" class="card-dark card-interactive p-6 flex items-center justify-between cursor-pointer group">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full bg-purple-500"></span>
@@ -321,13 +331,13 @@
                                     <i data-lucide="cpu" class="w-3 h-3 text-purple-400"></i> Parque de máquinas
                                 </p>
                             </div>
-                            <div class="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/25 flex items-center justify-center shrink-0 shadow-lg shadow-purple-500/10 group-hover:scale-110 transition-transform">
+                            <div class="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/25 flex items-center justify-center shrink-0 shadow-lg shadow-purple-500/10 group-hover:scale-110 transition-transform">
                                 <i data-lucide="printer" class="w-6 h-6"></i>
                             </div>
                         </div>
 
                         <!-- Stat 4: Filaments -->
-                        <div onclick="navigateTo('filaments')" class="card-dark card-interactive p-5 flex items-center justify-between cursor-pointer group">
+                        <div onclick="navigateTo('filaments')" class="card-dark card-interactive p-6 flex items-center justify-between cursor-pointer group">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full bg-amber-500"></span>
@@ -338,16 +348,16 @@
                                     <i data-lucide="palette" class="w-3 h-3 text-amber-400"></i> Cores e carretéis
                                 </p>
                             </div>
-                            <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10 group-hover:scale-110 transition-transform">
+                            <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10 group-hover:scale-110 transition-transform">
                                 <i data-lucide="cylinder" class="w-6 h-6"></i>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Financial & Operational KPI Highlight Cards -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <!-- Financial & Operational KPI Highlight Cards (8dp grid spacing) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         <!-- KPI 1: Faturamento Aprovado / Realizado -->
-                        <div class="card-dark p-5 flex items-center justify-between border-l-4 border-l-emerald-500">
+                        <div class="card-dark p-6 flex items-center justify-between border-l-4 border-l-emerald-500">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
@@ -358,13 +368,13 @@
                                     <i data-lucide="check-circle" class="w-3 h-3 text-emerald-400"></i> Pedidos fechados
                                 </p>
                             </div>
-                            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0">
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0">
                                 <i data-lucide="wallet" class="w-6 h-6"></i>
                             </div>
                         </div>
 
                         <!-- KPI 2: Pipeline em Aberto -->
-                        <div class="card-dark p-5 flex items-center justify-between border-l-4 border-l-blue-500">
+                        <div class="card-dark p-6 flex items-center justify-between border-l-4 border-l-blue-500">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full bg-blue-400"></span>
@@ -375,13 +385,13 @@
                                     <i data-lucide="hourglass" class="w-3 h-3 text-blue-400"></i> Propostas enviadas
                                 </p>
                             </div>
-                            <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/25 flex items-center justify-center shrink-0">
+                            <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/25 flex items-center justify-center shrink-0">
                                 <i data-lucide="clock" class="w-6 h-6"></i>
                             </div>
                         </div>
 
                         <!-- KPI 3: Lucro Líquido Acumulado -->
-                        <div class="card-dark p-5 flex items-center justify-between border-l-4 border-l-teal-500">
+                        <div class="card-dark p-6 flex items-center justify-between border-l-4 border-l-teal-500">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full bg-teal-400"></span>
@@ -392,13 +402,13 @@
                                     <i data-lucide="percent" class="w-3 h-3 text-teal-400"></i> Margem média: 0%
                                 </p>
                             </div>
-                            <div class="w-12 h-12 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/25 flex items-center justify-center shrink-0">
+                            <div class="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-400 border border-teal-500/25 flex items-center justify-center shrink-0">
                                 <i data-lucide="trending-up" class="w-6 h-6"></i>
                             </div>
                         </div>
 
                         <!-- KPI 4: Horas Totais de Impressão -->
-                        <div class="card-dark p-5 flex items-center justify-between border-l-4 border-l-amber-500">
+                        <div class="card-dark p-6 flex items-center justify-between border-l-4 border-l-amber-500">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -409,7 +419,7 @@
                                     <i data-lucide="cylinder" class="w-3 h-3 text-amber-400"></i> Filamento: 0 kg
                                 </p>
                             </div>
-                            <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0">
+                            <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0">
                                 <i data-lucide="clock-3" class="w-6 h-6"></i>
                             </div>
                         </div>
@@ -427,13 +437,13 @@
                                     Para começar a orçar com máxima precisão técnica e financeira, recomendamos cadastrar suas <b>impressoras</b> (para cálculo de depreciação, potência e energia) e seus <b>filamentos reais</b>. Ou você pode criar um projeto diretamente informando valores manuais ou subindo um arquivo <b>.3MF / .GCODE</b>!
                                 </p>
                                 <div class="flex flex-wrap items-center gap-3 mt-4">
-                                    <button onclick="openPrinterModal()" class="btn-primary px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all">
+                                    <button onclick="openPrinterModal()" class="btn-primary px-4 py-2 text-xs font-semibold rounded-full flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all">
                                         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Cadastrar Impressora
                                     </button>
-                                    <button onclick="openFilamentModal()" class="btn-secondary px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all">
+                                    <button onclick="openFilamentModal()" class="btn-secondary px-4 py-2 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all">
                                         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Cadastrar Filamento
                                     </button>
-                                    <button onclick="openNewProject()" class="btn-secondary px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all text-blue-400 hover:text-white">
+                                    <button onclick="openNewProject()" class="btn-secondary px-4 py-2 text-xs font-semibold rounded-full flex items-center gap-1.5 transition-all text-blue-400 hover:text-white">
                                         <i data-lucide="file-plus" class="w-3.5 h-3.5"></i> Novo Orçamento Direto
                                     </button>
                                 </div>

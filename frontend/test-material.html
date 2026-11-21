@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Print Calc Pro | Material 3 Design Kit Experience</title>
+
+    <!-- Google Fonts: Inter, Roboto, JetBrains Mono & Material Symbols Variable Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Roboto:wght@300;400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN for utility grid and flex layouts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#080b11',
+                        darkcanvas: '#0b0f17',
+                        darksurface: '#111827',
+                        darkcard: '#151d2e',
+                        darkborder: '#243044',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Roboto', 'system-ui', 'sans-serif'],
+                        mono: ["'JetBrains Mono'", 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Material Design 3 Dark Theme Tokens & Navigation Rail -->
+    <link rel="stylesheet" href="/static/css/material-theme.css">
+
+    <!-- Material Web Components (Google @material/web) via ESM CDN -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@material/web/": "https://esm.run/@material/web/"
+      }
+    }
+    </script>
+    <script type="module">
+        import '@material/web/all.js';
+        import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
+        if (typescaleStyles && typescaleStyles.styleSheet) {
+            document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: var(--md-sys-color-background);
+            color: var(--md-sys-color-on-background);
+            overflow-x: hidden;
+        }
+        .font-numeric {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        md-outlined-text-field, md-outlined-select {
+            width: 100%;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex font-sans antialiased text-slate-100">
+
+    <!-- =========================================================================
+         1. NAVIGATION RAIL (Baseado no Nó "Navigation Rail" 1:9566 do Design Kit)
+         ========================================================================= -->
+    <aside class="m3-navigation-rail hidden md:flex sticky top-0 h-screen select-none">
+        <!-- Menu Icon -->
+        <md-icon-button id="rail-menu-btn" title="Expandir Menu">
+            <md-icon>menu</md-icon>
+        </md-icon-button>
+
+        <!-- Compact FAB (56x56) como no Figma Design Kit -->
+        <div class="my-1">
+            <md-fab variant="primary" id="rail-quick-fab" title="Cadastrar Novo Material">
+                <md-icon slot="icon">add</md-icon>
+            </md-fab>
+        </div>
+
+        <!-- Navigation Segments com Active Pill M3 -->
+        <nav class="flex-1 flex flex-col items-center gap-2 mt-2 w-full">
+            <button type="button" class="m3-nav-item active" id="nav-item-calc" data-view="calc">
+                <div class="m3-nav-pill">
+                    <md-icon>calculate</md-icon>
+                </div>
+                <span class="m3-nav-label">Cálculo</span>
+            </button>
+
+            <button type="button" class="m3-nav-item" id="nav-item-bom" data-view="bom">
+                <div class="m3-nav-pill">
+                    <md-icon>inventory_2</md-icon>
+                </div>
+                <span class="m3-nav-label">Insumos</span>
+            </button>
+
+            <button type="button" class="m3-nav-item" id="nav-item-stats" data-view="stats">
+                <div class="m3-nav-pill">
+                    <md-icon>analytics</md-icon>
+                </div>
+                <span class="m3-nav-label">Métricas</span>
+            </button>
+
+            <button type="button" class="m3-nav-item" id="nav-item-settings" data-view="settings">
+                <div class="m3-nav-pill">
+                    <md-icon>settings</md-icon>
+                </div>
+                <span class="m3-nav-label">Ajustes</span>
+            </button>
+        </nav>
+
+        <!-- User Profile Avatar no Rodapé do Rail -->
+        <div class="mt-auto flex flex-col items-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-300 font-bold text-sm shadow-md" title="Vitor Buss (Admin)">
+                VB
+            </div>
+        </div>
+    </aside>
+
+    <!-- =========================================================================
+         2. WORKSPACE WRAPPER (Top Bar + Main Scrollable Area)
+         ========================================================================= -->
+    <div class="flex-1 flex flex-col min-w-0">
+
+        <!-- TOP APP BAR (Alinhada com o Chrome Browser Bar do Figma 1:9567) -->
+        <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+            
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-outlined text-blue-400 text-2xl">precision_manufacturing</span>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="md-typescale-title-small font-bold text-white tracking-tight">3D Print Calc Pro</h1>
+                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-blue-950 text-blue-300 border border-blue-800 rounded-full">
+                                Design Kit M3
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-400">Engenharia de Custos e Fatiamento 3D</p>
+                    </div>
+                </div>
+
+                <!-- Breadcrumbs de Contexto -->
+                <div class="hidden lg:flex items-center gap-1.5 text-xs text-slate-400 ml-4 pl-4 border-l border-slate-800">
+                    <span>Orçamentos</span>
+                    <span class="material-symbols-outlined text-sm text-slate-600">chevron_right</span>
+                    <span class="text-slate-200 font-medium">Lote #8842 - Suporte Articulado</span>
+                </div>
+            </div>
+
+            <!-- Top Actions -->
+            <div class="flex items-center gap-3">
+                
+                <!-- Status Chips M3 -->
+                <div class="hidden sm:flex items-center gap-1">
+                    <md-chip-set>
+                        <md-filter-chip label="Rascunho" selected></md-filter-chip>
+                        <md-filter-chip label="Orçado"></md-filter-chip>
+                        <md-filter-chip label="Em Produção"></md-filter-chip>
+                    </md-chip-set>
+                </div>
+
+                <!-- Menu Dropdown -->
+                <div class="relative">
+                    <md-icon-button id="top-more-btn" title="Mais Opções">
+                        <md-icon>more_vert</md-icon>
+                    </md-icon-button>
+
+                    <md-menu id="top-more-menu" anchor="top-more-btn">
+                        <md-menu-item id="action-export-json">
+                            <div slot="headline">Exportar JSON de Custos</div>
+                            <md-icon slot="start">file_download</md-icon>
+                        </md-menu-item>
+                        <md-menu-item id="action-reset-defaults">
+                            <div slot="headline">Restaurar Parâmetros Padrão</div>
+                            <md-icon slot="start">restart_alt</md-icon>
+                        </md-menu-item>
+                        <md-divider></md-divider>
+                        <md-menu-item id="action-open-figma-kit">
+                            <div slot="headline">Material 3 Design Kit (Figma)</div>
+                            <md-icon slot="start">open_in_new</md-icon>
+                        </md-menu-item>
+                    </md-menu>
+                </div>
+
+                <!-- Link de Retorno ao Sistema Padrão -->
+                <md-outlined-button href="/" class="text-xs">
+                    <md-icon slot="icon">arrow_back</md-icon>
+                    Voltar ao Sistema
+                </md-outlined-button>
+            </div>
+        </header>
+
+        <!-- =====================================================================
+             MAIN CONTENT CANVAS
+             ===================================================================== -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+            <!-- =================================================================
+                 VIEW: CALCULADORA (Painel Principal)
+                 ================================================================= -->
+            <div id="panel-calc" class="space-y-6">
+
+                <!-- 1. HERO QUICK STATS (Baseado no Horizontal Card do Kit de Design) -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    
+                    <!-- Card 1: Máquina Selecionada -->
+                    <div class="m3-card p-4 flex items-center justify-between">
+                        <md-elevation></md-elevation>
+                        <div class="space-y-1">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Impressora Ativa</span>
+                            <div class="text-base font-bold text-white flex items-center gap-1.5" id="hero-stat-printer">
+                                <span>Bambu Lab P1S</span>
+                            </div>
+                            <span class="text-xs text-blue-400 font-numeric font-medium">Taxa: R$ 4,50/h</span>
+                        </div>
+                        <div class="w-11 h-11 rounded-2xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                            <md-icon>print</md-icon>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Massa e Consumo -->
+                    <div class="m3-card p-4 flex items-center justify-between">
+                        <md-elevation></md-elevation>
+                        <div class="space-y-1">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Massa Estimada</span>
+                            <div class="text-base font-bold text-white font-numeric" id="hero-stat-weight">125g (PLA)</div>
+                            <span class="text-xs text-emerald-400 font-numeric font-medium">Custo: R$ 13,75</span>
+                        </div>
+                        <div class="w-11 h-11 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                            <md-icon>palette</md-icon>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Tempo e Capacidade com Linear Progress -->
+                    <div class="m3-card p-4 flex flex-col justify-between">
+                        <md-elevation></md-elevation>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tempo Total de Mesa</span>
+                            <span class="text-xs font-bold text-purple-400 font-numeric" id="hero-stat-time">4h 30m</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between text-xs text-slate-300">
+                                <span>Ocupação da Fazenda:</span>
+                                <span class="font-numeric font-bold text-white" id="m3-capacity-text">18.7%</span>
+                            </div>
+                            <md-linear-progress id="m3-progress-bar" value="0.187" buffer="0.45" class="w-full"></md-linear-progress>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 2. WORKSPACE GRID: FORMS + TERMINAL -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+                    <!-- Coluna da Esquerda: Formulários e Parâmetros (8 cols) -->
+                    <div class="lg:col-span-8 space-y-6">
+
+                        <!-- CARD: SELEÇÃO RÁPIDA DE MATERIAL (Connected Button Group) -->
+                        <div class="m3-card p-5 space-y-3">
+                            <md-elevation></md-elevation>
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <div class="flex items-center gap-2">
+                                    <md-icon class="text-blue-400">tune</md-icon>
+                                    <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Polímero Selecionado (Connected Group)</h3>
+                                </div>
+                                
+                                <!-- Connected Button Group oficial M3 -->
+                                <div class="m3-connected-group" id="material-connected-group">
+                                    <button type="button" class="m3-connected-button active" data-mat="pla_basic">PLA Basic</button>
+                                    <button type="button" class="m3-connected-button" data-mat="petg_cf">PETG-CF</button>
+                                    <button type="button" class="m3-connected-button" data-mat="tpu_95a">TPU 95A</button>
+                                    <button type="button" class="m3-connected-button" data-mat="abs_premium">ABS Pro</button>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-400">
+                                O grupo conectado aplica morfing e seleção única, alternando as taxas no seletor e atualizando o cálculo financeiro em tempo real.
+                            </p>
+                        </div>
+
+                        <!-- CARD: PARÂMETROS DA PLACA DE IMPRESSÃO -->
+                        <div class="m3-card p-6 space-y-6">
+                            <md-elevation></md-elevation>
+                            
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                                <div class="flex items-center gap-2">
+                                    <md-icon class="text-purple-400">layers</md-icon>
+                                    <h3 class="md-typescale-title-small font-bold text-white uppercase tracking-wider">Parâmetros de Impressão (Placa 1)</h3>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-numeric text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-lg border border-slate-700/60">ID: PL-001</span>
+                                    <md-filled-tonal-button id="btn-show-demo-dialog" class="text-xs">
+                                        <md-icon slot="icon">add_circle</md-icon>
+                                        Cadastrar Filamento (Dialog M3)
+                                    </md-filled-tonal-button>
+                                </div>
+                            </div>
+
+                            <!-- Impressora e Material Selects M3 -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <md-outlined-select id="m3-printer-select" label="Impressora 3D">
+                                        <md-icon slot="leading-icon">print</md-icon>
+                                        <md-select-option value="bambu_p1s" selected>
+                                            <div slot="headline">Bambu Lab P1S</div>
+                                            <span slot="supporting-text">Taxa: R$ 4,50/h (Potência 350W)</span>
+                                        </md-select-option>
+                                        <md-select-option value="ender3_v3">
+                                            <div slot="headline">Creality Ender-3 V3</div>
+                                            <span slot="supporting-text">Taxa: R$ 3,20/h (Potência 250W)</span>
+                                        </md-select-option>
+                                        <md-select-option value="voron24">
+                                            <div slot="headline">Voron 2.4 High-Speed</div>
+                                            <span slot="supporting-text">Taxa: R$ 6,80/h (Potência 500W)</span>
+                                        </md-select-option>
+                                    </md-outlined-select>
+                                </div>
+
+                                <div>
+                                    <md-outlined-select id="m3-filament-select" label="Carretel de Filamento">
+                                        <md-icon slot="leading-icon">palette</md-icon>
+                                        <md-select-option value="pla_basic" selected>
+                                            <div slot="headline">PLA Basic Preto</div>
+                                            <span slot="supporting-text">R$ 0,11/g (R$ 110,00/kg)</span>
+                                        </md-select-option>
+                                        <md-select-option value="petg_cf">
+                                            <div slot="headline">PETG-CF Fibra de Carbono</div>
+                                            <span slot="supporting-text">R$ 0,22/g (R$ 220,00/kg)</span>
+                                        </md-select-option>
+                                        <md-select-option value="tpu_95a">
+                                            <div slot="headline">TPU Flexível 95A</div>
+                                            <span slot="supporting-text">R$ 0,18/g (R$ 180,00/kg)</span>
+                                        </md-select-option>
+                                        <md-select-option value="abs_premium">
+                                            <div slot="headline">ABS Premium Cinza</div>
+                                            <span slot="supporting-text">R$ 0,13/g (R$ 130,00/kg)</span>
+                                        </md-select-option>
+                                    </md-outlined-select>
+                                </div>
+                            </div>
+
+                            <!-- Horas, Minutos e Massa com Sufixos Nativos M3 -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <md-outlined-text-field id="m3-time-hours" type="number" min="0" step="1" label="Horas de Impressão" value="4" suffix-text="h" supporting-text="Tempo fatiador">
+                                        <md-icon slot="leading-icon">schedule</md-icon>
+                                    </md-outlined-text-field>
+                                </div>
+                                <div>
+                                    <md-outlined-text-field id="m3-time-minutes" type="number" min="0" max="59" step="1" label="Minutos" value="30" suffix-text="min" supporting-text="Fração da hora">
+                                        <md-icon slot="leading-icon">timer</md-icon>
+                                    </md-outlined-text-field>
+                                </div>
+                                <div>
+                                    <md-outlined-text-field id="m3-weight-grams" type="number" min="0" step="any" label="Massa Estimada" value="125" suffix-text="g" supporting-text="Massa no fatiador">
+                                        <md-icon slot="leading-icon">scale</md-icon>
+                                    </md-outlined-text-field>
+                                </div>
+                            </div>
+
+                            <!-- SLIDER OFICIAL M3 DE MARGEM COM LABELED E TICKS -->
+                            <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <md-icon class="text-blue-400">trending_up</md-icon>
+                                        <label class="text-xs font-bold uppercase tracking-wider text-slate-200">Margem de Lucro (%):</label>
+                                    </div>
+                                    <span class="text-sm font-bold text-blue-400 font-numeric px-2 py-0.5 bg-blue-950/80 rounded-lg border border-blue-800/60" id="m3-slider-display">50%</span>
+                                </div>
+                                <md-slider id="m3-profit-slider" min="10" max="200" value="50" step="5" labeled ticks class="w-full"></md-slider>
+                                <p class="text-[11px] text-slate-400 leading-relaxed">
+                                    Arraste o manípulo para ajustar o percentual de margem comercial. O valor é recalculado instantaneamente no Terminal Financeiro.
+                                </p>
+                            </div>
+
+                            <!-- SWITCHES COM ÍCONES INTEGRADOS NO MANÍPULO -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
+                                <div class="flex items-center gap-3">
+                                    <md-switch id="m3-failure-switch" selected icons show-only-selected-icon></md-switch>
+                                    <div>
+                                        <label for="m3-failure-switch" class="text-xs font-bold text-slate-200 cursor-pointer">Margem de Perda / Risco (+10%)</label>
+                                        <p class="text-[11px] text-slate-400">Cobre eventuais falhas de adesão ou bico</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-3">
+                                    <md-switch id="m3-postprocess-switch" icons show-only-selected-icon></md-switch>
+                                    <div>
+                                        <label for="m3-postprocess-switch" class="text-xs font-bold text-slate-200 cursor-pointer">Pós-Processamento Manual (R$ 15,00)</label>
+                                        <p class="text-[11px] text-slate-400">Remoção de suportes e acabamento mecânico</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ações no Rodapé da Placa -->
+                            <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                                <div class="flex items-center gap-2">
+                                    <md-assist-chip label="Perfil: 0.20mm Standard" elevated></md-assist-chip>
+                                    <md-assist-chip label="Infill: 20% Gyroid" elevated></md-assist-chip>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <md-outlined-button id="m3-btn-duplicate">
+                                        <md-icon slot="icon">content_copy</md-icon>
+                                        Duplicar Placa
+                                    </md-outlined-button>
+                                    <md-filled-tonal-button id="m3-btn-recalc">
+                                        <md-icon slot="icon">refresh</md-icon>
+                                        Recalcular Custos
+                                    </md-filled-tonal-button>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- Coluna da Direita: Terminal Financeiro M3 (4 cols) -->
+                    <div class="lg:col-span-4 space-y-6">
+                        
+                        <div class="m3-sticky-summary p-6 space-y-5">
+                            
+                            <!-- Header do Terminal -->
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                                <div class="flex items-center gap-2">
+                                    <md-icon class="text-emerald-400">account_balance_wallet</md-icon>
+                                    <h3 class="md-typescale-title-small font-bold text-white uppercase tracking-wider">Terminal Financeiro</h3>
+                                </div>
+                                <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 rounded-full">
+                                    Tempo Real
+                                </span>
+                            </div>
+
+                            <!-- Linhas de Custos e Totais -->
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between py-1 text-slate-300">
+                                    <span class="flex items-center gap-1.5 text-xs text-slate-400">
+                                        <md-icon class="text-sm text-slate-500">precision_manufacturing</md-icon>
+                                        Custo de Máquina (Energia/Deprec):
+                                    </span>
+                                    <span class="font-numeric font-medium text-slate-100" id="res-machine-cost">R$ 20,25</span>
+                                </div>
+
+                                <div class="flex items-center justify-between py-1 text-slate-300">
+                                    <span class="flex items-center gap-1.5 text-xs text-slate-400">
+                                        <md-icon class="text-sm text-slate-500">inventory_2</md-icon>
+                                        Custo de Filamento Líquido:
+                                    </span>
+                                    <span class="font-numeric font-medium text-slate-100" id="res-material-cost">R$ 13,75</span>
+                                </div>
+
+                                <div class="flex items-center justify-between py-1 text-slate-300">
+                                    <span class="flex items-center gap-1.5 text-xs text-slate-400">
+                                        <md-icon class="text-sm text-slate-500">warning</md-icon>
+                                        Margem de Risco / Perda:
+                                    </span>
+                                    <span class="font-numeric font-medium text-amber-300" id="res-failure-cost">R$ 3,40</span>
+                                </div>
+
+                                <div class="flex items-center justify-between py-1 text-slate-300">
+                                    <span class="flex items-center gap-1.5 text-xs text-slate-400">
+                                        <md-icon class="text-sm text-slate-500">build</md-icon>
+                                        Pós-Processamento e Acabamento:
+                                    </span>
+                                    <span class="font-numeric font-medium text-slate-400" id="res-postprocess-cost">R$ 0,00</span>
+                                </div>
+
+                                <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Custo Base de Fabricação:</span>
+                                    <span class="font-numeric font-bold text-white text-base" id="res-base-cost">R$ 37,40</span>
+                                </div>
+                            </div>
+
+                            <!-- Bloco de Destaque Heróico: Preço Final Sugerido -->
+                            <div class="p-5 rounded-2xl bg-gradient-to-br from-blue-950/80 via-slate-900 to-slate-950 border border-blue-600/40 shadow-inner space-y-2">
+                                <div class="flex items-center justify-between text-xs text-blue-300">
+                                    <span class="font-semibold uppercase tracking-wider">Preço Comercial Sugerido</span>
+                                    <md-icon class="text-sm text-blue-400">sell</md-icon>
+                                </div>
+                                <div class="text-3xl font-extrabold text-white font-numeric tracking-tight" id="res-final-price">
+                                    R$ 74,80
+                                </div>
+                                <div class="pt-2 border-t border-blue-900/60 flex items-center justify-between">
+                                    <span class="text-xs text-slate-400">Lucro Líquido Estimado:</span>
+                                    <span class="font-numeric font-bold text-emerald-400 text-sm" id="res-net-profit">+ R$ 37,40</span>
+                                </div>
+                            </div>
+
+                            <!-- Botões de Ação Final M3 -->
+                            <div class="space-y-3 pt-2">
+                                <md-filled-button class="w-full" id="m3-btn-save-quote">
+                                    <md-icon slot="icon">check_circle</md-icon>
+                                    Aprovar Proposta e Iniciar Produção
+                                </md-filled-button>
+
+                                <md-elevated-button class="w-full" id="m3-btn-download-pdf">
+                                    <md-icon slot="icon">picture_as_pdf</md-icon>
+                                    Gerar Proposta Comercial PDF
+                                </md-elevated-button>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- =================================================================
+                 VIEW: INSUMOS & BOM (md-list com md-list-item)
+                 ================================================================= -->
+            <div id="panel-bom" class="space-y-6 hidden">
+                <div class="m3-card p-6 space-y-4">
+                    <md-elevation></md-elevation>
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div class="flex items-center gap-2">
+                            <md-icon class="text-blue-400">receipt_long</md-icon>
+                            <h3 class="md-typescale-title-medium font-bold text-white">Lista de Insumos da Montagem (BOM)</h3>
+                        </div>
+                        <md-filled-tonal-button id="btn-add-bom-item">
+                            <md-icon slot="icon">add</md-icon>
+                            Adicionar Insumo
+                        </md-filled-tonal-button>
+                    </div>
+
+                    <p class="text-xs text-slate-400">
+                        Componente oficial <code>&lt;md-list&gt;</code> estilizado com cartões M3 e slots semânticos para ferragens e eletrônicos.
+                    </p>
+
+                    <md-list class="space-y-2 border border-slate-800 rounded-2xl bg-slate-900/50 p-2">
+                        <md-list-item type="button">
+                            <md-icon slot="start" class="text-blue-400">bolt</md-icon>
+                            <div slot="headline">Parafuso Cabeça Cilíndrica M3 x 12mm</div>
+                            <div slot="supporting-text">Fixação da tampa frontal articulada (Aço Inox 304)</div>
+                            <div slot="trailing-supporting-text" class="font-numeric text-white font-medium">8 un &bull; R$ 4,80</div>
+                            <md-icon-button slot="end" title="Remover item">
+                                <md-icon class="text-slate-400 hover:text-red-400">delete</md-icon>
+                            </md-icon-button>
+                        </md-list-item>
+
+                        <md-divider></md-divider>
+
+                        <md-list-item type="button">
+                            <md-icon slot="start" class="text-purple-400">settings</md-icon>
+                            <div slot="headline">Inserto Metálico Latão Roscado M3</div>
+                            <div slot="supporting-text">Aplicação térmica por ferro de solda</div>
+                            <div slot="trailing-supporting-text" class="font-numeric text-white font-medium">6 un &bull; R$ 7,20</div>
+                            <md-icon-button slot="end" title="Remover item">
+                                <md-icon class="text-slate-400 hover:text-red-400">delete</md-icon>
+                            </md-icon-button>
+                        </md-list-item>
+
+                        <md-divider></md-divider>
+
+                        <md-list-item type="button">
+                            <md-icon slot="start" class="text-emerald-400">cable</md-icon>
+                            <div slot="headline">Cabo Flat FFC 24 Vias 15cm</div>
+                            <div slot="supporting-text">Conexão da câmera e sensor de fim de curso</div>
+                            <div slot="trailing-supporting-text" class="font-numeric text-white font-medium">1 un &bull; R$ 12,50</div>
+                            <md-icon-button slot="end" title="Remover item">
+                                <md-icon class="text-slate-400 hover:text-red-400">delete</md-icon>
+                            </md-icon-button>
+                        </md-list-item>
+                    </md-list>
+                </div>
+            </div>
+
+            <!-- =================================================================
+                 VIEW: MÉTRICAS & AJUSTES (Controles Avançados M3)
+                 ================================================================= -->
+            <div id="panel-stats" class="space-y-6 hidden">
+                <div class="m3-card p-6 space-y-6">
+                    <md-elevation></md-elevation>
+                    <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
+                        <md-icon class="text-blue-400">fact_check</md-icon>
+                        <h3 class="md-typescale-title-medium font-bold text-white">Laboratório de Controles e Primitivas Material 3</h3>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        
+                        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-3">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Seleção e Checkboxes</h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <md-checkbox checked></md-checkbox>
+                                    <span class="text-xs text-slate-300">Suporte Tree Automático</span>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <md-checkbox indeterminate></md-checkbox>
+                                    <span class="text-xs text-slate-300">Alisamento Ironing (Topo)</span>
+                                </label>
+                            </div>
+                            <md-divider class="my-2"></md-divider>
+                            <div class="space-y-1">
+                                <span class="text-[11px] text-slate-400">Densidade de Preenchimento:</span>
+                                <div class="flex items-center gap-4 mt-1">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <md-radio name="infill" value="15" checked></md-radio>
+                                        <span class="text-xs text-slate-300">15%</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <md-radio name="infill" value="30"></md-radio>
+                                        <span class="text-xs text-slate-300">30%</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <md-radio name="infill" value="100"></md-radio>
+                                        <span class="text-xs text-slate-300">100%</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-3 flex flex-col items-center justify-center text-center">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Circular Progress M3</h4>
+                            <div class="flex items-center gap-6 py-2">
+                                <md-circular-progress indeterminate four-color></md-circular-progress>
+                                <md-circular-progress value="0.75"></md-circular-progress>
+                            </div>
+                            <p class="text-xs text-slate-400">Alternância automática das 4 cores dinâmicas (Primary, Secondary, Tertiary, Error).</p>
+                        </div>
+
+                        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-3">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Floating Action Buttons (FAB)</h4>
+                            <div class="flex flex-wrap items-center gap-3 pt-2">
+                                <md-fab variant="primary" label="Novo Job" lowered>
+                                    <md-icon slot="icon">add</md-icon>
+                                </md-fab>
+                                <md-fab variant="secondary">
+                                    <md-icon slot="icon">edit</md-icon>
+                                </md-fab>
+                            </div>
+                            <p class="text-xs text-slate-400">FABs estendidos ou compactos com foco e microinterações.</p>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- =========================================================================
+         MODAL / DIALOG NATIVO M3 (Com Slots Semânticos e Ligadura Correta)
+         ========================================================================= -->
+    <md-dialog id="m3-dialog-catalog">
+        <md-icon slot="icon" class="text-blue-400">palette</md-icon>
+        <div slot="headline">Cadastrar Novo Filamento</div>
+
+        <form slot="content" id="m3-dialog-form" class="space-y-4 pt-2">
+            <p class="text-xs text-slate-400 leading-relaxed">
+                Diálogo oficial construído com <code>&lt;md-dialog&gt;</code> do Google Material 3 com foco automático e fechamento nativo por tecla ESC.
+            </p>
+
+            <md-outlined-text-field id="m3-input-filament-name" label="Nome do Carretel" value="3D Prime PETG Carbon">
+                <md-icon slot="leading-icon">label</md-icon>
+            </md-outlined-text-field>
+            
+            <md-outlined-select id="m3-input-filament-type" label="Tipo de Polímero">
+                <md-icon slot="leading-icon">category</md-icon>
+                <md-select-option value="PLA"><div slot="headline">PLA (Ácido Polilático)</div></md-select-option>
+                <md-select-option value="PETG" selected><div slot="headline">PETG (Copolímero)</div></md-select-option>
+                <md-select-option value="ABS"><div slot="headline">ABS Industrial</div></md-select-option>
+                <md-select-option value="TPU"><div slot="headline">TPU Flexível</div></md-select-option>
+            </md-outlined-select>
+
+            <div class="grid grid-cols-2 gap-3">
+                <md-outlined-text-field id="m3-input-filament-price" type="number" step="any" label="Preço de Compra" value="160.00" prefix-text="R$"></md-outlined-text-field>
+                <md-outlined-text-field id="m3-input-filament-spool" type="number" step="any" label="Peso Líquido" value="1000" suffix-text="g"></md-outlined-text-field>
+            </div>
+        </form>
+
+        <div slot="actions">
+            <md-text-button id="m3-btn-dialog-close">Cancelar</md-text-button>
+            <md-filled-button id="m3-btn-dialog-confirm">Salvar no Catálogo</md-filled-button>
+        </div>
+    </md-dialog>
+
+    <!-- Toast Notification M3 -->
+    <div id="m3-toast" class="fixed bottom-6 right-6 z-50 transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none p-4 rounded-2xl bg-slate-900 border border-blue-500/50 text-white shadow-2xl flex items-center gap-3">
+        <md-icon class="text-blue-400" id="m3-toast-icon">check_circle</md-icon>
+        <span class="text-xs font-medium" id="m3-toast-text">Notificação do sistema</span>
+    </div>
+
+    <!-- =========================================================================
+         REACTIVE CONTROLLER SCRIPT (Interações e Motor de Cálculo)
+         ========================================================================= -->
+    <script>
+        const PRINTER_RATES = {
+            'bambu_p1s': { rate: 4.50, label: 'Bambu Lab P1S' },
+            'ender3_v3': { rate: 3.20, label: 'Creality Ender-3 V3' },
+            'voron24': { rate: 6.80, label: 'Voron 2.4 High-Speed' }
+        };
+
+        const FILAMENT_RATES = {
+            'pla_basic': { rate: 0.11, label: 'PLA Basic' },
+            'petg_cf': { rate: 0.22, label: 'PETG-CF' },
+            'tpu_95a': { rate: 0.18, label: 'TPU 95A' },
+            'abs_premium': { rate: 0.13, label: 'ABS Pro' }
+        };
+
+        function recalculateLiveSummary() {
+            const printerKey = document.getElementById('m3-printer-select')?.value || 'bambu_p1s';
+            const filamentKey = document.getElementById('m3-filament-select')?.value || 'pla_basic';
+            
+            const hours = parseFloat(document.getElementById('m3-time-hours')?.value || 0) || 0;
+            const minutes = parseFloat(document.getElementById('m3-time-minutes')?.value || 0) || 0;
+            const weight = parseFloat(document.getElementById('m3-weight-grams')?.value || 0) || 0;
+            
+            const slider = document.getElementById('m3-profit-slider');
+            const marginPercent = parseFloat(slider?.value || 50);
+            
+            const sliderDisplay = document.getElementById('m3-slider-display');
+            if (sliderDisplay) sliderDisplay.textContent = `${marginPercent}%`;
+
+            const hasFailureMargin = document.getElementById('m3-failure-switch')?.selected ?? true;
+            const hasPostProcess = document.getElementById('m3-postprocess-switch')?.selected ?? false;
+
+            // Fórmulas
+            const totalHours = hours + (minutes / 60);
+            const printerData = PRINTER_RATES[printerKey] || { rate: 4.50, label: 'Bambu Lab P1S' };
+            const machineCost = totalHours * printerData.rate;
+
+            const filamentData = FILAMENT_RATES[filamentKey] || { rate: 0.11, label: 'PLA Basic' };
+            const materialCost = weight * filamentData.rate;
+
+            const failureCost = hasFailureMargin ? (machineCost + materialCost) * 0.10 : 0.00;
+            const postProcessCost = hasPostProcess ? 15.00 : 0.00;
+
+            const baseCost = machineCost + materialCost + failureCost + postProcessCost;
+            const finalPrice = baseCost * (1 + (marginPercent / 100));
+            const netProfit = finalPrice - baseCost;
+
+            // Atualização dos elementos na tela
+            document.getElementById('res-machine-cost').textContent = `R$ ${machineCost.toFixed(2).replace('.', ',')}`;
+            document.getElementById('res-material-cost').textContent = `R$ ${materialCost.toFixed(2).replace('.', ',')}`;
+            document.getElementById('res-failure-cost').textContent = `R$ ${failureCost.toFixed(2).replace('.', ',')}`;
+            document.getElementById('res-postprocess-cost').textContent = `R$ ${postProcessCost.toFixed(2).replace('.', ',')}`;
+            document.getElementById('res-base-cost').textContent = `R$ ${baseCost.toFixed(2).replace('.', ',')}`;
+            document.getElementById('res-final-price').textContent = `R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
+            document.getElementById('res-net-profit').textContent = `+ R$ ${netProfit.toFixed(2).replace('.', ',')}`;
+
+            // Atualização dos cartões Hero rápidos no topo
+            const heroPrinter = document.getElementById('hero-stat-printer');
+            if (heroPrinter) heroPrinter.textContent = printerData.label;
+
+            const heroWeight = document.getElementById('hero-stat-weight');
+            if (heroWeight) heroWeight.textContent = `${weight}g (${filamentData.label})`;
+
+            const heroTime = document.getElementById('hero-stat-time');
+            if (heroTime) heroTime.textContent = `${hours}h ${minutes}m`;
+
+            // Atualização da barra de capacidade
+            const capacityRatio = Math.min(totalHours / 24, 1.0);
+            const progressBar = document.getElementById('m3-progress-bar');
+            if (progressBar) progressBar.value = capacityRatio;
+            const capacityText = document.getElementById('m3-capacity-text');
+            if (capacityText) capacityText.textContent = `${(capacityRatio * 100).toFixed(1)}%`;
+        }
+
+        function showM3Toast(text, icon = 'check_circle') {
+            const toast = document.getElementById('m3-toast');
+            const toastText = document.getElementById('m3-toast-text');
+            const toastIcon = document.getElementById('m3-toast-icon');
+            if (!toast) return;
+
+            toastText.textContent = text;
+            if (toastIcon) toastIcon.textContent = icon;
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Navegação no Navigation Rail
+            const navItems = document.querySelectorAll('.m3-nav-item');
+            const panels = {
+                'calc': document.getElementById('panel-calc'),
+                'bom': document.getElementById('panel-bom'),
+                'stats': document.getElementById('panel-stats'),
+                'settings': document.getElementById('panel-stats')
+            };
+
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    navItems.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+
+                    const targetView = item.getAttribute('data-view');
+                    Object.entries(panels).forEach(([viewKey, panelEl]) => {
+                        if (panelEl) {
+                            if (viewKey === targetView) {
+                                panelEl.classList.remove('hidden');
+                            } else {
+                                panelEl.classList.add('hidden');
+                            }
+                        }
+                    });
+                });
+            });
+
+            // 2. Connected Button Group sincronizado com o Select de Filamentos
+            const connectedButtons = document.querySelectorAll('#material-connected-group .m3-connected-button');
+            const filamentSelect = document.getElementById('m3-filament-select');
+
+            connectedButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    connectedButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const matKey = btn.getAttribute('data-mat');
+                    if (filamentSelect) {
+                        filamentSelect.value = matKey;
+                        recalculateLiveSummary();
+                        showM3Toast(`Material alternado para ${FILAMENT_RATES[matKey]?.label}`, 'palette');
+                    }
+                });
+            });
+
+            if (filamentSelect) {
+                filamentSelect.addEventListener('change', () => {
+                    const currentVal = filamentSelect.value;
+                    connectedButtons.forEach(btn => {
+                        if (btn.getAttribute('data-mat') === currentVal) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
+                    recalculateLiveSummary();
+                });
+            }
+
+            // 3. Menu Superior
+            const topMoreBtn = document.getElementById('top-more-btn');
+            const topMoreMenu = document.getElementById('top-more-menu');
+            if (topMoreBtn && topMoreMenu) {
+                topMoreBtn.addEventListener('click', () => {
+                    topMoreMenu.open = !topMoreMenu.open;
+                });
+
+                document.getElementById('action-export-json')?.addEventListener('click', () => {
+                    showM3Toast('Exportando estrutura de custos em formato JSON...', 'file_download');
+                });
+                document.getElementById('action-reset-defaults')?.addEventListener('click', () => {
+                    document.getElementById('m3-time-hours').value = '4';
+                    document.getElementById('m3-time-minutes').value = '30';
+                    document.getElementById('m3-weight-grams').value = '125';
+                    document.getElementById('m3-profit-slider').value = 50;
+                    recalculateLiveSummary();
+                    showM3Toast('Valores restaurados para os padrões recomendados.', 'restart_alt');
+                });
+                document.getElementById('action-open-figma-kit')?.addEventListener('click', () => {
+                    window.open('https://www.figma.com/community/file/1035203688168086460', '_blank');
+                });
+            }
+
+            // 4. Inputs reativos e Slider
+            ['m3-time-hours', 'm3-time-minutes', 'm3-weight-grams'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', recalculateLiveSummary);
+                    el.addEventListener('change', recalculateLiveSummary);
+                }
+            });
+
+            const slider = document.getElementById('m3-profit-slider');
+            if (slider) {
+                slider.addEventListener('input', recalculateLiveSummary);
+                slider.addEventListener('change', recalculateLiveSummary);
+            }
+
+            document.getElementById('m3-printer-select')?.addEventListener('change', recalculateLiveSummary);
+            document.getElementById('m3-failure-switch')?.addEventListener('change', recalculateLiveSummary);
+            document.getElementById('m3-postprocess-switch')?.addEventListener('change', recalculateLiveSummary);
+
+            // 5. Diálogos (Dialog M3)
+            const dialog = document.getElementById('m3-dialog-catalog');
+            const btnOpenDialog = document.getElementById('btn-show-demo-dialog');
+            const railFab = document.getElementById('rail-quick-fab');
+            const btnCloseDialog = document.getElementById('m3-btn-dialog-close');
+            const btnConfirmDialog = document.getElementById('m3-btn-dialog-confirm');
+
+            const openDialogFn = () => dialog?.show();
+            if (btnOpenDialog) btnOpenDialog.addEventListener('click', openDialogFn);
+            if (railFab) railFab.addEventListener('click', openDialogFn);
+
+            if (btnCloseDialog) btnCloseDialog.addEventListener('click', () => dialog?.close());
+            if (btnConfirmDialog) {
+                btnConfirmDialog.addEventListener('click', () => {
+                    const name = document.getElementById('m3-input-filament-name')?.value;
+                    dialog?.close();
+                    showM3Toast(`Filamento "${name || 'Novo'}" salvo com sucesso!`, 'check');
+                });
+            }
+
+            // 6. Ações dos Botões Principais
+            document.getElementById('m3-btn-save-quote')?.addEventListener('click', () => {
+                showM3Toast('Proposta aprovada com sucesso! Ordem enviada para a fila.', 'verified');
+            });
+
+            document.getElementById('m3-btn-download-pdf')?.addEventListener('click', () => {
+                showM3Toast('Gerando proposta comercial via WeasyPrint...', 'picture_as_pdf');
+            });
+
+            document.getElementById('m3-btn-recalc')?.addEventListener('click', () => {
+                recalculateLiveSummary();
+                showM3Toast('Custos operacionais recalculados.', 'sync');
+            });
+
+            document.getElementById('m3-btn-duplicate')?.addEventListener('click', () => {
+                showM3Toast('Mesa de impressão clonada como Mesa #2.', 'content_copy');
+            });
+
+            document.getElementById('btn-add-bom-item')?.addEventListener('click', () => {
+                showM3Toast('Novo insumo adicionado à lista de montagem.', 'playlist_add');
+            });
+
+            // Executa cálculo inicial
+            recalculateLiveSummary();
+        });
+    </script>
+</body>
+</html>
