@@ -426,3 +426,94 @@ async function parse3mfMetadata(file) {
 
     return plates;
 }
+
+/**
+ * Extracts raw G-code text from a .3mf or .gcode.3mf file for a specific plate.
+ *
+ * @param {File|Blob} file
+ * @param {number} targetPlateIndex - 1-based plate index
+ * @returns {Promise<string>}
+ */
+async function extractGcodeFrom3mf(file, targetPlateIndex = 1) {
+    if (typeof JSZip === 'undefined') {
+        throw new Error("Biblioteca JSZip não carregada.");
+    }
+    let zip;
+    try {
+        zip = await JSZip.loadAsync(file);
+    } catch (e) {
+        if (file && typeof file.text === 'function') {
+            return await file.text();
+        }
+        throw e;
+    }
+
+    const gcodeFiles = zip.file(/(?:Metadata\/)?.*\.gcode$/i).filter(f => !f.dir);
+    if (!gcodeFiles || gcodeFiles.length === 0) {
+        throw new Error("Nenhum arquivo G-code de fatiamento (.gcode) foi encontrado dentro deste 3MF.");
+    }
+
+    gcodeFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+    let targetFile = gcodeFiles.find(f => {
+        const lower = f.name.toLowerCase();
+        return lower.includes(`plate_${targetPlateIndex}.gcode`) || lower.includes(`plate${targetPlateIndex}.gcode`);
+    });
+    if (!targetFile) {
+        const idx = Math.max(0, Math.min(gcodeFiles.length - 1, targetPlateIndex - 1));
+        targetFile = gcodeFiles[idx];
+    }
+
+    return await targetFile.async('text');
+}
+
+/**
+ * Universal layer analyzer for failure registration.
+ * Handles both .gcode text files and .3mf / .gcode.3mf archives.
+ *
+ * @param {File|Blob} file
+ * @param {number} targetPlateIndex
+ * @param {number} totalPlateWeight
+ * @param {number} totalPlateTimeHours
+ * @returns {Promise<object>} Analysis result from analyzeGcodeLayers
+ */
+async function analyzeFailureFile(file, targetPlateIndex = 1, totalPlateWeight = 0, totalPlateTimeHours = 0) {
+    if (!file) throw new Error("Nenhum arquivo fornecido.");
+
+    const fileName = (file.name || '').toLowerCase();
+    let gcodeText = '';
+
+    if (fileName.endsWith('.gcode') && !fileName.endsWith('.3mf')) {
+        gcodeText = await file.text();
+    } else {
+        try {
+            gcodeText = await extractGcodeFrom3mf(file, targetPlateIndex);
+        } catch (err) {
+            if (typeof file.text === 'function') {
+                gcodeText = await file.text();
+            } else {
+                throw err;
+            }
+        }
+    }
+
+    if (!gcodeText || typeof gcodeText !== 'string' || gcodeText.trim().length === 0) {
+        throw new Error("Não foi possível extrair o código G-code deste arquivo.");
+    }
+
+    const parserFn = (typeof analyzeGcodeLayers === 'function') ? analyzeGcodeLayers : (typeof window !== 'undefined' ? window.analyzeGcodeLayers : null);
+    if (!parserFn) {
+        throw new Error("Motor de análise de camadas (analyzeGcodeLayers) não encontrado.");
+    }
+
+    return parserFn(gcodeText, totalPlateWeight, totalPlateTimeHours);
+}
+
+if (typeof window !== 'undefined') {
+    window.parse3mfMetadata = parse3mfMetadata;
+    window.extractGcodeFrom3mf = extractGcodeFrom3mf;
+    window.analyzeFailureFile = analyzeFailureFile;
+}
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { parse3mfMetadata, extractGcodeFrom3mf, analyzeFailureFile };
+}

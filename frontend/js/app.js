@@ -2634,6 +2634,15 @@ async function handleSlicerFiles(files) {
 
                 allExtractedPlates.push(newPlate);
                 successCount++;
+
+                // Pre-calculate layer analysis in background (in-memory only, engatilhado for failure assistant)
+                const capturedPlate = newPlate;
+                analyzeFailureFile(file, 1, capturedPlate.part_weight_g, capturedPlate.print_time_hours)
+                    .then(analysis => {
+                        capturedPlate._layersAnalysis = analysis;
+                        capturedPlate._layersFileName = file.name;
+                    })
+                    .catch(() => {});
             } else {
                 showToast(`Formato não suportado para "${file.name || 'arquivo'}". Utilize arquivos .3mf, .gcode ou .gcode.3mf.`, 'error');
             }
@@ -2699,6 +2708,16 @@ async function handleSinglePlateFile(e, plateIdx) {
 
                 const fileTypeLabel = name.endsWith('.gcode.3mf') ? '.gcode.3mf' : '3MF';
                 showToast(`Placa atualizada com dados do ${fileTypeLabel}!`, 'success');
+
+                // Pre-calculate layer analysis in background (in-memory only, engatilhado for failure assistant)
+                analyzeFailureFile(file, plateIdx + 1, state.currentPlates[plateIdx].part_weight_g, state.currentPlates[plateIdx].print_time_hours)
+                    .then(analysis => {
+                        if (state.currentPlates[plateIdx]) {
+                            state.currentPlates[plateIdx]._layersAnalysis = analysis;
+                            state.currentPlates[plateIdx]._layersFileName = file.name;
+                        }
+                    })
+                    .catch(() => {});
             }
         } else if (name.endsWith('.gcode')) {
             const text = await file.text();
@@ -2725,6 +2744,16 @@ async function handleSinglePlateFile(e, plateIdx) {
                 }
 
             showToast(`Placa atualizada com dados do G-Code!`, 'success');
+
+            // Pre-calculate layer analysis in background (in-memory only, engatilhado for failure assistant)
+            analyzeFailureFile(file, plateIdx + 1, state.currentPlates[plateIdx].part_weight_g, state.currentPlates[plateIdx].print_time_hours)
+                .then(analysis => {
+                    if (state.currentPlates[plateIdx]) {
+                        state.currentPlates[plateIdx]._layersAnalysis = analysis;
+                        state.currentPlates[plateIdx]._layersFileName = file.name;
+                    }
+                })
+                .catch(() => {});
         } else {
             showToast('Formato não suportado. Utilize arquivos .3mf, .gcode ou .gcode.3mf.', 'error');
             return;
@@ -3529,6 +3558,7 @@ function openFailureModal(plateIdx) {
     document.getElementById('fail-reprinted').checked = true;
     document.getElementById('fail-charge-client').checked = false;
 
+    initFailureAssistantUI(plateIdx);
     updateLiveFailureCostPreview();
     document.getElementById('modal-failure').classList.remove('hidden');
     refreshIcons();
@@ -3712,6 +3742,225 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
+// ================= FAILURE LAYER ASSISTANT ENGINE =================
+
+const failureAssistantState = {
+    plateIdx: null,
+    isOpen: false,
+    analysis: null,
+    currentLayer: 1,
+    currentZ: 0.20,
+};
+
+function toggleFailureAssistant() {
+    failureAssistantState.isOpen = !failureAssistantState.isOpen;
+    const body = document.getElementById('fail-assistant-body');
+    const text = document.getElementById('fail-assistant-toggle-text');
+    const chevron = document.getElementById('fail-assistant-chevron');
+
+    if (body) {
+        if (failureAssistantState.isOpen) {
+            body.classList.remove('hidden');
+            if (text) text.textContent = 'Fechar Assistente';
+            if (chevron) chevron.classList.add('rotate-180');
+        } else {
+            body.classList.add('hidden');
+            if (text) text.textContent = 'Abrir Assistente';
+            if (chevron) chevron.classList.remove('rotate-180');
+        }
+    }
+}
+
+function initFailureAssistantUI(plateIdx) {
+    failureAssistantState.plateIdx = plateIdx;
+    const plate = state.currentPlates[plateIdx];
+
+    setupFailureDropzoneListeners();
+
+    // Check if plate already has layers analyzed in memory during plate creation
+    if (plate && plate._layersAnalysis && plate._layersAnalysis.totalLayers > 0) {
+        setFailureAssistantAnalysis(plate._layersAnalysis, plate._layersFileName || 'Arquivo da Placa');
+        if (!failureAssistantState.isOpen) {
+            toggleFailureAssistant();
+        }
+    } else {
+        failureAssistantState.analysis = null;
+        const dropzone = document.getElementById('fail-file-dropzone');
+        const controls = document.getElementById('fail-layer-controls');
+        const fileLabel = document.getElementById('fail-file-label');
+        if (dropzone) dropzone.classList.remove('hidden');
+        if (controls) controls.classList.add('hidden');
+        if (fileLabel) fileLabel.textContent = 'Carregar .gcode ou .3mf';
+        const fileInput = document.getElementById('fail-file-input');
+        if (fileInput) fileInput.value = '';
+    }
+}
+
+let failureDropzoneInitialized = false;
+function setupFailureDropzoneListeners() {
+    if (failureDropzoneInitialized) return;
+    const dropzone = document.getElementById('fail-file-dropzone');
+    if (!dropzone) return;
+
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('border-indigo-400', 'bg-indigo-950/40');
+    });
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('border-indigo-400', 'bg-indigo-950/40');
+    });
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('border-indigo-400', 'bg-indigo-950/40');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFailureAssistantFile({ target: { files: e.dataTransfer.files } });
+        }
+    });
+    failureDropzoneInitialized = true;
+}
+
+async function handleFailureAssistantFile(event) {
+    const file = event.target.files ? event.target.files[0] : null;
+    if (!file) return;
+
+    const plateIdx = parseInt(document.getElementById('fail-plate-idx').value, 10);
+    const plate = state.currentPlates[plateIdx];
+    const totalWeight = plate ? (plate.part_weight_g || 0) : 0;
+    const totalHours = plate ? (plate.print_time_hours || 0) : 0;
+
+    const fileLabel = document.getElementById('fail-file-label');
+    if (fileLabel) fileLabel.textContent = 'Processando camadas...';
+
+    try {
+        const analyzeFn = (typeof analyzeFailureFile === 'function') ? analyzeFailureFile : (typeof window !== 'undefined' ? window.analyzeFailureFile : null);
+        if (!analyzeFn) {
+            throw new Error('Módulo de análise de falhas não carregado.');
+        }
+
+        const analysis = await analyzeFn(file, plateIdx + 1, totalWeight, totalHours);
+        if (!analysis || analysis.totalLayers === 0) {
+            throw new Error('Não foi possível identificar camadas de impressão neste arquivo.');
+        }
+
+        // Cache on plate in memory so reopening is instant during the session
+        if (plate) {
+            plate._layersAnalysis = analysis;
+            plate._layersFileName = file.name;
+        }
+
+        setFailureAssistantAnalysis(analysis, file.name);
+        showToast(`Arquivo processado: ${analysis.totalLayers} camadas indexadas!`, 'success');
+    } catch (err) {
+        if (fileLabel) fileLabel.textContent = 'Carregar .gcode ou .3mf';
+        showToast('Erro ao analisar arquivo: ' + err.message, 'error');
+    }
+}
+
+function setFailureAssistantAnalysis(analysis, fileName) {
+    failureAssistantState.analysis = analysis;
+    const dropzone = document.getElementById('fail-file-dropzone');
+    const controls = document.getElementById('fail-layer-controls');
+    if (dropzone) dropzone.classList.add('hidden');
+    if (controls) controls.classList.remove('hidden');
+
+    const fnEl = document.getElementById('fail-analyzed-filename');
+    if (fnEl) fnEl.textContent = fileName || 'Arquivo analisado';
+
+    const statsEl = document.getElementById('fail-analyzed-stats');
+    if (statsEl) statsEl.textContent = `${analysis.totalLayers} camadas • ${analysis.maxZ.toFixed(2)} mm`;
+
+    const slider = document.getElementById('fail-layer-slider');
+    if (slider) {
+        slider.min = 1;
+        slider.max = analysis.totalLayers;
+        const defaultMidLayer = Math.max(1, Math.floor(analysis.totalLayers / 2));
+        slider.value = defaultMidLayer;
+        failureAssistantState.currentLayer = defaultMidLayer;
+    }
+
+    const maxHint = document.getElementById('fail-max-layer-hint');
+    if (maxHint) maxHint.textContent = `/ ${analysis.totalLayers}`;
+
+    const maxLabel = document.getElementById('fail-slider-max-label');
+    if (maxLabel) maxLabel.textContent = `Camada ${analysis.totalLayers}`;
+
+    updateFailureAssistantCalculations(failureAssistantState.currentLayer);
+    refreshIcons();
+}
+
+function updateFailureAssistantCalculations(layerNum) {
+    if (!failureAssistantState.analysis) return;
+    const loss = failureAssistantState.analysis.getLossAtLayer(layerNum);
+
+    failureAssistantState.currentLayer = loss.layer;
+    failureAssistantState.currentZ = loss.z;
+
+    const layerInput = document.getElementById('fail-input-layer');
+    if (layerInput && parseInt(layerInput.value, 10) !== loss.layer) {
+        layerInput.value = loss.layer;
+    }
+
+    const zInput = document.getElementById('fail-input-z');
+    if (zInput && parseFloat(zInput.value) !== loss.z) {
+        zInput.value = loss.z.toFixed(2);
+    }
+
+    const slider = document.getElementById('fail-layer-slider');
+    if (slider && parseInt(slider.value, 10) !== loss.layer) {
+        slider.value = loss.layer;
+    }
+
+    const sliderLabel = document.getElementById('fail-slider-layer-label');
+    if (sliderLabel) {
+        sliderLabel.textContent = `Camada ${loss.layer} (${loss.percent}%)`;
+    }
+
+    const filamentEl = document.getElementById('fail-calc-filament');
+    if (filamentEl) {
+        filamentEl.textContent = `${loss.weightG.toFixed(1)} g (${loss.percent}%)`;
+    }
+
+    const timeEl = document.getElementById('fail-calc-time');
+    if (timeEl) {
+        timeEl.textContent = `${loss.hours}h ${String(loss.minutes).padStart(2, '0')}m`;
+    }
+}
+
+function onFailureLayerInput(val) {
+    if (!failureAssistantState.analysis) return;
+    const layer = parseInt(val, 10) || 1;
+    updateFailureAssistantCalculations(layer);
+}
+
+function onFailureZInput(val) {
+    if (!failureAssistantState.analysis) return;
+    const z = parseFloat(val) || 0;
+    const loss = failureAssistantState.analysis.getLossAtZ(z);
+    updateFailureAssistantCalculations(loss.layer);
+}
+
+function onFailureLayerSlider(val) {
+    if (!failureAssistantState.analysis) return;
+    const layer = parseInt(val, 10) || 1;
+    updateFailureAssistantCalculations(layer);
+}
+
+function applyFailureCalculatedLoss() {
+    if (!failureAssistantState.analysis) return;
+    const loss = failureAssistantState.analysis.getLossAtLayer(failureAssistantState.currentLayer);
+
+    const timeHEl = document.getElementById('fail-time-h');
+    const timeMEl = document.getElementById('fail-time-m');
+    const filGEl = document.getElementById('fail-filament-g');
+
+    if (timeHEl) timeHEl.value = loss.hours;
+    if (timeMEl) timeMEl.value = loss.minutes;
+    if (filGEl) filGEl.value = loss.weightG.toFixed(1);
+
+    updateLiveFailureCostPreview();
+    showToast(`Perda da camada ${loss.layer} aplicada: ${loss.weightG.toFixed(1)}g e ${loss.hours}h ${loss.minutes}m!`, 'success');
+}
+
 window.openFailureModal = openFailureModal;
 window.closeFailureModal = closeFailureModal;
 window.fillFailureFullWeight = fillFailureFullWeight;
@@ -3721,6 +3970,16 @@ window.deleteFailureLog = deleteFailureLog;
 window.calculateLocalFailureCost = calculateLocalFailureCost;
 window.getReasonLabel = getReasonLabel;
 window.escapeHtml = escapeHtml;
+
+window.toggleFailureAssistant = toggleFailureAssistant;
+window.initFailureAssistantUI = initFailureAssistantUI;
+window.handleFailureAssistantFile = handleFailureAssistantFile;
+window.setFailureAssistantAnalysis = setFailureAssistantAnalysis;
+window.updateFailureAssistantCalculations = updateFailureAssistantCalculations;
+window.onFailureLayerInput = onFailureLayerInput;
+window.onFailureZInput = onFailureZInput;
+window.onFailureLayerSlider = onFailureLayerSlider;
+window.applyFailureCalculatedLoss = applyFailureCalculatedLoss;
 
 // ================= PLATE BATCH CALCULATOR MODAL =================
 

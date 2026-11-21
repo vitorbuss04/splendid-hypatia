@@ -275,3 +275,196 @@ function parseGcodeMetadata(gcodeText, fileName = '') {
         filament_slot: activeSlot || null,
     };
 }
+
+/**
+ * Analyzes a G-code toolpath layer-by-layer to calculate cumulative material (mm and grams)
+ * and elapsed time (seconds and minutes) up to each layer.
+ *
+ * @param {string} gcodeText - Raw G-code text content.
+ * @param {number} totalPlateWeight - Baseline plate weight (g) for calibrated proportionality.
+ * @param {number} totalPlateTimeHours - Baseline plate time (hours) for calibrated time calculation.
+ * @param {number} filamentDensity - Material density in g/cm³ (default 1.24 for PLA, 1.27 for PETG, etc.)
+ */
+function analyzeGcodeLayers(gcodeText, totalPlateWeight = 0, totalPlateTimeHours = 0, filamentDensity = 1.24) {
+    if (!gcodeText || typeof gcodeText !== 'string') {
+        throw new Error('Conteúdo G-code vazio ou inválido.');
+    }
+
+    const lines = gcodeText.split('\n');
+    let relativeE = false;
+    let cumExtrusionMm = 0;
+    let lastE = 0;
+    let maxEInSegment = 0;
+    let relEPos = 0;
+    let currentZ = 0.20;
+    let currentLayerIndex = 1;
+    let currentTimeElapsedSec = 0;
+    let initialM73RemainingMin = null;
+    let layerHasExtrusion = false;
+    let commentLayerPending = false;
+    const layers = [];
+
+    function finalizeLayer(layerIdx, zVal, timeSec) {
+        layers.push({
+            layer: layerIdx,
+            z: Math.round(zVal * 1000) / 1000,
+            cumExtrusionMm: cumExtrusionMm,
+            timeElapsedSec: timeSec
+        });
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        if (line.startsWith('M83')) { relativeE = true; continue; }
+        if (line.startsWith('M82')) { relativeE = false; continue; }
+
+        if (line.startsWith('M73')) {
+            const m = line.match(/R\s*(\d+)/i);
+            if (m) {
+                const remMin = parseInt(m[1], 10);
+                if (initialM73RemainingMin === null || remMin > initialM73RemainingMin) {
+                    initialM73RemainingMin = remMin;
+                }
+                currentTimeElapsedSec = Math.max(0, initialM73RemainingMin - remMin) * 60;
+            }
+        }
+
+        if (line.startsWith(';TIME_ELAPSED:')) {
+            const m = line.match(/;TIME_ELAPSED:\s*([\d\.]+)/i);
+            if (m) currentTimeElapsedSec = parseFloat(m[1]);
+        }
+
+        let isLayerTransition = false;
+        if (/^;\s*(?:LAYER_CHANGE|BEFORE_LAYER_CHANGE)/i.test(line)) {
+            isLayerTransition = true;
+            commentLayerPending = true;
+        }
+        const lMatch = line.match(/^;\s*(?:LAYER\s*[:=]\s*(\d+)|layer\s+(\d+))/i);
+        if (lMatch) {
+            isLayerTransition = true;
+            commentLayerPending = true;
+        }
+
+        const zMatch = line.match(/^;\s*Z\s*[:=]\s*([\d\.]+)/i);
+        if (zMatch) currentZ = parseFloat(zMatch[1]);
+
+        if (line.startsWith('G0') || line.startsWith('G1') || line.startsWith('G2') || line.startsWith('G3') || line.startsWith('G92')) {
+            const zCmd = line.match(/\bZ\s*([\d\.-]+)/i);
+            if (zCmd) {
+                const newZ = parseFloat(zCmd[1]);
+                if (newZ > currentZ) {
+                    if (!commentLayerPending && layerHasExtrusion && (newZ - currentZ >= 0.05)) {
+                        isLayerTransition = true;
+                    }
+                    currentZ = newZ;
+                }
+                commentLayerPending = false;
+            }
+
+            const eCmd = line.match(/\bE\s*([\d\.-]+)/i);
+            if (eCmd) {
+                const eVal = parseFloat(eCmd[1]);
+                if (line.startsWith('G92')) {
+                    lastE = eVal;
+                    maxEInSegment = eVal;
+                    relEPos = 0;
+                } else {
+                    if (relativeE) {
+                        if (eVal < 0) {
+                            relEPos += eVal;
+                        } else {
+                            const unretract = (relEPos < 0) ? Math.min(eVal, -relEPos) : 0;
+                            const trueExt = eVal - unretract;
+                            relEPos += eVal;
+                            if (relEPos > 0) relEPos = 0;
+                            cumExtrusionMm += trueExt;
+                            if (trueExt > 0) layerHasExtrusion = true;
+                        }
+                    } else {
+                        if (eVal > maxEInSegment) {
+                            const delta = eVal - maxEInSegment;
+                            cumExtrusionMm += delta;
+                            maxEInSegment = eVal;
+                            if (delta > 0) layerHasExtrusion = true;
+                        }
+                        lastE = eVal;
+                    }
+                }
+            }
+        }
+
+        if (isLayerTransition && layerHasExtrusion) {
+            finalizeLayer(currentLayerIndex, currentZ, currentTimeElapsedSec);
+            currentLayerIndex++;
+            layerHasExtrusion = false;
+        }
+    }
+
+    if (layerHasExtrusion && (layers.length === 0 || layers[layers.length - 1].layer !== currentLayerIndex)) {
+        finalizeLayer(currentLayerIndex, currentZ, currentTimeElapsedSec);
+    }
+
+    if (layers.length === 0) {
+        layers.push({ layer: 1, z: currentZ || 0.2, cumExtrusionMm, timeElapsedSec: currentTimeElapsedSec });
+    }
+
+    const totalExtrusion = cumExtrusionMm;
+    const volumetricTotalG = (totalExtrusion * Math.PI * Math.pow(1.75 / 2, 2) / 1000) * (filamentDensity || 1.24);
+    const finalTotalWeightG = totalPlateWeight > 0 ? totalPlateWeight : volumetricTotalG;
+    const finalTotalTimeSec = (totalPlateTimeHours > 0) ? (totalPlateTimeHours * 3600) : (currentTimeElapsedSec || 3600);
+
+    for (let i = 0; i < layers.length; i++) {
+        const l = layers[i];
+        l.layer = i + 1;
+        const ratio = totalExtrusion > 0 ? (l.cumExtrusionMm / totalExtrusion) : 1;
+        l.percent = parseFloat((ratio * 100).toFixed(1));
+        l.cumWeightG = parseFloat((ratio * finalTotalWeightG).toFixed(2));
+        if (l.timeElapsedSec === 0 && ratio > 0) {
+            l.timeElapsedSec = Math.round(ratio * finalTotalTimeSec);
+        }
+        l.timeElapsedMin = Math.round(l.timeElapsedSec / 60);
+    }
+
+    return {
+        totalLayers: layers.length,
+        maxZ: layers[layers.length - 1].z,
+        totalExtrusionMm: parseFloat(totalExtrusion.toFixed(2)),
+        totalWeightG: parseFloat(finalTotalWeightG.toFixed(2)),
+        totalTimeSeconds: Math.round(finalTotalTimeSec),
+        layers,
+        getLossAtLayer(targetLayer) {
+            const idx = Math.max(1, Math.min(layers.length, parseInt(targetLayer, 10) || 1)) - 1;
+            const item = layers[idx];
+            const sec = item.timeElapsedSec;
+            return {
+                layer: item.layer,
+                z: item.z,
+                weightG: item.cumWeightG,
+                hours: Math.floor(sec / 3600),
+                minutes: Math.floor((sec % 3600) / 60),
+                totalSeconds: sec,
+                percent: item.percent
+            };
+        },
+        getLossAtZ(targetZ) {
+            const zNum = parseFloat(targetZ) || 0;
+            let bestIdx = 0;
+            for (let i = 0; i < layers.length; i++) {
+                if (layers[i].z <= zNum) bestIdx = i;
+                else break;
+            }
+            return this.getLossAtLayer(bestIdx + 1);
+        }
+    };
+}
+
+if (typeof window !== 'undefined') {
+    window.cleanFilamentProfileName = cleanFilamentProfileName;
+    window.parseGcodeMetadata = parseGcodeMetadata;
+    window.analyzeGcodeLayers = analyzeGcodeLayers;
+}
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { cleanFilamentProfileName, parseGcodeMetadata, analyzeGcodeLayers };
+}

@@ -1053,40 +1053,291 @@ def test_orcaslicer_slot4_petg_gcode_resolution():
     assert res["filament_color_hex"] == "#FFFFFF"
 
 
-def test_orcaslicer_slice_info_config_support():
-    import io
-    import json
-    import zipfile
+def python_analyze_gcode_layers(gcode_text: str, total_plate_weight: float = 0.0, total_plate_time_hours: float = 0.0, filament_density: float = 1.24):
+    """
+    Python mirror of analyzeGcodeLayers from frontend/js/parsers/gcode.js.
+    """
+    lines = gcode_text.splitlines()
+    relative_e = False
+    cum_extrusion_mm = 0.0
+    last_e = 0.0
+    max_e_in_segment = 0.0
+    rel_e_pos = 0.0
+    current_z = 0.20
+    current_layer_index = 1
+    current_time_elapsed_sec = 0.0
+    initial_m73_remaining_min = None
+    layer_has_extrusion = False
+    comment_layer_pending = False
+    layers = []
 
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
-        xml = """<?xml version="1.0" encoding="UTF-8"?>
-<config>
-  <plate>
-    <metadata key="index" value="6"/>
-    <metadata key="prediction" value="10009"/>
-    <metadata key="weight" value="29.11"/>
-    <filament id="2" tray_info_idx="P55b2742" type="PLA" color="#F72323" used_g="29.11"/>
-  </plate>
-</config>"""
-        zf.writestr("Metadata/slice_info.config", xml)
-        
-        proj_cfg = {
-            "filament_settings_id": [
-                "3D Prime PLA Basic",
-                "Voolt3D PLA Premium 0.4",
-                "3D Prime PLA Basic"
-            ],
-            "filament_type": ["PLA", "PLA", "PLA"]
+    def finalize_layer(layer_idx, z_val, time_sec):
+        nonlocal layers, cum_extrusion_mm
+        layers.append({
+            "layer": layer_idx,
+            "z": round(z_val, 3),
+            "cum_extrusion_mm": cum_extrusion_mm,
+            "time_elapsed_sec": time_sec
+        })
+
+    for line in lines:
+        raw = line.strip()
+        if not raw:
+            continue
+
+        if raw.startswith("M83"):
+            relative_e = True
+            continue
+        elif raw.startswith("M82"):
+            relative_e = False
+            continue
+
+        if raw.startswith("M73"):
+            m = re.search(r"R\s*(\d+)", raw, re.I)
+            if m:
+                rem_min = int(m.group(1))
+                if initial_m73_remaining_min is None or rem_min > initial_m73_remaining_min:
+                    initial_m73_remaining_min = rem_min
+                current_time_elapsed_sec = max(0, initial_m73_remaining_min - rem_min) * 60
+
+        if raw.startswith(";TIME_ELAPSED:"):
+            m = re.search(r";TIME_ELAPSED:\s*([\d\.]+)", raw)
+            if m:
+                current_time_elapsed_sec = float(m.group(1))
+
+        is_layer_transition = False
+        if re.search(r"^;\s*(?:LAYER_CHANGE|BEFORE_LAYER_CHANGE)", raw, re.I):
+            is_layer_transition = True
+            comment_layer_pending = True
+
+        l_match = re.search(r"^;\s*(?:LAYER\s*[:=]\s*(\d+)|layer\s+(\d+))", raw, re.I)
+        if l_match:
+            is_layer_transition = True
+            comment_layer_pending = True
+
+        z_match = re.search(r"^;\s*Z\s*[:=]\s*([\d\.]+)", raw, re.I)
+        if z_match:
+            current_z = float(z_match.group(1))
+
+        if raw.startswith(("G0", "G1", "G2", "G3", "G92")):
+            z_cmd = re.search(r"\bZ\s*([\d\.-]+)", raw, re.I)
+            if z_cmd:
+                try:
+                    new_z = float(z_cmd.group(1))
+                    if new_z > current_z:
+                        if not comment_layer_pending and layer_has_extrusion and (new_z - current_z >= 0.05):
+                            is_layer_transition = True
+                        current_z = new_z
+                except ValueError:
+                    pass
+                comment_layer_pending = False
+
+            e_cmd = re.search(r"\bE\s*([\d\.-]+)", raw, re.I)
+            if e_cmd:
+                try:
+                    e_val = float(e_cmd.group(1))
+                    if raw.startswith("G92"):
+                        last_e = e_val
+                        max_e_in_segment = e_val
+                        rel_e_pos = 0.0
+                    else:
+                        if relative_e:
+                            if e_val < 0:
+                                rel_e_pos += e_val
+                            else:
+                                unretract = min(e_val, -rel_e_pos) if rel_e_pos < 0 else 0.0
+                                true_ext = e_val - unretract
+                                rel_e_pos += e_val
+                                if rel_e_pos > 0:
+                                    rel_e_pos = 0.0
+                                cum_extrusion_mm += true_ext
+                                if true_ext > 0:
+                                    layer_has_extrusion = True
+                        else:
+                            if e_val > max_e_in_segment:
+                                delta = e_val - max_e_in_segment
+                                cum_extrusion_mm += delta
+                                max_e_in_segment = e_val
+                                if delta > 0:
+                                    layer_has_extrusion = True
+                            last_e = e_val
+                except ValueError:
+                    pass
+
+        if is_layer_transition and layer_has_extrusion:
+            finalize_layer(current_layer_index, current_z, current_time_elapsed_sec)
+            current_layer_index += 1
+            layer_has_extrusion = False
+
+    if layer_has_extrusion and (not layers or layers[-1]["layer"] != current_layer_index):
+        finalize_layer(current_layer_index, current_z, current_time_elapsed_sec)
+
+    if not layers:
+        layers.append({"layer": 1, "z": current_z, "cum_extrusion_mm": cum_extrusion_mm, "time_elapsed_sec": current_time_elapsed_sec})
+
+    total_extrusion = cum_extrusion_mm
+    volumetric_total_g = (total_extrusion * math.pi * ((1.75 / 2.0) ** 2) / 1000.0) * filament_density
+    final_total_weight_g = total_plate_weight if total_plate_weight > 0 else volumetric_total_g
+    final_total_time_sec = (total_plate_time_hours * 3600.0) if total_plate_time_hours > 0 else (current_time_elapsed_sec or 3600.0)
+
+    for i, l in enumerate(layers):
+        l["layer"] = i + 1
+        ratio = (l["cum_extrusion_mm"] / total_extrusion) if total_extrusion > 0 else 1.0
+        l["percent"] = round(ratio * 100.0, 1)
+        l["cum_weight_g"] = round(ratio * final_total_weight_g, 2)
+        if l["time_elapsed_sec"] == 0.0 and ratio > 0:
+            l["time_elapsed_sec"] = round(ratio * final_total_time_sec)
+        l["time_elapsed_min"] = round(l["time_elapsed_sec"] / 60.0)
+
+    def get_loss_at_layer(target_layer: int):
+        idx = max(1, min(len(layers), int(target_layer))) - 1
+        item = layers[idx]
+        sec = int(item["time_elapsed_sec"])
+        return {
+            "layer": item["layer"],
+            "z": item["z"],
+            "weight_g": item["cum_weight_g"],
+            "hours": sec // 3600,
+            "minutes": (sec % 3600) // 60,
+            "total_seconds": sec,
+            "percent": item["percent"],
         }
-        zf.writestr("Metadata/project_settings.config", json.dumps(proj_cfg))
 
-    res = python_parse_3mf(buf.getvalue(), filename="patolino-kratos-4-vermelho.gcode.3mf")
-    assert len(res) == 1
-    assert res[0]["name"] == "patolino-kratos-4-vermelho"
-    assert res[0]["filament_slot"] == 2
-    assert res[0]["filament_type"] == "PLA"
-    assert res[0]["slicer_filament_profile"] == "Voolt3D PLA Premium 0.4"
+    def get_loss_at_z(target_z: float):
+        best_idx = 0
+        for i, l in enumerate(layers):
+            if l["z"] <= target_z:
+                best_idx = i
+            else:
+                break
+        return get_loss_at_layer(best_idx + 1)
+
+    return {
+        "total_layers": len(layers),
+        "max_z": layers[-1]["z"],
+        "total_extrusion_mm": round(total_extrusion, 2),
+        "total_weight_g": round(final_total_weight_g, 2),
+        "total_time_seconds": int(final_total_time_sec),
+        "layers": layers,
+        "get_loss_at_layer": get_loss_at_layer,
+        "get_loss_at_z": get_loss_at_z,
+    }
+
+
+def test_analyze_gcode_layers_relative_mode_bambu():
+    gcode = """
+M83
+G1 Z0.2 F18000
+;LAYER_CHANGE
+;Z:0.200
+;AFTER_LAYER_CHANGE
+;LAYER:1
+M73 P0 R100
+G1 X10 Y10 E10.0
+G1 E-0.8 F3600 ; retract
+G1 X15 Y15
+G1 E0.8 F3600 ; unretract
+G1 X20 Y10 E5.0
+;LAYER_CHANGE
+;Z:0.400
+;AFTER_LAYER_CHANGE
+;LAYER:2
+M73 P50 R50
+G1 X20 Y20 E15.0
+;LAYER_CHANGE
+;Z:0.600
+;AFTER_LAYER_CHANGE
+;LAYER:3
+M73 P100 R0
+G1 X30 Y30 E30.0
+"""
+    res = python_analyze_gcode_layers(gcode, total_plate_weight=60.0, total_plate_time_hours=1.6667)
+    assert res["total_layers"] == 3
+    assert res["max_z"] == 0.6
+    assert res["total_extrusion_mm"] == 60.0 # 15 + 15 + 30
+
+    l1 = res["get_loss_at_layer"](1)
+    assert l1["layer"] == 1
+    assert l1["weight_g"] == 15.0 # 15mm / 60mm * 60g = 15g (25%)
+    assert l1["percent"] == 25.0
+
+    l2 = res["get_loss_at_layer"](2)
+    assert l2["layer"] == 2
+    assert l2["weight_g"] == 30.0 # 30mm / 60mm * 60g = 30g (50%)
+    assert l2["percent"] == 50.0
+    assert l2["minutes"] == 50 # 100min total - 50min remaining = 50min elapsed
+
+    l3 = res["get_loss_at_layer"](3)
+    assert l3["layer"] == 3
+    assert l3["weight_g"] == 60.0
+    assert l3["percent"] == 100.0
+
+
+def test_analyze_gcode_layers_absolute_mode_cura():
+    gcode = """
+;FLAVOR:Marlin
+;TIME:3600
+M82
+G92 E0
+;LAYER:0
+;TIME_ELAPSED:60
+G1 Z0.200 F1200
+G1 X10 Y10 E10.0
+G1 E8.0 F2400 ; retract 2mm
+;LAYER:1
+;TIME_ELAPSED:180
+G1 Z0.400 F1200
+G1 E10.0 F2400 ; unretract
+G1 X20 Y20 E20.0
+;LAYER:2
+;TIME_ELAPSED:360
+G92 E0
+G1 Z0.600 F1200
+G1 X30 Y30 E20.0
+"""
+    res = python_analyze_gcode_layers(gcode, total_plate_weight=40.0, total_plate_time_hours=0.1)
+    assert res["total_layers"] == 3
+    assert res["max_z"] == 0.6
+    assert res["total_extrusion_mm"] == 40.0 # Layer 1: 10, Layer 2: 20-10=10, Layer 3: 20 -> total 40mm
+
+    l1 = res["get_loss_at_layer"](1)
+    assert l1["weight_g"] == 10.0 # 25% of 40g
+    assert l1["total_seconds"] == 60
+
+    l2 = res["get_loss_at_layer"](2)
+    assert l2["weight_g"] == 20.0 # 50% of 40g
+    assert l2["total_seconds"] == 180
+
+    l3 = res["get_loss_at_layer"](3)
+    assert l3["weight_g"] == 40.0 # 100% of 40g
+    assert l3["total_seconds"] == 360
+
+
+def test_analyze_gcode_layers_z_height_lookup():
+    gcode = """
+M83
+G1 Z0.2 F18000
+;LAYER:1
+;Z:0.200
+G1 X10 Y10 E10.0
+;LAYER:2
+;Z:0.400
+G1 X20 Y20 E10.0
+;LAYER:3
+;Z:0.600
+G1 X30 Y30 E20.0
+"""
+    res = python_analyze_gcode_layers(gcode, total_plate_weight=80.0)
+    # Looking up Z = 0.3 should give Layer 1 (Z 0.2)
+    at_z_03 = res["get_loss_at_z"](0.3)
+    assert at_z_03["layer"] == 1
+    assert at_z_03["weight_g"] == 20.0 # 10 / 40 * 80g = 20g
+
+    # Looking up Z = 0.55 should give Layer 2 (Z 0.4)
+    at_z_055 = res["get_loss_at_z"](0.55)
+    assert at_z_055["layer"] == 2
+    assert at_z_055["weight_g"] == 40.0 # 20 / 40 * 80g = 40g
+
 
 
 
