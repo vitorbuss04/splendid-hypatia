@@ -1,72 +1,18 @@
 /**
- * Material Design 3 (M3) Official Dark Theme Specification for 3D Print Calc Pro
- * Based on Google Material Web Components (@material/web) & Material 3 Design Kit (Figma)
+ * Material Design 3 (M3) Official Theme Foundation & Layout Styles
+ * Designed strictly for Google Material Web Components (@material/web)
+ * and dynamic theming via @material/material-color-utilities.
  */
 
-:root,
-body.dark,
-[data-theme="dark"] {
-    /* =========================================================================
-       1. REFERENCE TOKENS
-       ========================================================================= */
-    --md-ref-typeface-brand: 'Inter', 'Roboto', system-ui, sans-serif;
-    --md-ref-typeface-plain: 'Inter', 'Roboto', system-ui, sans-serif;
-    font-family: var(--md-ref-typeface-plain);
+:root {
+    /* Declare supported color schemes for browser UI (scrollbars, native dialogs, inputs) */
+    color-scheme: light dark;
 
-    /* =========================================================================
-       2. SYSTEM COLOR TOKENS (HCT Dark Scheme - Royal Blue / Slate / Emerald)
-       ========================================================================= */
-    /* Primary */
-    --md-sys-color-primary: #3b82f6;
-    --md-sys-color-on-primary: #ffffff;
-    --md-sys-color-primary-container: #1e3a8a;
-    --md-sys-color-on-primary-container: #dbeafe;
-    --md-sys-color-inverse-primary: #1d4ed8;
+    /* Official Material 3 Reference Typeface Tokens */
+    --md-ref-typeface-brand: 'Roboto', system-ui, -apple-system, sans-serif;
+    --md-ref-typeface-plain: 'Roboto', system-ui, -apple-system, sans-serif;
 
-    /* Secondary */
-    --md-sys-color-secondary: #8b5cf6;
-    --md-sys-color-on-secondary: #ffffff;
-    --md-sys-color-secondary-container: #3b1d82;
-    --md-sys-color-on-secondary-container: #ede9fe;
-
-    /* Tertiary */
-    --md-sys-color-tertiary: #10b981;
-    --md-sys-color-on-tertiary: #ffffff;
-    --md-sys-color-tertiary-container: #064e3b;
-    --md-sys-color-on-tertiary-container: #a7f3d0;
-
-    /* Superfícies & Camadas de Contêiner M3 */
-    --md-sys-color-background: #080b11;
-    --md-sys-color-on-background: #f8fafc;
-    --md-sys-color-surface: #0b0f17;
-    --md-sys-color-on-surface: #f1f5f9;
-    --md-sys-color-surface-variant: #151d2e;
-    --md-sys-color-on-surface-variant: #94a3b8;
-    --md-sys-color-inverse-surface: #f1f5f9;
-    --md-sys-color-inverse-on-surface: #0b0f17;
-
-    /* Tiers de Elevação de Superfície M3 */
-    --md-sys-color-surface-container-lowest: #080b11;
-    --md-sys-color-surface-container-low: #0f172a;
-    --md-sys-color-surface-container: #111827;
-    --md-sys-color-surface-container-high: #162032;
-    --md-sys-color-surface-container-highest: #1e293b;
-
-    /* Bordas & Contornos */
-    --md-sys-color-outline: #334155;
-    --md-sys-color-outline-variant: #1e293b;
-    --md-sys-color-scrim: #000000;
-    --md-sys-color-shadow: #000000;
-
-    /* Erros & Alertas */
-    --md-sys-color-error: #ef4444;
-    --md-sys-color-on-error: #ffffff;
-    --md-sys-color-error-container: #7f1d1d;
-    --md-sys-color-on-error-container: #fecaca;
-
-    /* =========================================================================
-       3. SYSTEM SHAPE TOKENS
-       ========================================================================= */
+    /* System Shape Scale */
     --md-sys-shape-corner-none: 0px;
     --md-sys-shape-corner-extra-small: 4px;
     --md-sys-shape-corner-small: 8px;
@@ -75,148 +21,154 @@ body.dark,
     --md-sys-shape-corner-extra-large: 28px;
     --md-sys-shape-corner-full: 9999px;
 
-    /* =========================================================================
-       4. COMPONENT TOKENS (@material/web)
-       ========================================================================= */
-    /* Buttons */
-    --md-filled-button-container-shape: 12px;
-    --md-filled-button-container-color: #2563eb;
-    --md-filled-button-label-text-color: #ffffff;
-    --md-filled-button-icon-size: 18px;
-
-    --md-outlined-button-container-shape: 12px;
-    --md-outlined-button-outline-color: #334155;
-    --md-outlined-button-label-text-color: #94a3b8;
-    --md-outlined-button-icon-size: 18px;
-
-    --md-elevated-button-container-shape: 12px;
-    --md-elevated-button-container-color: #1a2438;
-    --md-elevated-button-label-text-color: #f8fafc;
-    --md-elevated-button-icon-size: 18px;
-
-    --md-filled-tonal-button-container-shape: 12px;
-    --md-filled-tonal-button-container-color: #1e293b;
-    --md-filled-tonal-button-label-text-color: #93c5fd;
-    --md-filled-tonal-button-icon-size: 18px;
-
-    --md-text-button-container-shape: 12px;
-    --md-text-button-icon-size: 18px;
-
-    /* FAB */
-    --md-fab-container-shape: 16px;
-    --md-fab-container-color: #2563eb;
-    --md-fab-icon-color: #ffffff;
-
-    /* Text Fields */
-    --md-outlined-text-field-container-shape: 14px;
-    --md-outlined-text-field-outline-color: #334155;
-    --md-outlined-text-field-focus-outline-color: #3b82f6;
-    --md-outlined-text-field-input-text-color: #f8fafc;
-    --md-outlined-text-field-label-text-color: #94a3b8;
-    --md-outlined-text-field-focus-label-text-color: #60a5fa;
-    --md-outlined-text-field-supporting-text-color: #64748b;
-    --md-outlined-text-field-top-space: 14px;
-    --md-outlined-text-field-bottom-space: 14px;
-    --md-outlined-text-field-leading-icon-size: 20px;
-    --md-outlined-text-field-trailing-icon-size: 20px;
-
-    /* Selects */
-    --md-outlined-select-container-shape: 14px;
-    --md-outlined-select-outline-color: #334155;
-    --md-outlined-select-focus-outline-color: #3b82f6;
-    --md-outlined-select-text-color: #f8fafc;
-    --md-outlined-select-label-text-color: #94a3b8;
-    --md-outlined-select-focus-label-text-color: #60a5fa;
-
-    /* Switch */
-    --md-switch-selected-track-color: #2563eb;
-    --md-switch-selected-handle-color: #ffffff;
-    --md-switch-unselected-track-color: #1e293b;
-    --md-switch-unselected-handle-color: #64748b;
-
-    /* Sliders */
-    --md-slider-active-track-color: #3b82f6;
-    --md-slider-inactive-track-color: #1e293b;
-    --md-slider-handle-color: #60a5fa;
-    --md-slider-label-container-color: #1e3a8a;
-    --md-slider-label-label-text-color: #dbeafe;
-
-    /* Dialogs */
-    --md-dialog-container-shape: 28px;
-    --md-dialog-container-color: #151d2e;
-    --md-dialog-headline-color: #f8fafc;
-    --md-dialog-supporting-text-color: #94a3b8;
-
-    /* Chips */
-    --md-filter-chip-container-shape: 10px;
-    --md-filter-chip-selected-container-color: #1e3a8a;
-    --md-filter-chip-selected-label-text-color: #93c5fd;
-    --md-filter-chip-outline-color: #334155;
-    --md-assist-chip-container-shape: 10px;
-    --md-assist-chip-outline-color: #334155;
-
-    /* Lists */
-    --md-list-container-color: transparent;
-    --md-list-item-label-text-color: #f8fafc;
-    --md-list-item-supporting-text-color: #94a3b8;
-    --md-list-item-leading-icon-color: #60a5fa;
-
-    /* Menus */
-    --md-menu-container-shape: 16px;
-    --md-menu-container-color: #151d2e;
-    --md-menu-item-label-text-color: #f8fafc;
-
-    /* Ícones Globais */
+    /* Official Material Symbols font for <md-icon> */
     --md-icon-font: 'Material Symbols Outlined';
-    --md-icon-size: 20px;
+
+    /* Default M3 Baseline Palette (Light fallback prior to MCU hydration) */
+    --md-sys-color-primary: #6750a4;
+    --md-sys-color-on-primary: #ffffff;
+    --md-sys-color-primary-container: #eaddff;
+    --md-sys-color-on-primary-container: #21005d;
+    --md-sys-color-secondary: #625b71;
+    --md-sys-color-on-secondary: #ffffff;
+    --md-sys-color-secondary-container: #e8def8;
+    --md-sys-color-on-secondary-container: #1d192b;
+    --md-sys-color-tertiary: #7d5260;
+    --md-sys-color-on-tertiary: #ffffff;
+    --md-sys-color-tertiary-container: #ffd8e4;
+    --md-sys-color-on-tertiary-container: #31111d;
+    --md-sys-color-error: #b3261e;
+    --md-sys-color-on-error: #ffffff;
+    --md-sys-color-error-container: #f9dedc;
+    --md-sys-color-on-error-container: #410e0b;
+    --md-sys-color-background: #fef7ff;
+    --md-sys-color-on-background: #1d1b20;
+    --md-sys-color-surface: #fef7ff;
+    --md-sys-color-on-surface: #1d1b20;
+    --md-sys-color-surface-variant: #e7e0ec;
+    --md-sys-color-on-surface-variant: #49454f;
+    --md-sys-color-outline: #79747e;
+    --md-sys-color-outline-variant: #cac4d0;
+    --md-sys-color-shadow: #000000;
+    --md-sys-color-scrim: #000000;
+    --md-sys-color-inverse-surface: #322f35;
+    --md-sys-color-inverse-on-surface: #f5eff7;
+    --md-sys-color-inverse-primary: #d0bcff;
+    --md-sys-color-surface-dim: #ded8e1;
+    --md-sys-color-surface-bright: #fef7ff;
+    --md-sys-color-surface-container-lowest: #ffffff;
+    --md-sys-color-surface-container-low: #f7f2fa;
+    --md-sys-color-surface-container: #f3edf7;
+    --md-sys-color-surface-container-high: #ece6f0;
+    --md-sys-color-surface-container-highest: #e6e0e9;
 }
 
-/* =========================================================================
-   5. MATERIAL ICONS & SYMBOLS ALIGNMENT & SIZING FIXES
-   ========================================================================= */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --md-sys-color-primary: #d0bcff;
+        --md-sys-color-on-primary: #381e72;
+        --md-sys-color-primary-container: #4f378b;
+        --md-sys-color-on-primary-container: #eaddff;
+        --md-sys-color-secondary: #ccc2dc;
+        --md-sys-color-on-secondary: #332d41;
+        --md-sys-color-secondary-container: #4a4458;
+        --md-sys-color-on-secondary-container: #e8def8;
+        --md-sys-color-tertiary: #efb8c8;
+        --md-sys-color-on-tertiary: #492532;
+        --md-sys-color-tertiary-container: #633b48;
+        --md-sys-color-on-tertiary-container: #ffd8e4;
+        --md-sys-color-error: #f2b8b5;
+        --md-sys-color-on-error: #601410;
+        --md-sys-color-error-container: #8c1d18;
+        --md-sys-color-on-error-container: #f9dedc;
+        --md-sys-color-background: #141218;
+        --md-sys-color-on-background: #e6e0e9;
+        --md-sys-color-surface: #141218;
+        --md-sys-color-on-surface: #e6e0e9;
+        --md-sys-color-surface-variant: #49454f;
+        --md-sys-color-on-surface-variant: #cac4d0;
+        --md-sys-color-outline: #938f99;
+        --md-sys-color-outline-variant: #49454f;
+        --md-sys-color-inverse-surface: #e6e0e9;
+        --md-sys-color-inverse-on-surface: #322f35;
+        --md-sys-color-inverse-primary: #6750a4;
+        --md-sys-color-surface-dim: #141218;
+        --md-sys-color-surface-bright: #3b383e;
+        --md-sys-color-surface-container-lowest: #0f0d13;
+        --md-sys-color-surface-container-low: #1d1b20;
+        --md-sys-color-surface-container: #211f26;
+        --md-sys-color-surface-container-high: #2b2930;
+        --md-sys-color-surface-container-highest: #36343b;
+    }
+}
+
+/* Explicit Labs Component Token Bindings (Ensures Light/Dark parity for @material/web/labs/*) */
+:root {
+    --md-navigation-drawer-container-color: var(--md-sys-color-surface-container-low);
+    --md-navigation-drawer-modal-container-color: var(--md-sys-color-surface-container-low);
+    --md-navigation-drawer-modal-container-width: 320px;
+    --md-navigation-drawer-modal-scrim-color: var(--md-sys-color-scrim);
+    --md-navigation-drawer-modal-scrim-opacity: 0.42;
+    --md-navigation-drawer-divider-color: var(--md-sys-color-outline-variant);
+    --md-navigation-bar-container-color: var(--md-sys-color-surface-container);
+
+    /* Scrollbar adaptation via standard CSS */
+    scrollbar-color: var(--md-sys-color-outline) transparent;
+}
+
+/* Modal Navigation Drawer Positioning & Scrim Pass-through when closed */
+md-navigation-drawer-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+}
+
+md-navigation-drawer-modal.is-open,
+md-navigation-drawer-modal[opened] {
+    pointer-events: auto;
+}
+
+/* Guarantee M3 Dialogs always layer above sticky Top App Bar and Nav Drawer */
+md-dialog {
+    z-index: 100;
+    overscroll-behavior: contain;
+}
+
+/* Reset & Base Document Surface */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Guarantee HTML [hidden] beats author display utilities (.col, .row, .surface-subbox, etc.) */
+[hidden] {
+    display: none !important;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+    font-family: var(--md-ref-typeface-plain);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Prevent icon clipping inside @material/web shadow boundaries & slots */
 md-icon {
     --md-icon-font: 'Material Symbols Outlined';
-    font-family: var(--md-icon-font, 'Material Symbols Outlined') !important;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1 !important;
-    letter-spacing: normal;
-    text-transform: none;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    vertical-align: middle;
-    user-select: none;
+    font-family: 'Material Symbols Outlined', sans-serif !important;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     overflow: visible !important;
-    font-variation-settings:
-        'FILL' 0,
-        'wght' 400,
-        'GRAD' 0,
-        'opsz' 24;
-}
-
-md-icon.fill,
-.material-symbols-outlined.fill {
-    font-variation-settings:
-        'FILL' 1,
-        'wght' 500,
-        'GRAD' 0,
-        'opsz' 24;
-}
-
-.material-symbols-outlined {
-    font-family: 'Material Symbols Outlined' !important;
-    font-variation-settings:
-        'FILL' 0,
-        'wght' 400,
-        'GRAD' 0,
-        'opsz' 24;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    vertical-align: middle;
-    line-height: 1;
     user-select: none;
+}
+
+md-icon.filled {
+    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
 }
 
 md-filled-button md-icon,
@@ -224,154 +176,606 @@ md-outlined-button md-icon,
 md-elevated-button md-icon,
 md-filled-tonal-button md-icon,
 md-text-button md-icon {
-    font-size: 18px !important;
-    width: 18px !important;
-    height: 18px !important;
-    line-height: 1 !important;
     overflow: visible !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-md-outlined-text-field md-icon,
-md-filled-text-field md-icon,
-md-outlined-select md-icon,
-md-filled-select md-icon {
-    font-size: 20px !important;
-    width: 20px !important;
-    height: 20px !important;
-    overflow: visible !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
 }
 
 /* =========================================================================
-   6. NAVIGATION RAIL (M3 Design Kit Archetype)
+   App Shell & M3 Layout Primitives (Pure CSS Grid / Flexbox, zero frameworks)
    ========================================================================= */
-.m3-navigation-rail {
-    width: 80px;
-    background-color: var(--md-sys-color-surface);
-    border-right: 1px solid var(--md-sys-color-outline-variant);
+
+.app-shell {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 16px 0;
-    gap: 16px;
-    flex-shrink: 0;
-    z-index: 30;
+    min-height: 100vh;
 }
 
-.m3-nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    width: 64px;
-    padding: 4px 0;
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--md-sys-color-on-surface-variant);
-    transition: color 0.2s ease;
-}
-
-.m3-nav-item:hover {
+.top-app-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background-color: var(--md-sys-color-surface-container);
     color: var(--md-sys-color-on-surface);
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
 }
 
-.m3-nav-pill {
-    width: 56px;
-    height: 32px;
-    border-radius: var(--md-sys-shape-corner-full);
+.top-app-bar-row {
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 8px 24px;
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 64px;
+}
+
+.top-app-bar-leading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.top-app-bar-title-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.top-app-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tabs-bar-container {
+    max-width: 1560px;
+    margin: 0 auto;
+}
+
+.main-container {
+    flex: 1;
+    width: 100%;
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 24px 24px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.view-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.view-panel[hidden] {
+    display: none;
+}
+
+/* Card Slot & Surface Utilities */
+.card-pad {
+    padding: 20px 24px;
+    gap: 16px;
+}
+
+.card-interactive {
+    cursor: pointer;
+    position: relative;
+}
+
+.surface-subbox {
+    background-color: var(--md-sys-color-surface-container);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-medium);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.primary-container-box {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    border-radius: var(--md-sys-shape-corner-large);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tertiary-container-box {
+    background-color: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+    border-radius: var(--md-sys-shape-corner-large);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.m3-color-picker {
+    width: 48px;
+    height: 48px;
+    padding: 4px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    border: 1px solid var(--md-sys-color-outline);
+    background-color: var(--md-sys-color-surface-container);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.m3-swatch-box {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1), color 0.2s cubic-bezier(0.2, 0, 0, 1);
+    flex-shrink: 0;
 }
 
-.m3-nav-item.active .m3-nav-pill {
+.m3-swatch-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: var(--md-sys-shape-corner-full);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    forced-color-adjust: none;
+}
+
+.icon-badge-surface {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
     background-color: var(--md-sys-color-primary-container);
     color: var(--md-sys-color-on-primary-container);
 }
 
-.m3-nav-item.active .m3-nav-label {
-    color: var(--md-sys-color-on-surface);
-    font-weight: 700;
+.icon-badge-surface.secondary {
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
 }
 
-.m3-nav-label {
-    font-size: 11px;
-    line-height: 14px;
-    letter-spacing: 0.5px;
-    transition: font-weight 0.2s ease, color 0.2s ease;
+.icon-badge-surface.tertiary {
+    background-color: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+}
+
+/* Responsive Grids */
+.grid-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.grid-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+
+@media (min-width: 980px) {
+    .grid-workspace {
+        grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
+    }
+}
+
+.grid-2col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.grid-3col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.dialog-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+.grid-4col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.grid-catalog {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 20px;
+}
+
+.grid-charts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+}
+
+@media (min-width: 960px) {
+    .grid-charts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.kpi-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: nowrap;
+}
+
+.chart-box {
+    position: relative;
+    height: 270px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chart-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--md-sys-color-on-surface-variant);
     text-align: center;
 }
 
-/* =========================================================================
-   7. CONNECTED BUTTON GROUPS (Figma Design Kit)
-   ========================================================================= */
-.m3-connected-group {
+.chart-empty[hidden],
+canvas[hidden] {
+    display: none;
+}
+
+/* M3 Status & Count Tonal Chips */
+.m3-status-pill {
     display: inline-flex;
     align-items: center;
-    background-color: var(--md-sys-color-surface-container-low);
-    border: 1px solid var(--md-sys-color-outline-variant);
-    border-radius: var(--md-sys-shape-corner-medium);
-    padding: 3px;
-    gap: 2px;
-}
-
-.m3-connected-button {
-    padding: 6px 14px;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: var(--md-sys-shape-corner-small);
     font-size: 12px;
     font-weight: 500;
-    color: var(--md-sys-color-on-surface-variant);
-    background: transparent;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1), color 0.2s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.m3-connected-button:hover {
-    color: var(--md-sys-color-on-surface);
-    background-color: rgba(255, 255, 255, 0.04);
-}
-
-.m3-connected-button.active {
-    background-color: var(--md-sys-color-primary);
-    color: var(--md-sys-color-on-primary);
-    font-weight: 600;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-}
-
-/* =========================================================================
-   8. CARD ARCHETYPES (Stacked & Horizontal)
-   ========================================================================= */
-.m3-card {
-    position: relative;
-    background-color: var(--md-sys-color-surface-container);
-    border-radius: var(--md-sys-shape-corner-large);
+    white-space: nowrap;
     border: 1px solid var(--md-sys-color-outline-variant);
-    transition: border-color 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
+    background-color: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
 }
 
-.m3-card:hover {
-    border-color: var(--md-sys-color-outline);
-    box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.45);
+.m3-status-pill.approved,
+.m3-status-pill.completed {
+    background-color: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+    border-color: transparent;
 }
 
-.m3-card-high {
+.m3-status-pill.quoted,
+.m3-status-pill.in_production {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    border-color: transparent;
+}
+
+.m3-status-pill.cancelled {
+    background-color: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+    border-color: transparent;
+}
+
+/* Semantic Responsive Data Table (container-query driven) */
+.table-wrapper {
+    overflow: auto;
+    max-inline-size: 100%;
+    max-block-size: min(520px, 75vh);
+    container-type: inline-size;
+    border-radius: var(--md-sys-shape-corner-medium);
+}
+
+.m3-data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: left;
+    font-size: 13px;
+}
+
+.m3-data-table thead {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
     background-color: var(--md-sys-color-surface-container-high);
 }
 
-.m3-sticky-summary {
+.m3-data-table th,
+.m3-data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    vertical-align: middle;
+}
+
+.m3-data-table thead th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--md-sys-color-on-surface-variant);
+    white-space: nowrap;
+}
+
+.m3-data-table tbody th {
     position: sticky;
-    top: 24px;
-    background: linear-gradient(180deg, var(--md-sys-color-surface-container-high) 0%, var(--md-sys-color-surface-container) 100%);
+    inset-inline-start: 0;
+    z-index: 1;
+    background-color: var(--md-sys-color-surface);
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface);
+}
+
+.m3-data-table tbody tr:hover td,
+.m3-data-table tbody tr:hover th {
+    background-color: var(--md-sys-color-surface-container-low);
+}
+
+@container (width < 680px) {
+    .m3-data-table,
+    .m3-data-table thead,
+    .m3-data-table tbody,
+    .m3-data-table tr,
+    .m3-data-table th,
+    .m3-data-table td {
+        display: block;
+    }
+
+    .m3-data-table thead {
+        display: none;
+    }
+
+    .m3-data-table tr {
+        margin-block-end: 12px;
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--md-sys-shape-corner-medium);
+        overflow: hidden;
+        background-color: var(--md-sys-color-surface-container-low);
+    }
+
+    .m3-data-table tbody th {
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 2;
+        background-color: var(--md-sys-color-surface-container-high);
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .m3-data-table td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 14px;
+    }
+
+    .m3-data-table td:last-child {
+        border-bottom: none;
+    }
+
+    .m3-data-table td:nth-child(2)::before { content: var(--label-2, "Cliente") ": "; color: var(--md-sys-color-on-surface-variant); font-size: 12px; }
+    .m3-data-table td:nth-child(3)::before { content: var(--label-3, "Placas") ": "; color: var(--md-sys-color-on-surface-variant); font-size: 12px; }
+    .m3-data-table td:nth-child(4)::before { content: var(--label-4, "Tempo Est.") ": "; color: var(--md-sys-color-on-surface-variant); font-size: 12px; }
+    .m3-data-table td:nth-child(5)::before { content: var(--label-5, "Valor Final") ": "; color: var(--md-sys-color-on-surface-variant); font-size: 12px; }
+    .m3-data-table td:nth-child(6)::before { content: var(--label-6, "Status") ": "; color: var(--md-sys-color-on-surface-variant); font-size: 12px; }
+    .m3-data-table td:nth-child(7)::before { content: var(--label-7, "Ações") ": "; color: var(--md-sys-color-on-surface-variant); font-size: 12px; }
+    .m3-data-table td:nth-child(8)::before { content: var(--label-8, "Ações") ": "; color: var(--md-sys-color-on-surface-variant); font-size: 12px; }
+}
+
+.sticky-terminal {
+    position: sticky;
+    top: 136px;
+}
+
+/* Flex helpers */
+.row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.row-wrap {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.muted-text {
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.mono-num {
+    font-family: 'Roboto Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Ensure M3 inputs fill grid cells cleanly without overflowing narrow tracks */
+md-outlined-text-field,
+md-filled-text-field,
+md-outlined-select,
+md-filled-select,
+md-slider {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
+    overflow: clip;
+}
+
+/* Bottom Navigation Bar (Docked at bottom for mobile / narrow viewports or switcher) */
+.bottom-nav-dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 15;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* Modal Navigation Drawer Content Styling */
+.drawer-content {
+    width: 320px;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Dock Floating FAB only in outer margin on ultra-wide screens to never overlap cards */
+.fab-dock {
+    display: none;
+}
+
+@media (min-width: 1560px) {
+    .fab-dock {
+        display: block;
+        position: fixed;
+        right: 24px;
+        bottom: 92px;
+        z-index: 25;
+    }
+}
+
+/* Swatch Showcase */
+.swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 10px;
+}
+
+.swatch-tile {
+    padding: 12px;
+    border-radius: var(--md-sys-shape-corner-medium);
     border: 1px solid var(--md-sys-color-outline-variant);
-    border-radius: 24px;
-    box-shadow: 0 12px 36px -6px rgba(0, 0, 0, 0.65), 0 0 20px -2px rgba(59, 130, 246, 0.15);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 76px;
+}
+
+/* Seed Color Dot Buttons */
+.seed-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--md-sys-shape-corner-full);
+    border: 2px solid var(--md-sys-color-outline-variant);
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.seed-btn:hover {
+    transform: scale(1.08);
+}
+
+.seed-btn[aria-pressed="true"] {
+    border-color: var(--md-sys-color-on-surface);
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
+
+/* Interactive Elevation / Focus Demo Boxes */
+.primitive-demo-card {
+    position: relative;
+    border-radius: var(--md-sys-shape-corner-large);
+    background-color: var(--md-sys-color-surface-container-low);
+    padding: 20px;
+    cursor: pointer;
+    outline: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* Status Snackbar Toast (Styled purely with M3 Inverse Surface tokens) */
+.m3-snackbar {
+    position: fixed;
+    left: 24px;
+    bottom: 96px;
+    z-index: 40;
+    background-color: var(--md-sys-color-inverse-surface);
+    color: var(--md-sys-color-inverse-on-surface);
+    border-radius: var(--md-sys-shape-corner-extra-small);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transform: translateY(16px);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    max-width: min(420px, calc(100vw - 48px));
+}
+
+.m3-snackbar.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+/* Accessibility: Forced Colors Mode (Windows High Contrast) */
+@media (forced-colors: active) {
+    .top-app-bar,
+    .surface-subbox,
+    .primitive-demo-card,
+    .swatch-tile,
+    .m3-status-pill,
+    .m3-data-table tr {
+        border: 1px solid CanvasText;
+    }
 }

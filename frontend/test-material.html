@@ -1,939 +1,1366 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="dark" data-theme="dark">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Print Calc Pro | Material 3 Design Kit Experience</title>
+    <!-- MANDATORY (dark-mode guidance): Declare supported color schemes before first paint -->
+    <meta name="color-scheme" content="light dark">
+    <title>3D Print Calc Pro | Material Web Official Showcase (@material/web)</title>
 
-    <!-- Google Fonts: Inter, Roboto, JetBrains Mono & Material Symbols Variable Font -->
+    <!-- Preconnect CDNs for fast parallel module resolution -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Roboto:wght@300;400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://esm.run" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS CDN for utility grid and flex layouts -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        darkbg: '#080b11',
-                        darkcanvas: '#0b0f17',
-                        darksurface: '#111827',
-                        darkcard: '#151d2e',
-                        darkborder: '#243044',
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'Roboto', 'system-ui', 'sans-serif'],
-                        mono: ["'JetBrains Mono'", 'monospace'],
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Base Material 3 Tokens, Color-Scheme & Structural CSS Grid Layout -->
+    <link rel="stylesheet" href="/static/css/material-theme.css?v=2.0.7">
 
-    <!-- Material Design 3 Dark Theme Tokens & Navigation Rail -->
-    <link rel="stylesheet" href="/static/css/material-theme.css">
-
-    <!-- Material Web Components (Google @material/web) via ESM CDN -->
+    <!-- Official Import Map: Unbundled @material/web@2.5.0 shares singletons across all.js & labs/* -->
     <script type="importmap">
     {
       "imports": {
-        "@material/web/": "https://esm.run/@material/web/"
+        "tslib": "https://esm.run/tslib@2.8.1",
+        "lit": "https://esm.run/lit@3.3.3",
+        "lit/": "https://esm.run/lit@3.3.3/",
+        "@lit/context": "https://esm.run/@lit/context@1.1.6",
+        "@material/web/": "https://cdn.jsdelivr.net/npm/@material/web@2.5.0/",
+        "@material/material-color-utilities": "https://esm.run/@material/material-color-utilities"
       }
     }
     </script>
+
+    <!-- Register Official @material/web Components (Stable + Labs + Typescale) -->
     <script type="module">
         import '@material/web/all.js';
+        import '@material/web/labs/card/elevated-card.js';
+        import '@material/web/labs/card/filled-card.js';
+        import '@material/web/labs/card/outlined-card.js';
+        import '@material/web/labs/segmentedbuttonset/outlined-segmented-button-set.js';
+        import '@material/web/labs/segmentedbutton/outlined-segmented-button.js';
+        import '@material/web/labs/navigationbar/navigation-bar.js';
+        import '@material/web/labs/navigationtab/navigation-tab.js';
+        import '@material/web/labs/navigationdrawer/navigation-drawer-modal.js';
+        import '@material/web/labs/badge/badge.js';
+        import '@material/web/labs/item/item.js';
+
         import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
-        if (typescaleStyles && typescaleStyles.styleSheet) {
+        if (typescaleStyles?.styleSheet) {
             document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
         }
     </script>
-
-    <style>
-        body {
-            background-color: var(--md-sys-color-background);
-            color: var(--md-sys-color-on-background);
-            overflow-x: hidden;
-        }
-        .font-numeric {
-            font-family: 'JetBrains Mono', monospace;
-            font-variant-numeric: tabular-nums;
-        }
-        md-outlined-text-field, md-outlined-select {
-            width: 100%;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 4px;
-        }
-    </style>
 </head>
-<body class="min-h-screen flex font-sans antialiased text-slate-100">
-
-    <!-- =========================================================================
-         1. NAVIGATION RAIL (Baseado no Nó "Navigation Rail" 1:9566 do Design Kit)
-         ========================================================================= -->
-    <aside class="m3-navigation-rail hidden md:flex sticky top-0 h-screen select-none">
-        <!-- Menu Icon -->
-        <md-icon-button id="rail-menu-btn" title="Expandir Menu">
-            <md-icon>menu</md-icon>
-        </md-icon-button>
-
-        <!-- Compact FAB (56x56) como no Figma Design Kit -->
-        <div class="my-1">
-            <md-fab variant="primary" id="rail-quick-fab" title="Cadastrar Novo Material">
-                <md-icon slot="icon">add</md-icon>
-            </md-fab>
-        </div>
-
-        <!-- Navigation Segments com Active Pill M3 -->
-        <nav class="flex-1 flex flex-col items-center gap-2 mt-2 w-full">
-            <button type="button" class="m3-nav-item active" id="nav-item-calc" data-view="calc">
-                <div class="m3-nav-pill">
-                    <md-icon>calculate</md-icon>
-                </div>
-                <span class="m3-nav-label">Cálculo</span>
-            </button>
-
-            <button type="button" class="m3-nav-item" id="nav-item-bom" data-view="bom">
-                <div class="m3-nav-pill">
-                    <md-icon>inventory_2</md-icon>
-                </div>
-                <span class="m3-nav-label">Insumos</span>
-            </button>
-
-            <button type="button" class="m3-nav-item" id="nav-item-stats" data-view="stats">
-                <div class="m3-nav-pill">
-                    <md-icon>analytics</md-icon>
-                </div>
-                <span class="m3-nav-label">Métricas</span>
-            </button>
-
-            <button type="button" class="m3-nav-item" id="nav-item-settings" data-view="settings">
-                <div class="m3-nav-pill">
-                    <md-icon>settings</md-icon>
-                </div>
-                <span class="m3-nav-label">Ajustes</span>
-            </button>
-        </nav>
-
-        <!-- User Profile Avatar no Rodapé do Rail -->
-        <div class="mt-auto flex flex-col items-center gap-2">
-            <div class="w-10 h-10 rounded-full bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-300 font-bold text-sm shadow-md" title="Vitor Buss (Admin)">
-                VB
-            </div>
-        </div>
-    </aside>
-
-    <!-- =========================================================================
-         2. WORKSPACE WRAPPER (Top Bar + Main Scrollable Area)
-         ========================================================================= -->
-    <div class="flex-1 flex flex-col min-w-0">
-
-        <!-- TOP APP BAR (Alinhada com o Chrome Browser Bar do Figma 1:9567) -->
-        <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-            
-            <div class="flex items-center gap-4">
-                <div class="flex items-center gap-2.5">
-                    <span class="material-symbols-outlined text-blue-400 text-2xl">precision_manufacturing</span>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h1 class="md-typescale-title-small font-bold text-white tracking-tight">3D Print Calc Pro</h1>
-                            <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-blue-950 text-blue-300 border border-blue-800 rounded-full">
-                                Design Kit M3
-                            </span>
-                        </div>
-                        <p class="text-xs text-slate-400">Engenharia de Custos e Fatiamento 3D</p>
+<body>
+    <!-- Modal Navigation Drawer (@material/web/labs/navigationdrawer) -->
+    <md-navigation-drawer-modal id="nav-drawer" pivot="start" aria-label="Menu de Navegação Principal">
+        <div class="drawer-content">
+            <div class="row-between" style="padding: 8px 12px;">
+                <div class="row">
+                    <div class="icon-badge-surface">
+                        <md-icon class="filled">precision_manufacturing</md-icon>
+                    </div>
+                    <div class="col" style="gap: 2px;">
+                        <span class="md-typescale-title-medium">3D Print Calc Pro</span>
+                        <span class="md-typescale-label-small muted-text">@material/web v2.5.0</span>
                     </div>
                 </div>
+                <md-icon-button id="drawer-close-btn" aria-label="Fechar Menu">
+                    <md-icon>close</md-icon>
+                </md-icon-button>
+            </div>
 
-                <!-- Breadcrumbs de Contexto -->
-                <div class="hidden lg:flex items-center gap-1.5 text-xs text-slate-400 ml-4 pl-4 border-l border-slate-800">
-                    <span>Orçamentos</span>
-                    <span class="material-symbols-outlined text-sm text-slate-600">chevron_right</span>
-                    <span class="text-slate-200 font-medium">Lote #8842 - Suporte Articulado</span>
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Módulos</span>
+            <md-list aria-label="Vistas do Showcase">
+                <md-list-item type="button" data-nav-index="0">
+                    <md-icon slot="start">calculate</md-icon>
+                    <div slot="headline">Calculadora 3D M3</div>
+                    <div slot="supporting-text">Simulação em tempo real</div>
+                </md-list-item>
+                <md-list-item type="button" data-nav-index="1">
+                    <md-icon slot="start">inventory_2</md-icon>
+                    <div slot="headline">Insumos, Listas & Chips</div>
+                    <div slot="supporting-text">BOM e tags dinâmicas</div>
+                    <md-badge slot="end" value="3"></md-badge>
+                </md-list-item>
+                <md-list-item type="button" data-nav-index="2">
+                    <md-icon slot="start">widgets</md-icon>
+                    <div slot="headline">Catálogo Oficial Completo</div>
+                    <div slot="supporting-text">Todos os componentes @material/web</div>
+                </md-list-item>
+            </md-list>
+
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Dynamic Color (HCT)</span>
+            <div style="padding: 4px 16px;" class="col">
+                <span class="md-typescale-body-small muted-text">Selecione uma Seed Color oficial:</span>
+                <div class="row-wrap" id="drawer-seed-picker">
+                    <button type="button" class="seed-btn" data-seed="#6750A4" style="background:#6750A4;" aria-label="M3 Baseline Purple" title="M3 Purple (#6750A4)" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#2563EB" style="background:#2563EB;" aria-label="Royal Cobalt" title="Royal Cobalt (#2563EB)" aria-pressed="true"></button>
+                    <button type="button" class="seed-btn" data-seed="#006874" style="background:#006874;" aria-label="Ocean Teal" title="Ocean Teal (#006874)" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#006D3B" style="background:#006D3B;" aria-label="Emerald" title="Emerald (#006D3B)" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#B3261E" style="background:#B3261E;" aria-label="Crimson" title="Crimson (#B3261E)" aria-pressed="false"></button>
                 </div>
             </div>
 
-            <!-- Top Actions -->
-            <div class="flex items-center gap-3">
-                
-                <!-- Status Chips M3 -->
-                <div class="hidden sm:flex items-center gap-1">
-                    <md-chip-set>
-                        <md-filter-chip label="Rascunho" selected></md-filter-chip>
-                        <md-filter-chip label="Orçado"></md-filter-chip>
-                        <md-filter-chip label="Em Produção"></md-filter-chip>
-                    </md-chip-set>
-                </div>
-
-                <!-- Menu Dropdown -->
-                <div class="relative">
-                    <md-icon-button id="top-more-btn" title="Mais Opções">
-                        <md-icon>more_vert</md-icon>
-                    </md-icon-button>
-
-                    <md-menu id="top-more-menu" anchor="top-more-btn">
-                        <md-menu-item id="action-export-json">
-                            <div slot="headline">Exportar JSON de Custos</div>
-                            <md-icon slot="start">file_download</md-icon>
-                        </md-menu-item>
-                        <md-menu-item id="action-reset-defaults">
-                            <div slot="headline">Restaurar Parâmetros Padrão</div>
-                            <md-icon slot="start">restart_alt</md-icon>
-                        </md-menu-item>
-                        <md-divider></md-divider>
-                        <md-menu-item id="action-open-figma-kit">
-                            <div slot="headline">Material 3 Design Kit (Figma)</div>
-                            <md-icon slot="start">open_in_new</md-icon>
-                        </md-menu-item>
-                    </md-menu>
-                </div>
-
-                <!-- Link de Retorno ao Sistema Padrão -->
-                <md-outlined-button href="/" class="text-xs">
+            <div style="margin-top: auto; padding: 12px 16px;">
+                <md-outlined-button href="/" class="full-width">
                     <md-icon slot="icon">arrow_back</md-icon>
                     Voltar ao Sistema
                 </md-outlined-button>
             </div>
-        </header>
+        </div>
+    </md-navigation-drawer-modal>
 
-        <!-- =====================================================================
-             MAIN CONTENT CANVAS
-             ===================================================================== -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div class="app-shell">
+        <!-- Sticky Top App Bar with Dynamic Color & Navigation Controls -->
+        <header class="top-app-bar">
+            <div class="top-app-bar-row">
+                <div class="top-app-bar-leading">
+                    <md-icon-button id="drawer-open-btn" aria-label="Abrir Menu Lateral">
+                        <md-icon>menu</md-icon>
+                    </md-icon-button>
 
-            <!-- =================================================================
-                 VIEW: CALCULADORA (Painel Principal)
-                 ================================================================= -->
-            <div id="panel-calc" class="space-y-6">
-
-                <!-- 1. HERO QUICK STATS (Baseado no Horizontal Card do Kit de Design) -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    
-                    <!-- Card 1: Máquina Selecionada -->
-                    <div class="m3-card p-4 flex items-center justify-between">
-                        <md-elevation></md-elevation>
-                        <div class="space-y-1">
-                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Impressora Ativa</span>
-                            <div class="text-base font-bold text-white flex items-center gap-1.5" id="hero-stat-printer">
-                                <span>Bambu Lab P1S</span>
-                            </div>
-                            <span class="text-xs text-blue-400 font-numeric font-medium">Taxa: R$ 4,50/h</span>
-                        </div>
-                        <div class="w-11 h-11 rounded-2xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
-                            <md-icon>print</md-icon>
-                        </div>
+                    <div class="icon-badge-surface" aria-hidden="true">
+                        <md-icon class="filled">precision_manufacturing</md-icon>
                     </div>
 
-                    <!-- Card 2: Massa e Consumo -->
-                    <div class="m3-card p-4 flex items-center justify-between">
-                        <md-elevation></md-elevation>
-                        <div class="space-y-1">
-                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Massa Estimada</span>
-                            <div class="text-base font-bold text-white font-numeric" id="hero-stat-weight">125g (PLA)</div>
-                            <span class="text-xs text-emerald-400 font-numeric font-medium">Custo: R$ 13,75</span>
-                        </div>
-                        <div class="w-11 h-11 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-                            <md-icon>palette</md-icon>
-                        </div>
+                    <div class="top-app-bar-title-group">
+                        <span class="md-typescale-title-large">3D Print Calc Pro</span>
+                        <span class="md-typescale-body-small muted-text">Material Web Components Oficiais (@material/web + HCT Dynamic Color)</span>
                     </div>
-
-                    <!-- Card 3: Tempo e Capacidade com Linear Progress -->
-                    <div class="m3-card p-4 flex flex-col justify-between">
-                        <md-elevation></md-elevation>
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tempo Total de Mesa</span>
-                            <span class="text-xs font-bold text-purple-400 font-numeric" id="hero-stat-time">4h 30m</span>
-                        </div>
-                        <div class="space-y-1.5">
-                            <div class="flex items-center justify-between text-xs text-slate-300">
-                                <span>Ocupação da Fazenda:</span>
-                                <span class="font-numeric font-bold text-white" id="m3-capacity-text">18.7%</span>
-                            </div>
-                            <md-linear-progress id="m3-progress-bar" value="0.187" buffer="0.45" class="w-full"></md-linear-progress>
-                        </div>
-                    </div>
-
                 </div>
 
-                <!-- 2. WORKSPACE GRID: FORMS + TERMINAL -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <div class="top-app-bar-actions">
+                    <!-- Dark / Light Mode Toggle -->
+                    <md-filled-tonal-icon-button id="theme-mode-toggle" toggle aria-label="Alternar Modo Escuro ou Claro" title="Alternar Claro / Escuro">
+                        <md-icon>light_mode</md-icon>
+                        <md-icon slot="selected" class="filled">dark_mode</md-icon>
+                    </md-filled-tonal-icon-button>
 
-                    <!-- Coluna da Esquerda: Formulários e Parâmetros (8 cols) -->
-                    <div class="lg:col-span-8 space-y-6">
+                    <!-- Menu with Nested Sub-menu (@material/web/menu) -->
+                    <div style="position: relative;">
+                        <md-icon-button id="top-more-btn" aria-label="Mais Opções" aria-haspopup="menu" aria-controls="top-more-menu">
+                            <md-icon>more_vert</md-icon>
+                        </md-icon-button>
 
-                        <!-- CARD: SELEÇÃO RÁPIDA DE MATERIAL (Connected Button Group) -->
-                        <div class="m3-card p-5 space-y-3">
-                            <md-elevation></md-elevation>
-                            <div class="flex flex-wrap items-center justify-between gap-3">
-                                <div class="flex items-center gap-2">
-                                    <md-icon class="text-blue-400">tune</md-icon>
-                                    <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Polímero Selecionado (Connected Group)</h3>
-                                </div>
-                                
-                                <!-- Connected Button Group oficial M3 -->
-                                <div class="m3-connected-group" id="material-connected-group">
-                                    <button type="button" class="m3-connected-button active" data-mat="pla_basic">PLA Basic</button>
-                                    <button type="button" class="m3-connected-button" data-mat="petg_cf">PETG-CF</button>
-                                    <button type="button" class="m3-connected-button" data-mat="tpu_95a">TPU 95A</button>
-                                    <button type="button" class="m3-connected-button" data-mat="abs_premium">ABS Pro</button>
-                                </div>
+                        <md-menu id="top-more-menu" anchor="top-more-btn" positioning="popover" has-overflow>
+                            <md-menu-item id="action-open-dialog">
+                                <md-icon slot="start">add_circle</md-icon>
+                                <div slot="headline">Cadastrar Novo Filamento</div>
+                            </md-menu-item>
+
+                            <md-sub-menu>
+                                <md-menu-item slot="item">
+                                    <md-icon slot="start">palette</md-icon>
+                                    <div slot="headline">Alterar Cor Semente (HCT)</div>
+                                    <md-icon slot="end">arrow_right</md-icon>
+                                </md-menu-item>
+                                <md-menu slot="menu">
+                                    <md-menu-item data-seed-menu="#6750A4"><div slot="headline">M3 Purple (#6750A4)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#2563EB"><div slot="headline">Royal Cobalt (#2563EB)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006874"><div slot="headline">Ocean Teal (#006874)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006D3B"><div slot="headline">Emerald (#006D3B)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#B3261E"><div slot="headline">Crimson (#B3261E)</div></md-menu-item>
+                                </md-menu>
+                            </md-sub-menu>
+
+                            <md-menu-item id="action-reset-defaults">
+                                <md-icon slot="start">restart_alt</md-icon>
+                                <div slot="headline">Restaurar Parâmetros Padrão</div>
+                            </md-menu-item>
+
+                            <md-divider></md-divider>
+
+                            <md-menu-item id="action-open-alert">
+                                <md-icon slot="start">warning</md-icon>
+                                <div slot="headline">Testar Alert Dialog</div>
+                            </md-menu-item>
+                        </md-menu>
+                    </div>
+
+                    <md-outlined-button href="/">
+                        <md-icon slot="icon">arrow_back</md-icon>
+                        Sistema
+                    </md-outlined-button>
+                </div>
+            </div>
+
+            <!-- Official Primary Tabs Navigation -->
+            <div class="tabs-bar-container">
+                <md-tabs id="main-tabs" aria-label="Seções da Demonstração Material 3">
+                    <md-primary-tab inline-icon>
+                        <md-icon slot="icon">calculate</md-icon>
+                        Calculadora M3
+                    </md-primary-tab>
+                    <md-primary-tab inline-icon>
+                        <md-icon slot="icon">inventory_2</md-icon>
+                        Insumos &amp; Chips
+                    </md-primary-tab>
+                    <md-primary-tab inline-icon>
+                        <md-icon slot="icon">widgets</md-icon>
+                        Catálogo Oficial (@material/web)
+                    </md-primary-tab>
+                </md-tabs>
+            </div>
+        </header>
+
+        <main class="main-container">
+
+            <!-- =================================================================
+                 TAB 0: CALCULADORA 3D M3 (100% Oficial @material/web)
+                 ================================================================= -->
+            <section id="view-calc" class="view-panel" role="tabpanel" aria-label="Calculadora M3">
+
+                <!-- 3 Hero Cards using Official Elevated, Outlined & Filled Cards -->
+                <div class="grid-kpis">
+                    <md-elevated-card class="card-pad">
+                        <div class="row-between">
+                            <div class="col" style="gap: 4px;">
+                                <span class="md-typescale-label-medium muted-text">IMPRESSORA ATIVA (Elevated Card)</span>
+                                <span class="md-typescale-title-large" id="hero-stat-printer">Bambu Lab P1S</span>
+                                <span class="md-typescale-label-large mono-num" id="hero-stat-printer-rate" style="color: var(--md-sys-color-primary);">Taxa: R$ 4,50/h</span>
                             </div>
-                            <p class="text-xs text-slate-400">
-                                O grupo conectado aplica morfing e seleção única, alternando as taxas no seletor e atualizando o cálculo financeiro em tempo real.
-                            </p>
+                            <div class="icon-badge-surface">
+                                <md-icon class="filled">print</md-icon>
+                            </div>
                         </div>
+                    </md-elevated-card>
 
-                        <!-- CARD: PARÂMETROS DA PLACA DE IMPRESSÃO -->
-                        <div class="m3-card p-6 space-y-6">
-                            <md-elevation></md-elevation>
-                            
-                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                                <div class="flex items-center gap-2">
-                                    <md-icon class="text-purple-400">layers</md-icon>
-                                    <h3 class="md-typescale-title-small font-bold text-white uppercase tracking-wider">Parâmetros de Impressão (Placa 1)</h3>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs font-numeric text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-lg border border-slate-700/60">ID: PL-001</span>
-                                    <md-filled-tonal-button id="btn-show-demo-dialog" class="text-xs">
-                                        <md-icon slot="icon">add_circle</md-icon>
-                                        Cadastrar Filamento (Dialog M3)
-                                    </md-filled-tonal-button>
-                                </div>
+                    <md-outlined-card class="card-pad">
+                        <div class="row-between">
+                            <div class="col" style="gap: 4px;">
+                                <span class="md-typescale-label-medium muted-text">MASSA ESTIMADA (Outlined Card)</span>
+                                <span class="md-typescale-title-large mono-num" id="hero-stat-weight">125g (PLA Basic)</span>
+                                <span class="md-typescale-label-large mono-num" id="hero-stat-material-cost" style="color: var(--md-sys-color-tertiary);">Custo: R$ 13,75</span>
                             </div>
-
-                            <!-- Impressora e Material Selects M3 -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <md-outlined-select id="m3-printer-select" label="Impressora 3D">
-                                        <md-icon slot="leading-icon">print</md-icon>
-                                        <md-select-option value="bambu_p1s" selected>
-                                            <div slot="headline">Bambu Lab P1S</div>
-                                            <span slot="supporting-text">Taxa: R$ 4,50/h (Potência 350W)</span>
-                                        </md-select-option>
-                                        <md-select-option value="ender3_v3">
-                                            <div slot="headline">Creality Ender-3 V3</div>
-                                            <span slot="supporting-text">Taxa: R$ 3,20/h (Potência 250W)</span>
-                                        </md-select-option>
-                                        <md-select-option value="voron24">
-                                            <div slot="headline">Voron 2.4 High-Speed</div>
-                                            <span slot="supporting-text">Taxa: R$ 6,80/h (Potência 500W)</span>
-                                        </md-select-option>
-                                    </md-outlined-select>
-                                </div>
-
-                                <div>
-                                    <md-outlined-select id="m3-filament-select" label="Carretel de Filamento">
-                                        <md-icon slot="leading-icon">palette</md-icon>
-                                        <md-select-option value="pla_basic" selected>
-                                            <div slot="headline">PLA Basic Preto</div>
-                                            <span slot="supporting-text">R$ 0,11/g (R$ 110,00/kg)</span>
-                                        </md-select-option>
-                                        <md-select-option value="petg_cf">
-                                            <div slot="headline">PETG-CF Fibra de Carbono</div>
-                                            <span slot="supporting-text">R$ 0,22/g (R$ 220,00/kg)</span>
-                                        </md-select-option>
-                                        <md-select-option value="tpu_95a">
-                                            <div slot="headline">TPU Flexível 95A</div>
-                                            <span slot="supporting-text">R$ 0,18/g (R$ 180,00/kg)</span>
-                                        </md-select-option>
-                                        <md-select-option value="abs_premium">
-                                            <div slot="headline">ABS Premium Cinza</div>
-                                            <span slot="supporting-text">R$ 0,13/g (R$ 130,00/kg)</span>
-                                        </md-select-option>
-                                    </md-outlined-select>
-                                </div>
+                            <div class="icon-badge-surface tertiary">
+                                <md-icon class="filled">palette</md-icon>
                             </div>
+                        </div>
+                    </md-outlined-card>
 
-                            <!-- Horas, Minutos e Massa com Sufixos Nativos M3 -->
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div>
-                                    <md-outlined-text-field id="m3-time-hours" type="number" min="0" step="1" label="Horas de Impressão" value="4" suffix-text="h" supporting-text="Tempo fatiador">
-                                        <md-icon slot="leading-icon">schedule</md-icon>
-                                    </md-outlined-text-field>
-                                </div>
-                                <div>
-                                    <md-outlined-text-field id="m3-time-minutes" type="number" min="0" max="59" step="1" label="Minutos" value="30" suffix-text="min" supporting-text="Fração da hora">
-                                        <md-icon slot="leading-icon">timer</md-icon>
-                                    </md-outlined-text-field>
-                                </div>
-                                <div>
-                                    <md-outlined-text-field id="m3-weight-grams" type="number" min="0" step="any" label="Massa Estimada" value="125" suffix-text="g" supporting-text="Massa no fatiador">
-                                        <md-icon slot="leading-icon">scale</md-icon>
-                                    </md-outlined-text-field>
-                                </div>
+                    <md-filled-card class="card-pad">
+                        <div class="col" style="gap: 8px;">
+                            <div class="row-between">
+                                <span class="md-typescale-label-medium muted-text">OCUPAÇÃO 24H (Filled Card)</span>
+                                <span class="md-typescale-title-medium mono-num" id="hero-stat-time">4h 30m</span>
                             </div>
-
-                            <!-- SLIDER OFICIAL M3 DE MARGEM COM LABELED E TICKS -->
-                            <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <md-icon class="text-blue-400">trending_up</md-icon>
-                                        <label class="text-xs font-bold uppercase tracking-wider text-slate-200">Margem de Lucro (%):</label>
-                                    </div>
-                                    <span class="text-sm font-bold text-blue-400 font-numeric px-2 py-0.5 bg-blue-950/80 rounded-lg border border-blue-800/60" id="m3-slider-display">50%</span>
-                                </div>
-                                <md-slider id="m3-profit-slider" min="10" max="200" value="50" step="5" labeled ticks class="w-full"></md-slider>
-                                <p class="text-[11px] text-slate-400 leading-relaxed">
-                                    Arraste o manípulo para ajustar o percentual de margem comercial. O valor é recalculado instantaneamente no Terminal Financeiro.
-                                </p>
+                            <div class="row-between">
+                                <span class="md-typescale-body-small muted-text">Capacidade diária da máquina</span>
+                                <span class="md-typescale-label-large mono-num" id="m3-capacity-text">18.8%</span>
                             </div>
+                            <md-linear-progress id="m3-progress-bar" value="0.188" buffer="0.45"></md-linear-progress>
+                        </div>
+                    </md-filled-card>
+                </div>
 
-                            <!-- SWITCHES COM ÍCONES INTEGRADOS NO MANÍPULO -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-                                <div class="flex items-center gap-3">
-                                    <md-switch id="m3-failure-switch" selected icons show-only-selected-icon></md-switch>
-                                    <div>
-                                        <label for="m3-failure-switch" class="text-xs font-bold text-slate-200 cursor-pointer">Margem de Perda / Risco (+10%)</label>
-                                        <p class="text-[11px] text-slate-400">Cobre eventuais falhas de adesão ou bico</p>
+                <!-- Main Grid: Calculator Form (left) + Sticky Financial Summary (right) -->
+                <div class="grid-workspace">
+                    <div class="col" style="gap: 20px;">
+
+                        <!-- Official Segmented Button Set (@material/web/labs/segmentedbuttonset) -->
+                        <md-outlined-card class="card-pad">
+                            <div class="row-between">
+                                <div class="row">
+                                    <md-icon style="color: var(--md-sys-color-primary);">tune</md-icon>
+                                    <div class="col" style="gap: 2px;">
+                                        <h2 class="md-typescale-title-medium" style="margin:0;">Polímero Base (&lt;md-outlined-segmented-button-set&gt;)</h2>
+                                        <span class="md-typescale-body-small muted-text">Sincronizado bidirecionalmente com o seletor de filamento abaixo.</span>
                                     </div>
                                 </div>
 
-                                <div class="flex items-center gap-3">
-                                    <md-switch id="m3-postprocess-switch" icons show-only-selected-icon></md-switch>
-                                    <div>
-                                        <label for="m3-postprocess-switch" class="text-xs font-bold text-slate-200 cursor-pointer">Pós-Processamento Manual (R$ 15,00)</label>
-                                        <p class="text-[11px] text-slate-400">Remoção de suportes e acabamento mecânico</p>
-                                    </div>
+                                <md-outlined-segmented-button-set id="material-segmented-set" aria-label="Seleção rápida de polímero">
+                                    <md-outlined-segmented-button data-mat="pla_basic" label="PLA Basic" selected></md-outlined-segmented-button>
+                                    <md-outlined-segmented-button data-mat="petg_cf" label="PETG-CF"></md-outlined-segmented-button>
+                                    <md-outlined-segmented-button data-mat="tpu_95a" label="TPU 95A"></md-outlined-segmented-button>
+                                    <md-outlined-segmented-button data-mat="abs_premium" label="ABS Pro"></md-outlined-segmented-button>
+                                </md-outlined-segmented-button-set>
+                            </div>
+                        </md-outlined-card>
+
+                        <!-- Official Print Parameters Card -->
+                        <md-elevated-card class="card-pad">
+                            <div class="row-between">
+                                <div class="row">
+                                    <md-icon style="color: var(--md-sys-color-secondary);">layers</md-icon>
+                                    <h2 class="md-typescale-title-medium" style="margin:0;">Parâmetros da Placa de Impressão</h2>
                                 </div>
+                                <md-filled-tonal-button id="btn-show-demo-dialog">
+                                    <md-icon slot="icon">add_circle</md-icon>
+                                    Cadastrar Filamento (Dialog)
+                                </md-filled-tonal-button>
                             </div>
 
-                            <!-- Ações no Rodapé da Placa -->
-                            <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
-                                <div class="flex items-center gap-2">
-                                    <md-assist-chip label="Perfil: 0.20mm Standard" elevated></md-assist-chip>
-                                    <md-assist-chip label="Infill: 20% Gyroid" elevated></md-assist-chip>
+                            <md-divider></md-divider>
+
+                            <!-- Official Outlined Selects -->
+                            <div class="grid-2col">
+                                <md-outlined-select id="m3-printer-select" label="Impressora 3D" menu-positioning="popover">
+                                    <md-icon slot="leading-icon">print</md-icon>
+                                    <md-select-option value="bambu_p1s" selected>
+                                        <div slot="headline">Bambu Lab P1S</div>
+                                        <span slot="supporting-text">Taxa: R$ 4,50/h (350W)</span>
+                                    </md-select-option>
+                                    <md-select-option value="ender3_v3">
+                                        <div slot="headline">Creality Ender-3 V3</div>
+                                        <span slot="supporting-text">Taxa: R$ 3,20/h (250W)</span>
+                                    </md-select-option>
+                                    <md-select-option value="voron24">
+                                        <div slot="headline">Voron 2.4 High-Speed</div>
+                                        <span slot="supporting-text">Taxa: R$ 6,80/h (500W)</span>
+                                    </md-select-option>
+                                </md-outlined-select>
+
+                                <md-outlined-select id="m3-filament-select" label="Carretel de Filamento" menu-positioning="popover">
+                                    <md-icon slot="leading-icon">palette</md-icon>
+                                    <md-select-option value="pla_basic" selected>
+                                        <div slot="headline">PLA Basic Preto</div>
+                                        <span slot="supporting-text">R$ 0,11/g (R$ 110,00/kg)</span>
+                                    </md-select-option>
+                                    <md-select-option value="petg_cf">
+                                        <div slot="headline">PETG-CF Fibra de Carbono</div>
+                                        <span slot="supporting-text">R$ 0,22/g (R$ 220,00/kg)</span>
+                                    </md-select-option>
+                                    <md-select-option value="tpu_95a">
+                                        <div slot="headline">TPU Flexível 95A</div>
+                                        <span slot="supporting-text">R$ 0,18/g (R$ 180,00/kg)</span>
+                                    </md-select-option>
+                                    <md-select-option value="abs_premium">
+                                        <div slot="headline">ABS Premium Cinza</div>
+                                        <span slot="supporting-text">R$ 0,13/g (R$ 130,00/kg)</span>
+                                    </md-select-option>
+                                </md-outlined-select>
+                            </div>
+
+                            <!-- Official Outlined Text Fields with Leading Icon, Suffix Text & Supporting Text -->
+                            <div class="grid-3col">
+                                <md-outlined-text-field id="m3-time-hours" type="number" min="0" step="1" label="Horas" value="4" suffix-text="h" supporting-text="Horas inteiras no fatiador">
+                                    <md-icon slot="leading-icon">schedule</md-icon>
+                                </md-outlined-text-field>
+
+                                <md-outlined-text-field id="m3-time-minutes" type="number" min="0" max="59" step="1" label="Minutos" value="30" suffix-text="min" supporting-text="Minutos restantes">
+                                    <md-icon slot="leading-icon">timer</md-icon>
+                                </md-outlined-text-field>
+
+                                <md-outlined-text-field id="m3-weight-grams" type="number" min="0" step="any" label="Massa Estimada" value="125" suffix-text="g" supporting-text="Inclui torres e suportes">
+                                    <md-icon slot="leading-icon">scale</md-icon>
+                                </md-outlined-text-field>
+                            </div>
+
+                            <!-- Official Slider (Labeled + Ticks) -->
+                            <div class="surface-subbox">
+                                <div class="row-between">
+                                    <div class="row">
+                                        <md-icon style="color: var(--md-sys-color-primary);">trending_up</md-icon>
+                                        <span class="md-typescale-title-small">Margem de Lucro Comercial</span>
+                                    </div>
+                                    <span class="md-typescale-title-medium mono-num" id="m3-slider-display" style="color: var(--md-sys-color-primary);">50%</span>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <md-slider id="m3-profit-slider" min="10" max="200" value="50" step="5" labeled ticks aria-label="Margem de Lucro em Porcentagem"></md-slider>
+                            </div>
+
+                            <!-- Official Switches with Embedded Icons -->
+                            <div class="grid-2col">
+                                <label class="surface-subbox" style="flex-direction: row; align-items: center; cursor: pointer;">
+                                    <md-switch id="m3-failure-switch" selected icons show-only-selected-icon aria-label="Margem de Perda e Risco"></md-switch>
+                                    <div class="col" style="gap: 2px;">
+                                        <span class="md-typescale-label-large">Margem de Perda (+10%)</span>
+                                        <span class="md-typescale-body-small muted-text">Cobre falhas de extrusão e adesão</span>
+                                    </div>
+                                </label>
+
+                                <label class="surface-subbox" style="flex-direction: row; align-items: center; cursor: pointer;">
+                                    <md-switch id="m3-postprocess-switch" icons show-only-selected-icon aria-label="Pós-Processamento Manual"></md-switch>
+                                    <div class="col" style="gap: 2px;">
+                                        <span class="md-typescale-label-large">Pós-Processamento (+R$ 15,00)</span>
+                                        <span class="md-typescale-body-small muted-text">Acabamento e remoção de suportes</span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <md-divider></md-divider>
+
+                            <div class="row-between">
+                                <md-chip-set aria-label="Metadados da Placa">
+                                    <md-assist-chip label="Perfil: 0.20mm Standard">
+                                        <md-icon slot="icon">tune</md-icon>
+                                    </md-assist-chip>
+                                    <md-assist-chip label="Infill: 20% Gyroid">
+                                        <md-icon slot="icon">grid_4x4</md-icon>
+                                    </md-assist-chip>
+                                </md-chip-set>
+
+                                <div class="row-wrap">
                                     <md-outlined-button id="m3-btn-duplicate">
                                         <md-icon slot="icon">content_copy</md-icon>
                                         Duplicar Placa
                                     </md-outlined-button>
                                     <md-filled-tonal-button id="m3-btn-recalc">
                                         <md-icon slot="icon">refresh</md-icon>
-                                        Recalcular Custos
+                                        Recalcular
                                     </md-filled-tonal-button>
                                 </div>
                             </div>
-
-                        </div>
-
+                        </md-elevated-card>
                     </div>
 
-                    <!-- Coluna da Direita: Terminal Financeiro M3 (4 cols) -->
-                    <div class="lg:col-span-4 space-y-6">
-                        
-                        <div class="m3-sticky-summary p-6 space-y-5">
-                            
-                            <!-- Header do Terminal -->
-                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                                <div class="flex items-center gap-2">
-                                    <md-icon class="text-emerald-400">account_balance_wallet</md-icon>
-                                    <h3 class="md-typescale-title-small font-bold text-white uppercase tracking-wider">Terminal Financeiro</h3>
+                    <!-- Right Sticky Financial Terminal (<md-filled-card> + <md-list>) -->
+                    <div class="sticky-terminal">
+                        <md-filled-card class="card-pad">
+                            <div class="row-between">
+                                <div class="row">
+                                    <md-icon style="color: var(--md-sys-color-primary);">account_balance_wallet</md-icon>
+                                    <h2 class="md-typescale-title-medium" style="margin:0;">Terminal Financeiro</h2>
                                 </div>
-                                <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 rounded-full">
-                                    Tempo Real
-                                </span>
+                                <md-assist-chip label="Tempo Real">
+                                    <md-icon slot="icon">bolt</md-icon>
+                                </md-assist-chip>
                             </div>
 
-                            <!-- Linhas de Custos e Totais -->
-                            <div class="space-y-3">
-                                <div class="flex items-center justify-between py-1 text-slate-300">
-                                    <span class="flex items-center gap-1.5 text-xs text-slate-400">
-                                        <md-icon class="text-sm text-slate-500">precision_manufacturing</md-icon>
-                                        Custo de Máquina (Energia/Deprec):
-                                    </span>
-                                    <span class="font-numeric font-medium text-slate-100" id="res-machine-cost">R$ 20,25</span>
-                                </div>
+                            <md-divider></md-divider>
 
-                                <div class="flex items-center justify-between py-1 text-slate-300">
-                                    <span class="flex items-center gap-1.5 text-xs text-slate-400">
-                                        <md-icon class="text-sm text-slate-500">inventory_2</md-icon>
-                                        Custo de Filamento Líquido:
-                                    </span>
-                                    <span class="font-numeric font-medium text-slate-100" id="res-material-cost">R$ 13,75</span>
-                                </div>
+                            <md-list aria-label="Resumo de Custos">
+                                <md-list-item>
+                                    <md-icon slot="start">precision_manufacturing</md-icon>
+                                    <div slot="headline">Máquina &amp; Energia</div>
+                                    <div slot="trailing-supporting-text" class="mono-num" id="res-machine-cost">R$ 20,25</div>
+                                </md-list-item>
+                                <md-list-item>
+                                    <md-icon slot="start">inventory_2</md-icon>
+                                    <div slot="headline">Filamento Líquido</div>
+                                    <div slot="trailing-supporting-text" class="mono-num" id="res-material-cost">R$ 13,75</div>
+                                </md-list-item>
+                                <md-list-item>
+                                    <md-icon slot="start">warning</md-icon>
+                                    <div slot="headline">Margem de Risco</div>
+                                    <div slot="trailing-supporting-text" class="mono-num" id="res-failure-cost">R$ 3,40</div>
+                                </md-list-item>
+                                <md-list-item>
+                                    <md-icon slot="start">build</md-icon>
+                                    <div slot="headline">Pós-Processamento</div>
+                                    <div slot="trailing-supporting-text" class="mono-num" id="res-postprocess-cost">R$ 0,00</div>
+                                </md-list-item>
+                                <md-divider inset></md-divider>
+                                <md-list-item>
+                                    <div slot="headline" class="md-typescale-title-small">Custo Base</div>
+                                    <div slot="trailing-supporting-text" class="md-typescale-title-small mono-num" id="res-base-cost">R$ 37,40</div>
+                                </md-list-item>
+                            </md-list>
 
-                                <div class="flex items-center justify-between py-1 text-slate-300">
-                                    <span class="flex items-center gap-1.5 text-xs text-slate-400">
-                                        <md-icon class="text-sm text-slate-500">warning</md-icon>
-                                        Margem de Risco / Perda:
-                                    </span>
-                                    <span class="font-numeric font-medium text-amber-300" id="res-failure-cost">R$ 3,40</span>
+                            <div class="primary-container-box">
+                                <div class="row-between">
+                                    <span class="md-typescale-label-large">PREÇO COMERCIAL SUGERIDO</span>
+                                    <md-icon class="filled">sell</md-icon>
                                 </div>
-
-                                <div class="flex items-center justify-between py-1 text-slate-300">
-                                    <span class="flex items-center gap-1.5 text-xs text-slate-400">
-                                        <md-icon class="text-sm text-slate-500">build</md-icon>
-                                        Pós-Processamento e Acabamento:
-                                    </span>
-                                    <span class="font-numeric font-medium text-slate-400" id="res-postprocess-cost">R$ 0,00</span>
-                                </div>
-
-                                <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
-                                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wide">Custo Base de Fabricação:</span>
-                                    <span class="font-numeric font-bold text-white text-base" id="res-base-cost">R$ 37,40</span>
-                                </div>
-                            </div>
-
-                            <!-- Bloco de Destaque Heróico: Preço Final Sugerido -->
-                            <div class="p-5 rounded-2xl bg-gradient-to-br from-blue-950/80 via-slate-900 to-slate-950 border border-blue-600/40 shadow-inner space-y-2">
-                                <div class="flex items-center justify-between text-xs text-blue-300">
-                                    <span class="font-semibold uppercase tracking-wider">Preço Comercial Sugerido</span>
-                                    <md-icon class="text-sm text-blue-400">sell</md-icon>
-                                </div>
-                                <div class="text-3xl font-extrabold text-white font-numeric tracking-tight" id="res-final-price">
-                                    R$ 74,80
-                                </div>
-                                <div class="pt-2 border-t border-blue-900/60 flex items-center justify-between">
-                                    <span class="text-xs text-slate-400">Lucro Líquido Estimado:</span>
-                                    <span class="font-numeric font-bold text-emerald-400 text-sm" id="res-net-profit">+ R$ 37,40</span>
+                                <div class="md-typescale-display-small mono-num" id="res-final-price">R$ 74,80</div>
+                                <div class="row-between">
+                                    <span class="md-typescale-body-small">Lucro Líquido Estimado</span>
+                                    <span class="md-typescale-title-small mono-num" id="res-net-profit">+ R$ 37,40</span>
                                 </div>
                             </div>
 
-                            <!-- Botões de Ação Final M3 -->
-                            <div class="space-y-3 pt-2">
-                                <md-filled-button class="w-full" id="m3-btn-save-quote">
+                            <div class="col">
+                                <md-filled-button id="m3-btn-save-quote" class="full-width">
                                     <md-icon slot="icon">check_circle</md-icon>
-                                    Aprovar Proposta e Iniciar Produção
+                                    Aprovar Orçamento
                                 </md-filled-button>
-
-                                <md-elevated-button class="w-full" id="m3-btn-download-pdf">
+                                <md-elevated-button id="m3-btn-download-pdf" class="full-width">
                                     <md-icon slot="icon">picture_as_pdf</md-icon>
-                                    Gerar Proposta Comercial PDF
+                                    Gerar Proposta PDF
                                 </md-elevated-button>
                             </div>
-
-                        </div>
-
+                        </md-filled-card>
                     </div>
-
                 </div>
-
-            </div>
+            </section>
 
             <!-- =================================================================
-                 VIEW: INSUMOS & BOM (md-list com md-list-item)
+                 TAB 1: INSUMOS, LISTAS & TODOS OS 4 TIPOS DE CHIPS
                  ================================================================= -->
-            <div id="panel-bom" class="space-y-6 hidden">
-                <div class="m3-card p-6 space-y-4">
-                    <md-elevation></md-elevation>
-                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                        <div class="flex items-center gap-2">
-                            <md-icon class="text-blue-400">receipt_long</md-icon>
-                            <h3 class="md-typescale-title-medium font-bold text-white">Lista de Insumos da Montagem (BOM)</h3>
-                        </div>
-                        <md-filled-tonal-button id="btn-add-bom-item">
-                            <md-icon slot="icon">add</md-icon>
-                            Adicionar Insumo
-                        </md-filled-tonal-button>
-                    </div>
-
-                    <p class="text-xs text-slate-400">
-                        Componente oficial <code>&lt;md-list&gt;</code> estilizado com cartões M3 e slots semânticos para ferragens e eletrônicos.
-                    </p>
-
-                    <md-list class="space-y-2 border border-slate-800 rounded-2xl bg-slate-900/50 p-2">
-                        <md-list-item type="button">
-                            <md-icon slot="start" class="text-blue-400">bolt</md-icon>
-                            <div slot="headline">Parafuso Cabeça Cilíndrica M3 x 12mm</div>
-                            <div slot="supporting-text">Fixação da tampa frontal articulada (Aço Inox 304)</div>
-                            <div slot="trailing-supporting-text" class="font-numeric text-white font-medium">8 un &bull; R$ 4,80</div>
-                            <md-icon-button slot="end" title="Remover item">
-                                <md-icon class="text-slate-400 hover:text-red-400">delete</md-icon>
-                            </md-icon-button>
-                        </md-list-item>
-
-                        <md-divider></md-divider>
-
-                        <md-list-item type="button">
-                            <md-icon slot="start" class="text-purple-400">settings</md-icon>
-                            <div slot="headline">Inserto Metálico Latão Roscado M3</div>
-                            <div slot="supporting-text">Aplicação térmica por ferro de solda</div>
-                            <div slot="trailing-supporting-text" class="font-numeric text-white font-medium">6 un &bull; R$ 7,20</div>
-                            <md-icon-button slot="end" title="Remover item">
-                                <md-icon class="text-slate-400 hover:text-red-400">delete</md-icon>
-                            </md-icon-button>
-                        </md-list-item>
-
-                        <md-divider></md-divider>
-
-                        <md-list-item type="button">
-                            <md-icon slot="start" class="text-emerald-400">cable</md-icon>
-                            <div slot="headline">Cabo Flat FFC 24 Vias 15cm</div>
-                            <div slot="supporting-text">Conexão da câmera e sensor de fim de curso</div>
-                            <div slot="trailing-supporting-text" class="font-numeric text-white font-medium">1 un &bull; R$ 12,50</div>
-                            <md-icon-button slot="end" title="Remover item">
-                                <md-icon class="text-slate-400 hover:text-red-400">delete</md-icon>
-                            </md-icon-button>
-                        </md-list-item>
-                    </md-list>
-                </div>
-            </div>
-
-            <!-- =================================================================
-                 VIEW: MÉTRICAS & AJUSTES (Controles Avançados M3)
-                 ================================================================= -->
-            <div id="panel-stats" class="space-y-6 hidden">
-                <div class="m3-card p-6 space-y-6">
-                    <md-elevation></md-elevation>
-                    <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
-                        <md-icon class="text-blue-400">fact_check</md-icon>
-                        <h3 class="md-typescale-title-medium font-bold text-white">Laboratório de Controles e Primitivas Material 3</h3>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        
-                        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-3">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Seleção e Checkboxes</h4>
-                            <div class="space-y-2">
-                                <label class="flex items-center gap-3 cursor-pointer">
-                                    <md-checkbox checked></md-checkbox>
-                                    <span class="text-xs text-slate-300">Suporte Tree Automático</span>
-                                </label>
-                                <label class="flex items-center gap-3 cursor-pointer">
-                                    <md-checkbox indeterminate></md-checkbox>
-                                    <span class="text-xs text-slate-300">Alisamento Ironing (Topo)</span>
-                                </label>
+            <section id="view-lists" class="view-panel" role="tabpanel" aria-label="Insumos e Chips" hidden>
+                <div class="grid-workspace">
+                    <md-elevated-card class="card-pad">
+                        <div class="row-between">
+                            <div class="col" style="gap: 4px;">
+                                <h2 class="md-typescale-title-large" style="margin:0;">Lista de Insumos (BOM) com &lt;md-list&gt; &amp; &lt;md-checkbox&gt;</h2>
+                                <span class="md-typescale-body-small muted-text">Componentes oficiais com slots semânticos e divisores M3.</span>
                             </div>
-                            <md-divider class="my-2"></md-divider>
-                            <div class="space-y-1">
-                                <span class="text-[11px] text-slate-400">Densidade de Preenchimento:</span>
-                                <div class="flex items-center gap-4 mt-1">
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <md-radio name="infill" value="15" checked></md-radio>
-                                        <span class="text-xs text-slate-300">15%</span>
-                                    </label>
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <md-radio name="infill" value="30"></md-radio>
-                                        <span class="text-xs text-slate-300">30%</span>
-                                    </label>
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <md-radio name="infill" value="100"></md-radio>
-                                        <span class="text-xs text-slate-300">100%</span>
-                                    </label>
+                            <md-filled-tonal-button id="btn-add-bom-item">
+                                <md-icon slot="icon">add</md-icon>
+                                Adicionar Insumo
+                            </md-filled-tonal-button>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <md-list id="bom-list">
+                            <md-list-item>
+                                <md-checkbox slot="start" checked aria-label="Selecionar Parafuso"></md-checkbox>
+                                <div slot="headline">Parafuso Cabeça Cilíndrica M3 x 12mm</div>
+                                <div slot="supporting-text">Fixação da tampa frontal articulada (Aço Inox 304)</div>
+                                <div slot="trailing-supporting-text" class="mono-num">8 un · R$ 4,80</div>
+                                <md-icon-button slot="end" class="bom-remove-btn" aria-label="Remover Parafuso">
+                                    <md-icon>delete</md-icon>
+                                </md-icon-button>
+                            </md-list-item>
+
+                            <md-divider inset></md-divider>
+
+                            <md-list-item>
+                                <md-checkbox slot="start" checked aria-label="Selecionar Inserto"></md-checkbox>
+                                <div slot="headline">Inserto Metálico Latão Roscado M3</div>
+                                <div slot="supporting-text">Aplicação térmica por ferro de solda</div>
+                                <div slot="trailing-supporting-text" class="mono-num">6 un · R$ 7,20</div>
+                                <md-icon-button slot="end" class="bom-remove-btn" aria-label="Remover Inserto">
+                                    <md-icon>delete</md-icon>
+                                </md-icon-button>
+                            </md-list-item>
+
+                            <md-divider inset></md-divider>
+
+                            <md-list-item>
+                                <md-checkbox slot="start" aria-label="Selecionar Cabo Flat"></md-checkbox>
+                                <div slot="headline">Cabo Flat FFC 24 Vias 15cm</div>
+                                <div slot="supporting-text">Conexão interna do módulo óptico</div>
+                                <div slot="trailing-supporting-text" class="mono-num">1 un · R$ 12,50</div>
+                                <md-icon-button slot="end" class="bom-remove-btn" aria-label="Remover Cabo Flat">
+                                    <md-icon>delete</md-icon>
+                                </md-icon-button>
+                            </md-list-item>
+                        </md-list>
+                    </md-elevated-card>
+
+                    <!-- All 4 Official M3 Chip Archetypes -->
+                    <md-outlined-card class="card-pad">
+                        <h2 class="md-typescale-title-medium" style="margin:0;">Todos os 4 Chips Oficiais (@material/web/chips)</h2>
+
+                        <div class="col" style="gap: 8px;">
+                            <span class="md-typescale-label-medium muted-text">Filter Chips (&lt;md-filter-chip&gt;)</span>
+                            <md-chip-set aria-label="Filtros de Status">
+                                <md-filter-chip label="Todos" selected></md-filter-chip>
+                                <md-filter-chip label="Aprovados"></md-filter-chip>
+                                <md-filter-chip label="Em Produção" removable></md-filter-chip>
+                            </md-chip-set>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <div class="col" style="gap: 8px;">
+                            <span class="md-typescale-label-medium muted-text">Input Chips Removíveis (&lt;md-input-chip&gt;)</span>
+                            <md-chip-set id="dynamic-input-chips" aria-label="Tags do Projeto">
+                                <md-input-chip label="Bambu Lab AMS" avatar>
+                                    <md-icon slot="icon">memory</md-icon>
+                                </md-input-chip>
+                                <md-input-chip label="Sem Suporte"></md-input-chip>
+                                <md-input-chip label="Cliente VIP"></md-input-chip>
+                            </md-chip-set>
+                            <div class="row" style="margin-top: 4px;">
+                                <md-outlined-text-field id="new-tag-input" label="Nova Tag" placeholder="Ex: Alta Precisão"></md-outlined-text-field>
+                                <md-filled-tonal-icon-button id="btn-add-tag" aria-label="Adicionar Tag">
+                                    <md-icon>add</md-icon>
+                                </md-filled-tonal-icon-button>
+                            </div>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <div class="col" style="gap: 8px;">
+                            <span class="md-typescale-label-medium muted-text">Assist &amp; Suggestion Chips</span>
+                            <md-chip-set aria-label="Ações e Sugestões Rápidas">
+                                <md-assist-chip label="Exportar STL">
+                                    <md-icon slot="icon">download</md-icon>
+                                </md-assist-chip>
+                                <md-suggestion-chip label="+15% Desconto Volume"></md-suggestion-chip>
+                                <md-suggestion-chip label="Entrega Expressa 24h"></md-suggestion-chip>
+                            </md-chip-set>
+                        </div>
+                    </md-outlined-card>
+                </div>
+            </section>
+
+            <!-- =================================================================
+                 TAB 2: CATÁLOGO OFICIAL COMPLETO (@material/web Kitchen Sink)
+                 ================================================================= -->
+            <section id="view-showcase" class="view-panel" role="tabpanel" aria-label="Catálogo Oficial" hidden>
+
+                <!-- Section A: Theme Studio + Dynamic HCT Color Swatches -->
+                <md-elevated-card class="card-pad">
+                    <div class="row-between">
+                        <div class="col" style="gap: 4px;">
+                            <h2 class="md-typescale-headline-small" style="margin:0;">Sistema de Cores Dinâmicas HCT (@material/material-color-utilities)</h2>
+                            <span class="md-typescale-body-medium muted-text">Cada Seed Color calcula matematicamente todas as paletas tonais e Container Tiers oficiais do M3.</span>
+                        </div>
+                        <div class="row-wrap" id="showcase-seed-picker">
+                            <button type="button" class="seed-btn" data-seed="#6750A4" style="background:#6750A4;" aria-label="M3 Purple" aria-pressed="false"></button>
+                            <button type="button" class="seed-btn" data-seed="#2563EB" style="background:#2563EB;" aria-label="Royal Cobalt" aria-pressed="true"></button>
+                            <button type="button" class="seed-btn" data-seed="#006874" style="background:#006874;" aria-label="Teal" aria-pressed="false"></button>
+                            <button type="button" class="seed-btn" data-seed="#006D3B" style="background:#006D3B;" aria-label="Emerald" aria-pressed="false"></button>
+                            <button type="button" class="seed-btn" data-seed="#B3261E" style="background:#B3261E;" aria-label="Crimson" aria-pressed="false"></button>
+                            <md-outlined-text-field id="custom-seed-hex" label="Hex Custom" value="#2563EB" style="width: 145px;"></md-outlined-text-field>
+                        </div>
+                    </div>
+
+                    <div class="swatch-grid">
+                        <div class="swatch-tile" style="background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary);">
+                            <span class="md-typescale-label-large">Primary</span>
+                            <span class="md-typescale-body-small mono-num" data-swatch-token="--md-sys-color-primary"></span>
+                        </div>
+                        <div class="swatch-tile" style="background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container);">
+                            <span class="md-typescale-label-large">Primary Container</span>
+                            <span class="md-typescale-body-small mono-num" data-swatch-token="--md-sys-color-primary-container"></span>
+                        </div>
+                        <div class="swatch-tile" style="background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);">
+                            <span class="md-typescale-label-large">Secondary Container</span>
+                            <span class="md-typescale-body-small mono-num" data-swatch-token="--md-sys-color-secondary-container"></span>
+                        </div>
+                        <div class="swatch-tile" style="background: var(--md-sys-color-tertiary-container); color: var(--md-sys-color-on-tertiary-container);">
+                            <span class="md-typescale-label-large">Tertiary Container</span>
+                            <span class="md-typescale-body-small mono-num" data-swatch-token="--md-sys-color-tertiary-container"></span>
+                        </div>
+                        <div class="swatch-tile" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container);">
+                            <span class="md-typescale-label-large">Error Container</span>
+                            <span class="md-typescale-body-small mono-num" data-swatch-token="--md-sys-color-error-container"></span>
+                        </div>
+                        <div class="swatch-tile" style="background: var(--md-sys-color-surface-container-highest); color: var(--md-sys-color-on-surface);">
+                            <span class="md-typescale-label-large">Surface High</span>
+                            <span class="md-typescale-body-small mono-num" data-swatch-token="--md-sys-color-surface-container-highest"></span>
+                        </div>
+                    </div>
+                </md-elevated-card>
+
+                <!-- Section B: All Button, Icon Button & FAB Variants -->
+                <md-outlined-card class="card-pad">
+                    <h2 class="md-typescale-title-large" style="margin:0;">Botões, Icon Buttons &amp; FABs Oficiais</h2>
+
+                    <div class="col" style="gap: 16px;">
+                        <div class="col" style="gap: 8px;">
+                            <span class="md-typescale-label-medium muted-text">5 Variantes de Botão (@material/web/button)</span>
+                            <div class="row-wrap">
+                                <md-filled-button><md-icon slot="icon">check</md-icon>Filled</md-filled-button>
+                                <md-filled-tonal-button><md-icon slot="icon">add</md-icon>Filled Tonal</md-filled-tonal-button>
+                                <md-elevated-button><md-icon slot="icon">star</md-icon>Elevated</md-elevated-button>
+                                <md-outlined-button><md-icon slot="icon">edit</md-icon>Outlined</md-outlined-button>
+                                <md-text-button><md-icon slot="icon">info</md-icon>Text Button</md-text-button>
+                                <md-filled-button disabled>Disabled</md-filled-button>
+                            </div>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <div class="grid-2col">
+                            <div class="col" style="gap: 8px;">
+                                <span class="md-typescale-label-medium muted-text">4 Variantes de Icon Button + Toggle</span>
+                                <div class="row-wrap">
+                                    <md-icon-button aria-label="Standard"><md-icon>favorite</md-icon></md-icon-button>
+                                    <md-filled-icon-button aria-label="Filled"><md-icon>settings</md-icon></md-filled-icon-button>
+                                    <md-filled-tonal-icon-button aria-label="Filled Tonal"><md-icon>share</md-icon></md-filled-tonal-icon-button>
+                                    <md-outlined-icon-button aria-label="Outlined"><md-icon>bookmark</md-icon></md-outlined-icon-button>
+                                    <md-filled-icon-button toggle selected aria-label="Toggle Favorito" title="Clique para alternar">
+                                        <md-icon>favorite_border</md-icon>
+                                        <md-icon slot="selected" class="filled">favorite</md-icon>
+                                    </md-filled-icon-button>
+                                </div>
+                            </div>
+
+                            <div class="col" style="gap: 8px;">
+                                <span class="md-typescale-label-medium muted-text">FABs &amp; Branded FAB (@material/web/fab)</span>
+                                <div class="row-wrap">
+                                    <md-fab size="small" variant="surface" aria-label="FAB Small"><md-icon slot="icon">edit</md-icon></md-fab>
+                                    <md-fab variant="primary" aria-label="FAB Medium"><md-icon slot="icon">add</md-icon></md-fab>
+                                    <md-fab size="large" variant="secondary" aria-label="FAB Large"><md-icon slot="icon">layers</md-icon></md-fab>
+                                    <md-fab variant="tertiary" label="Extended FAB"><md-icon slot="icon">play_arrow</md-icon></md-fab>
+                                    <md-branded-fab label="Branded">
+                                        <svg slot="icon" viewBox="0 0 36 36" width="24" height="24">
+                                            <path fill="#34A853" d="M16 16v14h4V20z"/>
+                                            <path fill="#4285F4" d="M30 16H20l-4 4h14z"/>
+                                            <path fill="#FBBC05" d="M6 16v4h10l4-4z"/>
+                                            <path fill="#EA4335" d="M20 16V6h-4v14z"/>
+                                        </svg>
+                                    </md-branded-fab>
                                 </div>
                             </div>
                         </div>
-
-                        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-3 flex flex-col items-center justify-center text-center">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Circular Progress M3</h4>
-                            <div class="flex items-center gap-6 py-2">
-                                <md-circular-progress indeterminate four-color></md-circular-progress>
-                                <md-circular-progress value="0.75"></md-circular-progress>
-                            </div>
-                            <p class="text-xs text-slate-400">Alternância automática das 4 cores dinâmicas (Primary, Secondary, Tertiary, Error).</p>
-                        </div>
-
-                        <div class="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-3">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Floating Action Buttons (FAB)</h4>
-                            <div class="flex flex-wrap items-center gap-3 pt-2">
-                                <md-fab variant="primary" label="Novo Job" lowered>
-                                    <md-icon slot="icon">add</md-icon>
-                                </md-fab>
-                                <md-fab variant="secondary">
-                                    <md-icon slot="icon">edit</md-icon>
-                                </md-fab>
-                            </div>
-                            <p class="text-xs text-slate-400">FABs estendidos ou compactos com foco e microinterações.</p>
-                        </div>
-
                     </div>
-                </div>
-            </div>
+                </md-outlined-card>
 
+                <!-- Section C: Filled vs Outlined Text Fields & Selects + Validation -->
+                <md-elevated-card class="card-pad">
+                    <h2 class="md-typescale-title-large" style="margin:0;">Text Fields &amp; Selects (Filled e Outlined)</h2>
+                    <div class="grid-2col">
+                        <div class="col">
+                            <md-filled-text-field label="Filled Text Field" value="Peça Técnica 01" supporting-text="Com contador máximo" maxlength="40">
+                                <md-icon slot="leading-icon">search</md-icon>
+                                <md-icon-button slot="trailing-icon" aria-label="Limpar"><md-icon>close</md-icon></md-icon-button>
+                            </md-filled-text-field>
+
+                            <md-filled-select label="Filled Select" menu-positioning="popover">
+                                <md-icon slot="leading-icon">category</md-icon>
+                                <md-select-option value="1" selected><div slot="headline">Impressão FDM Industrial</div></md-select-option>
+                                <md-select-option value="2"><div slot="headline">Resina SLA / MSLA 8K</div></md-select-option>
+                            </md-filled-select>
+
+                            <md-filled-text-field type="textarea" label="Notas do Orçamento (Textarea)" rows="3" value="Acabamento lixado 400 grit e embalagem reforçada."></md-filled-text-field>
+                        </div>
+
+                        <div class="col">
+                            <md-outlined-text-field label="Outlined com Erro" value="valor-inválido" error error-text="Informe um número decimal positivo." required>
+                                <md-icon slot="trailing-icon">error</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-select label="Outlined Select" menu-positioning="popover">
+                                <md-icon slot="leading-icon">local_shipping</md-icon>
+                                <md-select-option value="sedex" selected><div slot="headline">Sedex Expresso (2 dias)</div></md-select-option>
+                                <md-select-option value="retirada"><div slot="headline">Retirada na Oficina</div></md-select-option>
+                            </md-outlined-select>
+
+                            <md-outlined-text-field label="Preço Unitário" type="number" step="any" prefix-text="R$" suffix-text="/un" value="49.90"></md-outlined-text-field>
+                        </div>
+                    </div>
+                </md-elevated-card>
+
+                <!-- Section D: Selection, Range Slider & Progress Indicators -->
+                <div class="grid-2col">
+                    <md-outlined-card class="card-pad">
+                        <h2 class="md-typescale-title-medium" style="margin:0;">Checkboxes, Radios, Switches &amp; Range Slider</h2>
+
+                        <div class="row-wrap">
+                            <label class="row" style="cursor:pointer;"><md-checkbox checked></md-checkbox><span class="md-typescale-body-medium">Checked</span></label>
+                            <label class="row" style="cursor:pointer;"><md-checkbox indeterminate></md-checkbox><span class="md-typescale-body-medium">Indeterminate</span></label>
+                            <label class="row" style="cursor:pointer;"><md-checkbox></md-checkbox><span class="md-typescale-body-medium">Unchecked</span></label>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <div class="row-wrap" role="radiogroup" aria-label="Altura de Camada">
+                            <label class="row" style="cursor:pointer;"><md-radio name="layer-height" value="0.12"></md-radio><span class="md-typescale-body-medium">0.12mm (Fino)</span></label>
+                            <label class="row" style="cursor:pointer;"><md-radio name="layer-height" value="0.20" checked></md-radio><span class="md-typescale-body-medium">0.20mm (Padrão)</span></label>
+                            <label class="row" style="cursor:pointer;"><md-radio name="layer-height" value="0.28"></md-radio><span class="md-typescale-body-medium">0.28mm (Rápido)</span></label>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <div class="col" style="gap: 4px;">
+                            <span class="md-typescale-label-medium muted-text">Range Slider de 2 Alças (&lt;md-slider range&gt;)</span>
+                            <md-slider range min="180" max="280" value-start="200" value-end="230" step="5" labeled aria-label="Faixa de Temperatura do Bico"></md-slider>
+                        </div>
+                    </md-outlined-card>
+
+                    <md-outlined-card class="card-pad">
+                        <h2 class="md-typescale-title-medium" style="margin:0;">Indicadores de Progresso &amp; Secondary Tabs</h2>
+
+                        <div class="row-wrap" style="justify-content: space-around; padding: 8px 0;">
+                            <div class="col" style="align-items: center;">
+                                <md-circular-progress indeterminate four-color aria-label="Carregando 4 cores"></md-circular-progress>
+                                <span class="md-typescale-label-small muted-text">4-Color Indeterminate</span>
+                            </div>
+                            <div class="col" style="align-items: center;">
+                                <md-circular-progress value="0.72" aria-label="72% concluído"></md-circular-progress>
+                                <span class="md-typescale-label-small muted-text">Determinate (72%)</span>
+                            </div>
+                        </div>
+
+                        <div class="col" style="gap: 8px;">
+                            <span class="md-typescale-label-small muted-text">Linear Progress Four-Color Indeterminate</span>
+                            <md-linear-progress indeterminate four-color aria-label="Processando fatiamento"></md-linear-progress>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <md-tabs aria-label="Abas Secundárias M3">
+                            <md-secondary-tab selected>G-code Preview</md-secondary-tab>
+                            <md-secondary-tab>Custo de Energia</md-secondary-tab>
+                            <md-secondary-tab>Log Térmico</md-secondary-tab>
+                        </md-tabs>
+                    </md-outlined-card>
+                </div>
+
+                <!-- Section E: Primitives (Elevation, Ripple, Focus Ring) & Dialog Triggers -->
+                <md-filled-card class="card-pad">
+                    <div class="row-between">
+                        <div class="col" style="gap: 4px;">
+                            <h2 class="md-typescale-title-medium" style="margin:0;">Primitivas M3 (&lt;md-elevation&gt;, &lt;md-ripple&gt;, &lt;md-focus-ring&gt;) &amp; Dialogs</h2>
+                            <span class="md-typescale-body-small muted-text">Clique ou navegue por TAB para sentir ripple, focus-ring e níveis reais de sombra.</span>
+                        </div>
+                        <div class="row-wrap">
+                            <md-outlined-button id="btn-open-alert-dialog">
+                                <md-icon slot="icon">warning</md-icon>
+                                Alert Dialog
+                            </md-outlined-button>
+                            <md-filled-tonal-button id="btn-open-scrollable-dialog">
+                                <md-icon slot="icon">description</md-icon>
+                                Scrollable Dialog
+                            </md-filled-tonal-button>
+                        </div>
+                    </div>
+
+                    <div class="grid-3col">
+                        <div class="primitive-demo-card" tabindex="0" style="--md-elevation-level: 1;">
+                            <md-elevation></md-elevation>
+                            <md-ripple></md-ripple>
+                            <md-focus-ring></md-focus-ring>
+                            <md-icon>layers</md-icon>
+                            <span class="md-typescale-title-small">Elevation Level 1</span>
+                            <span class="md-typescale-body-small muted-text">Com Ripple &amp; Focus Ring</span>
+                        </div>
+                        <div class="primitive-demo-card" tabindex="0" style="--md-elevation-level: 3;">
+                            <md-elevation></md-elevation>
+                            <md-ripple></md-ripple>
+                            <md-focus-ring></md-focus-ring>
+                            <md-icon>layers</md-icon>
+                            <span class="md-typescale-title-small">Elevation Level 3</span>
+                            <span class="md-typescale-body-small muted-text">Pressione TAB ou clique</span>
+                        </div>
+                        <div class="primitive-demo-card" tabindex="0" style="--md-elevation-level: 5;">
+                            <md-elevation></md-elevation>
+                            <md-ripple></md-ripple>
+                            <md-focus-ring></md-focus-ring>
+                            <md-icon>layers</md-icon>
+                            <span class="md-typescale-title-small">Elevation Level 5</span>
+                            <span class="md-typescale-body-small muted-text">Sombra M3 máxima</span>
+                        </div>
+                    </div>
+                </md-filled-card>
+
+                <!-- Section F: Official Material 3 Typography Scale -->
+                <md-outlined-card class="card-pad">
+                    <h2 class="md-typescale-title-large" style="margin:0;">Escala Tipográfica Oficial (md-typescale-styles)</h2>
+                    <md-divider></md-divider>
+                    <div class="col" style="gap: 8px;">
+                        <div class="md-typescale-display-small">Display Small — Engenharia 3D</div>
+                        <div class="md-typescale-headline-medium">Headline Medium — Painel de Orçamentos</div>
+                        <div class="md-typescale-title-large">Title Large — Bambu Lab P1S</div>
+                        <div class="md-typescale-title-medium">Title Medium — Parâmetros de Fatiamento</div>
+                        <div class="md-typescale-body-large">Body Large — Cálculo preciso de consumo energético, depreciação de máquina e massa de polímero.</div>
+                        <div class="md-typescale-body-medium muted-text">Body Medium — Texto secundário alinhado aos tokens de superfície e contraste WCAG AA/AAA.</div>
+                        <div class="md-typescale-label-large">Label Large · Rótulo de Botão e Destaque</div>
+                    </div>
+                </md-outlined-card>
+            </section>
         </main>
+
+        <!-- Docked Bottom Navigation Bar (@material/web/labs/navigationbar) Synced with Main Tabs -->
+        <div class="bottom-nav-dock">
+            <md-navigation-bar id="bottom-nav-bar" active-index="0" aria-label="Barra de Navegação Inferior">
+                <md-navigation-tab label="Calculadora">
+                    <md-icon slot="inactive-icon">calculate</md-icon>
+                    <md-icon slot="active-icon" class="filled">calculate</md-icon>
+                </md-navigation-tab>
+                <md-navigation-tab label="Insumos" badge-value="3" show-badge>
+                    <md-icon slot="inactive-icon">inventory_2</md-icon>
+                    <md-icon slot="active-icon" class="filled">inventory_2</md-icon>
+                </md-navigation-tab>
+                <md-navigation-tab label="Catálogo M3">
+                    <md-icon slot="inactive-icon">widgets</md-icon>
+                    <md-icon slot="active-icon" class="filled">widgets</md-icon>
+                </md-navigation-tab>
+            </md-navigation-bar>
+        </div>
+    </div>
+
+    <!-- Floating Extended FAB -->
+    <div class="fab-dock">
+        <md-fab variant="primary" id="fab-new-filament" label="Novo Filamento" aria-label="Cadastrar Novo Filamento">
+            <md-icon slot="icon">add</md-icon>
+        </md-fab>
     </div>
 
     <!-- =========================================================================
-         MODAL / DIALOG NATIVO M3 (Com Slots Semânticos e Ligadura Correta)
+         OFFICIAL DIALOGS (<md-dialog>)
          ========================================================================= -->
+
+    <!-- 1. Form Dialog: Add Filament directly to calculator -->
     <md-dialog id="m3-dialog-catalog">
-        <md-icon slot="icon" class="text-blue-400">palette</md-icon>
+        <md-icon slot="icon">palette</md-icon>
         <div slot="headline">Cadastrar Novo Filamento</div>
 
-        <form slot="content" id="m3-dialog-form" class="space-y-4 pt-2">
-            <p class="text-xs text-slate-400 leading-relaxed">
-                Diálogo oficial construído com <code>&lt;md-dialog&gt;</code> do Google Material 3 com foco automático e fechamento nativo por tecla ESC.
-            </p>
+        <form slot="content" id="m3-dialog-form" method="dialog" class="col" style="padding-top: 8px;">
+            <span class="md-typescale-body-medium muted-text">
+                O material cadastrado será adicionado imediatamente ao seletor da calculadora.
+            </span>
 
-            <md-outlined-text-field id="m3-input-filament-name" label="Nome do Carretel" value="3D Prime PETG Carbon">
+            <md-outlined-text-field id="m3-input-filament-name" label="Nome do Carretel" value="ASA Industrial Preto" required>
                 <md-icon slot="leading-icon">label</md-icon>
             </md-outlined-text-field>
-            
-            <md-outlined-select id="m3-input-filament-type" label="Tipo de Polímero">
+
+            <md-outlined-select id="m3-input-filament-type" label="Polímero" menu-positioning="popover">
                 <md-icon slot="leading-icon">category</md-icon>
-                <md-select-option value="PLA"><div slot="headline">PLA (Ácido Polilático)</div></md-select-option>
-                <md-select-option value="PETG" selected><div slot="headline">PETG (Copolímero)</div></md-select-option>
-                <md-select-option value="ABS"><div slot="headline">ABS Industrial</div></md-select-option>
+                <md-select-option value="PLA"><div slot="headline">PLA</div></md-select-option>
+                <md-select-option value="PETG"><div slot="headline">PETG</div></md-select-option>
+                <md-select-option value="ASA" selected><div slot="headline">ASA Industrial</div></md-select-option>
                 <md-select-option value="TPU"><div slot="headline">TPU Flexível</div></md-select-option>
             </md-outlined-select>
 
-            <div class="grid grid-cols-2 gap-3">
-                <md-outlined-text-field id="m3-input-filament-price" type="number" step="any" label="Preço de Compra" value="160.00" prefix-text="R$"></md-outlined-text-field>
-                <md-outlined-text-field id="m3-input-filament-spool" type="number" step="any" label="Peso Líquido" value="1000" suffix-text="g"></md-outlined-text-field>
+            <div class="dialog-row-2">
+                <md-outlined-text-field id="m3-input-filament-price" type="number" step="any" min="0" label="Preço do Rolo" value="195.00" prefix-text="R$" required></md-outlined-text-field>
+                <md-outlined-text-field id="m3-input-filament-spool" type="number" step="any" min="1" label="Peso Líquido" value="1000" suffix-text="g" required></md-outlined-text-field>
             </div>
         </form>
 
         <div slot="actions">
-            <md-text-button id="m3-btn-dialog-close">Cancelar</md-text-button>
-            <md-filled-button id="m3-btn-dialog-confirm">Salvar no Catálogo</md-filled-button>
+            <md-text-button id="m3-btn-dialog-close" form="m3-dialog-form" value="cancel">Cancelar</md-text-button>
+            <md-filled-button id="m3-btn-dialog-confirm" value="save">Salvar e Selecionar</md-filled-button>
         </div>
     </md-dialog>
 
-    <!-- Toast Notification M3 -->
-    <div id="m3-toast" class="fixed bottom-6 right-6 z-50 transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none p-4 rounded-2xl bg-slate-900 border border-blue-500/50 text-white shadow-2xl flex items-center gap-3">
-        <md-icon class="text-blue-400" id="m3-toast-icon">check_circle</md-icon>
-        <span class="text-xs font-medium" id="m3-toast-text">Notificação do sistema</span>
+    <!-- 2. Alert Confirmation Dialog -->
+    <md-dialog id="m3-dialog-alert" type="alert">
+        <md-icon slot="icon">delete_forever</md-icon>
+        <div slot="headline">Restaurar parâmetros?</div>
+        <div slot="content" class="md-typescale-body-medium muted-text">
+            Esta ação retorna o tempo de impressão, massa e margem de lucro aos valores originais da demonstração.
+        </div>
+        <div slot="actions">
+            <md-text-button id="alert-cancel-btn">Cancelar</md-text-button>
+            <md-filled-button id="alert-confirm-btn">Restaurar</md-filled-button>
+        </div>
+    </md-dialog>
+
+    <!-- 3. Scrollable Dialog -->
+    <md-dialog id="m3-dialog-scrollable">
+        <div slot="headline">Termos Técnicos &amp; Especificação M3</div>
+        <div slot="content" class="col">
+            <p class="md-typescale-body-medium muted-text">
+                Este componente utiliza <code>&lt;md-dialog&gt;</code> nativo do <code>@material/web</code> com divisores automáticos durante a rolagem de conteúdo extenso.
+            </p>
+            <p class="md-typescale-body-medium">1. Superfícies &amp; Elevação: As camadas tonais seguem rigorosamente a progressão Surface Container Lowest → Highest calculada em espaço perceptivo HCT pelo pacote <code>@material/material-color-utilities</code>.</p>
+            <p class="md-typescale-body-medium">2. Contraste Acessível: Todos os pares <em>surface / on-surface</em> e <em>container / on-container</em> preservam razão mínima WCAG 4.5:1 automaticamente tanto no tema claro quanto no tema escuro.</p>
+            <p class="md-typescale-body-medium">3. Formulários &amp; Associação: Campos como <code>&lt;md-outlined-text-field&gt;</code>, <code>&lt;md-checkbox&gt;</code> e <code>&lt;md-switch&gt;</code> implementam <em>Form-Associated Custom Elements</em> via <code>ElementInternals</code>.</p>
+            <p class="md-typescale-body-medium">4. Navegação Adaptativa: O Drawer modal, as Primary Tabs e a Navigation Bar inferior permanecem sincronizados pelo mesmo estado de índice ativo.</p>
+        </div>
+        <div slot="actions">
+            <md-text-button id="scrollable-close-btn">Fechar</md-text-button>
+        </div>
+    </md-dialog>
+
+    <!-- M3 Snackbar Feedback -->
+    <div id="m3-snackbar" class="m3-snackbar" role="status" aria-live="polite">
+        <md-icon id="m3-snackbar-icon">check_circle</md-icon>
+        <span id="m3-snackbar-text" class="md-typescale-body-medium">Ação concluída</span>
     </div>
 
     <!-- =========================================================================
-         REACTIVE CONTROLLER SCRIPT (Interações e Motor de Cálculo)
+         DYNAMIC THEME ENGINE (@material/material-color-utilities) + CONTROLLERS
          ========================================================================= -->
-    <script>
+    <script type="module">
+        import {
+            argbFromHex,
+            themeFromSourceColor,
+            applyTheme,
+            hexFromArgb,
+        } from '@material/material-color-utilities';
+
+        // ---------------------------------------------------------------------
+        // 1. Official Dynamic Theme Manager (HCT + Surface Container Tones)
+        // ---------------------------------------------------------------------
+        let currentSeed = '#2563EB';
+        const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        let isDarkMode = colorSchemeQuery.matches;
+        let userOverrodeTheme = false;
+
+        function applyOfficialM3Theme(seedHex, dark) {
+            currentSeed = seedHex;
+            isDarkMode = dark;
+
+            const theme = themeFromSourceColor(argbFromHex(seedHex));
+            const root = document.documentElement;
+
+            // Inject standard M3 system color variables from @material/material-color-utilities
+            applyTheme(theme, { target: root, dark });
+
+            // Compute official M3 2023 Surface Container tones directly from Neutral TonalPalette
+            const neutral = theme.palettes.neutral;
+            const tones = dark
+                ? {
+                    'surface-dim': 6,
+                    'surface-bright': 24,
+                    'surface-container-lowest': 4,
+                    'surface-container-low': 10,
+                    'surface-container': 12,
+                    'surface-container-high': 17,
+                    'surface-container-highest': 22,
+                }
+                : {
+                    'surface-dim': 87,
+                    'surface-bright': 98,
+                    'surface-container-lowest': 100,
+                    'surface-container-low': 96,
+                    'surface-container': 94,
+                    'surface-container-high': 92,
+                    'surface-container-highest': 90,
+                };
+
+            for (const [token, toneVal] of Object.entries(tones)) {
+                root.style.setProperty(`--md-sys-color-${token}`, hexFromArgb(neutral.tone(toneVal)));
+            }
+
+            // Ensure surface & background match modern M3 tonal baseline
+            const surfaceHex = hexFromArgb(neutral.tone(dark ? 6 : 98));
+            root.style.setProperty('--md-sys-color-surface', surfaceHex);
+            root.style.setProperty('--md-sys-color-background', surfaceHex);
+
+            // Sync document color-scheme & toggle button
+            root.dataset.theme = dark ? 'dark' : 'light';
+            root.style.colorScheme = dark ? 'dark' : 'light';
+
+            const themeBtn = document.getElementById('theme-mode-toggle');
+            if (themeBtn) themeBtn.selected = dark;
+
+            // Update seed indicators & live swatch hex readouts
+            document.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.setAttribute('aria-pressed', btn.dataset.seed?.toUpperCase() === seedHex.toUpperCase() ? 'true' : 'false');
+            });
+            const hexInput = document.getElementById('custom-seed-hex');
+            if (hexInput && document.activeElement !== hexInput) {
+                hexInput.value = seedHex;
+            }
+            refreshSwatchLabels();
+        }
+
+        function refreshSwatchLabels() {
+            const styles = getComputedStyle(document.documentElement);
+            document.querySelectorAll('[data-swatch-token]').forEach(el => {
+                const token = el.getAttribute('data-swatch-token');
+                if (token) el.textContent = styles.getPropertyValue(token).trim().toUpperCase();
+            });
+        }
+
+        colorSchemeQuery.addEventListener('change', (e) => {
+            if (!userOverrodeTheme) {
+                applyOfficialM3Theme(currentSeed, e.matches);
+            }
+        });
+
+        // ---------------------------------------------------------------------
+        // 2. Snackbar Feedback
+        // ---------------------------------------------------------------------
+        let snackbarTimer = null;
+        function showSnackbar(message, icon = 'check_circle') {
+            const bar = document.getElementById('m3-snackbar');
+            const textEl = document.getElementById('m3-snackbar-text');
+            const iconEl = document.getElementById('m3-snackbar-icon');
+            if (!bar) return;
+
+            textEl.textContent = message;
+            iconEl.textContent = icon;
+            bar.classList.add('visible');
+
+            clearTimeout(snackbarTimer);
+            snackbarTimer = setTimeout(() => bar.classList.remove('visible'), 3200);
+        }
+
+        // ---------------------------------------------------------------------
+        // 3. Synchronized View Switching (Tabs, Navigation Bar & Drawer)
+        // ---------------------------------------------------------------------
+        const VIEW_PANELS = ['view-calc', 'view-lists', 'view-showcase'];
+        function setActiveView(index) {
+            const clamped = Math.max(0, Math.min(index, VIEW_PANELS.length - 1));
+            VIEW_PANELS.forEach((id, i) => {
+                const el = document.getElementById(id);
+                if (el) el.hidden = (i !== clamped);
+            });
+
+            const tabs = document.getElementById('main-tabs');
+            if (tabs && tabs.activeTabIndex !== clamped) {
+                tabs.activeTabIndex = clamped;
+            }
+            const bottomNav = document.getElementById('bottom-nav-bar');
+            if (bottomNav && bottomNav.activeIndex !== clamped) {
+                bottomNav.activeIndex = clamped;
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 4. 3D Print Cost Calculator Engine
+        // ---------------------------------------------------------------------
         const PRINTER_RATES = {
-            'bambu_p1s': { rate: 4.50, label: 'Bambu Lab P1S' },
-            'ender3_v3': { rate: 3.20, label: 'Creality Ender-3 V3' },
-            'voron24': { rate: 6.80, label: 'Voron 2.4 High-Speed' }
+            bambu_p1s: { rate: 4.50, label: 'Bambu Lab P1S' },
+            ender3_v3: { rate: 3.20, label: 'Creality Ender-3 V3' },
+            voron24: { rate: 6.80, label: 'Voron 2.4 High-Speed' },
         };
 
         const FILAMENT_RATES = {
-            'pla_basic': { rate: 0.11, label: 'PLA Basic' },
-            'petg_cf': { rate: 0.22, label: 'PETG-CF' },
-            'tpu_95a': { rate: 0.18, label: 'TPU 95A' },
-            'abs_premium': { rate: 0.13, label: 'ABS Pro' }
+            pla_basic: { rate: 0.11, label: 'PLA Basic' },
+            petg_cf: { rate: 0.22, label: 'PETG-CF' },
+            tpu_95a: { rate: 0.18, label: 'TPU 95A' },
+            abs_premium: { rate: 0.13, label: 'ABS Pro' },
         };
 
-        function recalculateLiveSummary() {
+        const brl = (val) => `R$ ${val.toFixed(2).replace('.', ',')}`;
+
+        function recalculate() {
             const printerKey = document.getElementById('m3-printer-select')?.value || 'bambu_p1s';
             const filamentKey = document.getElementById('m3-filament-select')?.value || 'pla_basic';
-            
             const hours = parseFloat(document.getElementById('m3-time-hours')?.value || 0) || 0;
             const minutes = parseFloat(document.getElementById('m3-time-minutes')?.value || 0) || 0;
             const weight = parseFloat(document.getElementById('m3-weight-grams')?.value || 0) || 0;
-            
-            const slider = document.getElementById('m3-profit-slider');
-            const marginPercent = parseFloat(slider?.value || 50);
-            
-            const sliderDisplay = document.getElementById('m3-slider-display');
-            if (sliderDisplay) sliderDisplay.textContent = `${marginPercent}%`;
+            const margin = parseFloat(document.getElementById('m3-profit-slider')?.value || 50);
 
-            const hasFailureMargin = document.getElementById('m3-failure-switch')?.selected ?? true;
-            const hasPostProcess = document.getElementById('m3-postprocess-switch')?.selected ?? false;
+            document.getElementById('m3-slider-display').textContent = `${margin}%`;
 
-            // Fórmulas
+            const hasFailure = document.getElementById('m3-failure-switch')?.selected ?? true;
+            const hasPost = document.getElementById('m3-postprocess-switch')?.selected ?? false;
+
+            const printer = PRINTER_RATES[printerKey] || PRINTER_RATES.bambu_p1s;
+            const filament = FILAMENT_RATES[filamentKey] || FILAMENT_RATES.pla_basic;
+
             const totalHours = hours + (minutes / 60);
-            const printerData = PRINTER_RATES[printerKey] || { rate: 4.50, label: 'Bambu Lab P1S' };
-            const machineCost = totalHours * printerData.rate;
+            const machineCost = totalHours * printer.rate;
+            const materialCost = weight * filament.rate;
+            const failureCost = hasFailure ? (machineCost + materialCost) * 0.10 : 0;
+            const postCost = hasPost ? 15.00 : 0;
 
-            const filamentData = FILAMENT_RATES[filamentKey] || { rate: 0.11, label: 'PLA Basic' };
-            const materialCost = weight * filamentData.rate;
-
-            const failureCost = hasFailureMargin ? (machineCost + materialCost) * 0.10 : 0.00;
-            const postProcessCost = hasPostProcess ? 15.00 : 0.00;
-
-            const baseCost = machineCost + materialCost + failureCost + postProcessCost;
-            const finalPrice = baseCost * (1 + (marginPercent / 100));
+            const baseCost = machineCost + materialCost + failureCost + postCost;
+            const finalPrice = baseCost * (1 + margin / 100);
             const netProfit = finalPrice - baseCost;
 
-            // Atualização dos elementos na tela
-            document.getElementById('res-machine-cost').textContent = `R$ ${machineCost.toFixed(2).replace('.', ',')}`;
-            document.getElementById('res-material-cost').textContent = `R$ ${materialCost.toFixed(2).replace('.', ',')}`;
-            document.getElementById('res-failure-cost').textContent = `R$ ${failureCost.toFixed(2).replace('.', ',')}`;
-            document.getElementById('res-postprocess-cost').textContent = `R$ ${postProcessCost.toFixed(2).replace('.', ',')}`;
-            document.getElementById('res-base-cost').textContent = `R$ ${baseCost.toFixed(2).replace('.', ',')}`;
-            document.getElementById('res-final-price').textContent = `R$ ${finalPrice.toFixed(2).replace('.', ',')}`;
-            document.getElementById('res-net-profit').textContent = `+ R$ ${netProfit.toFixed(2).replace('.', ',')}`;
+            document.getElementById('res-machine-cost').textContent = brl(machineCost);
+            document.getElementById('res-material-cost').textContent = brl(materialCost);
+            document.getElementById('res-failure-cost').textContent = brl(failureCost);
+            document.getElementById('res-postprocess-cost').textContent = brl(postCost);
+            document.getElementById('res-base-cost').textContent = brl(baseCost);
+            document.getElementById('res-final-price').textContent = brl(finalPrice);
+            document.getElementById('res-net-profit').textContent = `+ ${brl(netProfit)}`;
 
-            // Atualização dos cartões Hero rápidos no topo
-            const heroPrinter = document.getElementById('hero-stat-printer');
-            if (heroPrinter) heroPrinter.textContent = printerData.label;
+            document.getElementById('hero-stat-printer').textContent = printer.label;
+            document.getElementById('hero-stat-printer-rate').textContent = `Taxa: ${brl(printer.rate)}/h`;
+            document.getElementById('hero-stat-weight').textContent = `${weight}g (${filament.label})`;
+            document.getElementById('hero-stat-material-cost').textContent = `Custo: ${brl(materialCost)}`;
+            document.getElementById('hero-stat-time').textContent = `${hours}h ${minutes}m`;
 
-            const heroWeight = document.getElementById('hero-stat-weight');
-            if (heroWeight) heroWeight.textContent = `${weight}g (${filamentData.label})`;
-
-            const heroTime = document.getElementById('hero-stat-time');
-            if (heroTime) heroTime.textContent = `${hours}h ${minutes}m`;
-
-            // Atualização da barra de capacidade
-            const capacityRatio = Math.min(totalHours / 24, 1.0);
-            const progressBar = document.getElementById('m3-progress-bar');
-            if (progressBar) progressBar.value = capacityRatio;
-            const capacityText = document.getElementById('m3-capacity-text');
-            if (capacityText) capacityText.textContent = `${(capacityRatio * 100).toFixed(1)}%`;
+            const occupancy = Math.min(totalHours / 24, 1);
+            document.getElementById('m3-progress-bar').value = occupancy;
+            document.getElementById('m3-capacity-text').textContent = `${(occupancy * 100).toFixed(1)}%`;
         }
 
-        function showM3Toast(text, icon = 'check_circle') {
-            const toast = document.getElementById('m3-toast');
-            const toastText = document.getElementById('m3-toast-text');
-            const toastIcon = document.getElementById('m3-toast-icon');
-            if (!toast) return;
+        // ---------------------------------------------------------------------
+        // 5. Wire Event Listeners after Custom Elements Upgrade
+        // ---------------------------------------------------------------------
+        function init() {
+            applyOfficialM3Theme(currentSeed, isDarkMode);
 
-            toastText.textContent = text;
-            if (toastIcon) toastIcon.textContent = icon;
-            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-            toast.classList.add('translate-y-0', 'opacity-100');
-
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-                toast.classList.remove('translate-y-0', 'opacity-100');
-            }, 3000);
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            // 1. Navegação no Navigation Rail
-            const navItems = document.querySelectorAll('.m3-nav-item');
-            const panels = {
-                'calc': document.getElementById('panel-calc'),
-                'bom': document.getElementById('panel-bom'),
-                'stats': document.getElementById('panel-stats'),
-                'settings': document.getElementById('panel-stats')
+            // Navigation Drawer
+            const drawer = document.getElementById('nav-drawer');
+            const setDrawerOpen = (open) => {
+                if (!drawer) return;
+                drawer.opened = open;
+                drawer.classList.toggle('is-open', open);
             };
-
-            navItems.forEach(item => {
+            document.getElementById('drawer-open-btn')?.addEventListener('click', () => {
+                setDrawerOpen(!drawer?.opened);
+            });
+            document.getElementById('drawer-close-btn')?.addEventListener('click', () => {
+                setDrawerOpen(false);
+            });
+            drawer?.addEventListener('navigation-drawer-changed', (e) => {
+                drawer.classList.toggle('is-open', Boolean(e.detail?.opened));
+            });
+            document.querySelectorAll('[data-nav-index]').forEach(item => {
                 item.addEventListener('click', () => {
-                    navItems.forEach(i => i.classList.remove('active'));
-                    item.classList.add('active');
-
-                    const targetView = item.getAttribute('data-view');
-                    Object.entries(panels).forEach(([viewKey, panelEl]) => {
-                        if (panelEl) {
-                            if (viewKey === targetView) {
-                                panelEl.classList.remove('hidden');
-                            } else {
-                                panelEl.classList.add('hidden');
-                            }
-                        }
-                    });
+                    setActiveView(Number(item.dataset.navIndex));
+                    setDrawerOpen(false);
                 });
             });
 
-            // 2. Connected Button Group sincronizado com o Select de Filamentos
-            const connectedButtons = document.querySelectorAll('#material-connected-group .m3-connected-button');
-            const filamentSelect = document.getElementById('m3-filament-select');
+            // Tabs & Bottom Navigation Bar Sync
+            const tabs = document.getElementById('main-tabs');
+            tabs?.addEventListener('change', () => setActiveView(tabs.activeTabIndex));
 
-            connectedButtons.forEach(btn => {
+            const bottomNav = document.getElementById('bottom-nav-bar');
+            bottomNav?.addEventListener('navigation-bar-activated', (e) => {
+                setActiveView(e.detail.activeIndex);
+            });
+
+            // Theme Toggle & Seed Color Controls
+            document.getElementById('theme-mode-toggle')?.addEventListener('change', (e) => {
+                userOverrodeTheme = true;
+                applyOfficialM3Theme(currentSeed, e.target.selected);
+                showSnackbar(e.target.selected ? 'Tema Escuro (M3 Dark) ativado' : 'Tema Claro (M3 Light) ativado', e.target.selected ? 'dark_mode' : 'light_mode');
+            });
+
+            document.querySelectorAll('.seed-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    connectedButtons.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    const matKey = btn.getAttribute('data-mat');
-                    if (filamentSelect) {
-                        filamentSelect.value = matKey;
-                        recalculateLiveSummary();
-                        showM3Toast(`Material alternado para ${FILAMENT_RATES[matKey]?.label}`, 'palette');
-                    }
+                    applyOfficialM3Theme(btn.dataset.seed, isDarkMode);
+                    showSnackbar(`Paleta HCT gerada a partir de ${btn.dataset.seed}`, 'palette');
                 });
             });
 
-            if (filamentSelect) {
-                filamentSelect.addEventListener('change', () => {
-                    const currentVal = filamentSelect.value;
-                    connectedButtons.forEach(btn => {
-                        if (btn.getAttribute('data-mat') === currentVal) {
-                            btn.classList.add('active');
-                        } else {
-                            btn.classList.remove('active');
-                        }
-                    });
-                    recalculateLiveSummary();
+            document.querySelectorAll('[data-seed-menu]').forEach(item => {
+                item.addEventListener('click', () => {
+                    applyOfficialM3Theme(item.dataset.seedMenu, isDarkMode);
+                    showSnackbar(`Seed Color alterada para ${item.dataset.seedMenu}`, 'palette');
                 });
-            }
+            });
 
-            // 3. Menu Superior
-            const topMoreBtn = document.getElementById('top-more-btn');
-            const topMoreMenu = document.getElementById('top-more-menu');
-            if (topMoreBtn && topMoreMenu) {
-                topMoreBtn.addEventListener('click', () => {
-                    topMoreMenu.open = !topMoreMenu.open;
-                });
-
-                document.getElementById('action-export-json')?.addEventListener('click', () => {
-                    showM3Toast('Exportando estrutura de custos em formato JSON...', 'file_download');
-                });
-                document.getElementById('action-reset-defaults')?.addEventListener('click', () => {
-                    document.getElementById('m3-time-hours').value = '4';
-                    document.getElementById('m3-time-minutes').value = '30';
-                    document.getElementById('m3-weight-grams').value = '125';
-                    document.getElementById('m3-profit-slider').value = 50;
-                    recalculateLiveSummary();
-                    showM3Toast('Valores restaurados para os padrões recomendados.', 'restart_alt');
-                });
-                document.getElementById('action-open-figma-kit')?.addEventListener('click', () => {
-                    window.open('https://www.figma.com/community/file/1035203688168086460', '_blank');
-                });
-            }
-
-            // 4. Inputs reativos e Slider
-            ['m3-time-hours', 'm3-time-minutes', 'm3-weight-grams'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.addEventListener('input', recalculateLiveSummary);
-                    el.addEventListener('change', recalculateLiveSummary);
+            document.getElementById('custom-seed-hex')?.addEventListener('input', (e) => {
+                const val = e.target.value.trim();
+                if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                    applyOfficialM3Theme(val, isDarkMode);
                 }
             });
 
-            const slider = document.getElementById('m3-profit-slider');
-            if (slider) {
-                slider.addEventListener('input', recalculateLiveSummary);
-                slider.addEventListener('change', recalculateLiveSummary);
-            }
-
-            document.getElementById('m3-printer-select')?.addEventListener('change', recalculateLiveSummary);
-            document.getElementById('m3-failure-switch')?.addEventListener('change', recalculateLiveSummary);
-            document.getElementById('m3-postprocess-switch')?.addEventListener('change', recalculateLiveSummary);
-
-            // 5. Diálogos (Dialog M3)
-            const dialog = document.getElementById('m3-dialog-catalog');
-            const btnOpenDialog = document.getElementById('btn-show-demo-dialog');
-            const railFab = document.getElementById('rail-quick-fab');
-            const btnCloseDialog = document.getElementById('m3-btn-dialog-close');
-            const btnConfirmDialog = document.getElementById('m3-btn-dialog-confirm');
-
-            const openDialogFn = () => dialog?.show();
-            if (btnOpenDialog) btnOpenDialog.addEventListener('click', openDialogFn);
-            if (railFab) railFab.addEventListener('click', openDialogFn);
-
-            if (btnCloseDialog) btnCloseDialog.addEventListener('click', () => dialog?.close());
-            if (btnConfirmDialog) {
-                btnConfirmDialog.addEventListener('click', () => {
-                    const name = document.getElementById('m3-input-filament-name')?.value;
-                    dialog?.close();
-                    showM3Toast(`Filamento "${name || 'Novo'}" salvo com sucesso!`, 'check');
-                });
-            }
-
-            // 6. Ações dos Botões Principais
-            document.getElementById('m3-btn-save-quote')?.addEventListener('click', () => {
-                showM3Toast('Proposta aprovada com sucesso! Ordem enviada para a fila.', 'verified');
+            // Top More Menu
+            const moreBtn = document.getElementById('top-more-btn');
+            const moreMenu = document.getElementById('top-more-menu');
+            moreBtn?.addEventListener('click', () => {
+                if (moreMenu) moreMenu.open = !moreMenu.open;
             });
 
-            document.getElementById('m3-btn-download-pdf')?.addEventListener('click', () => {
-                showM3Toast('Gerando proposta comercial via WeasyPrint...', 'picture_as_pdf');
+            // Segmented Button Set <-> Select bidirectional sync
+            const segSet = document.getElementById('material-segmented-set');
+            const filSelect = document.getElementById('m3-filament-select');
+
+            segSet?.addEventListener('segmented-button-set-selection', (e) => {
+                const matKey = e.detail?.button?.getAttribute('data-mat');
+                if (matKey && filSelect) {
+                    filSelect.value = matKey;
+                    recalculate();
+                    showSnackbar(`Polímero alterado para ${FILAMENT_RATES[matKey]?.label}`, 'tune');
+                }
             });
 
-            document.getElementById('m3-btn-recalc')?.addEventListener('click', () => {
-                recalculateLiveSummary();
-                showM3Toast('Custos operacionais recalculados.', 'sync');
+            filSelect?.addEventListener('change', () => {
+                const val = filSelect.value;
+                if (segSet) {
+                    segSet.querySelectorAll('md-outlined-segmented-button').forEach((btn, idx) => {
+                        segSet.setButtonSelected(idx, btn.getAttribute('data-mat') === val);
+                    });
+                }
+                recalculate();
             });
 
-            document.getElementById('m3-btn-duplicate')?.addEventListener('click', () => {
-                showM3Toast('Mesa de impressão clonada como Mesa #2.', 'content_copy');
+            // Reactive Calculator Inputs
+            ['m3-printer-select', 'm3-time-hours', 'm3-time-minutes', 'm3-weight-grams', 'm3-profit-slider', 'm3-failure-switch', 'm3-postprocess-switch'].forEach(id => {
+                const el = document.getElementById(id);
+                el?.addEventListener('input', recalculate);
+                el?.addEventListener('change', recalculate);
+            });
+
+            // Dynamic Input Chips Addition
+            document.getElementById('btn-add-tag')?.addEventListener('click', () => {
+                const input = document.getElementById('new-tag-input');
+                const chipSet = document.getElementById('dynamic-input-chips');
+                const val = input?.value?.trim();
+                if (!val || !chipSet) return;
+                const chip = document.createElement('md-input-chip');
+                chip.label = val;
+                chipSet.appendChild(chip);
+                input.value = '';
+                showSnackbar(`Tag "${val}" adicionada`, 'label');
+            });
+
+            // Dynamic BOM Delete Buttons
+            document.getElementById('bom-list')?.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('.bom-remove-btn');
+                if (removeBtn) {
+                    const item = removeBtn.closest('md-list-item');
+                    item?.remove();
+                    showSnackbar('Insumo removido da BOM', 'delete');
+                }
             });
 
             document.getElementById('btn-add-bom-item')?.addEventListener('click', () => {
-                showM3Toast('Novo insumo adicionado à lista de montagem.', 'playlist_add');
+                const list = document.getElementById('bom-list');
+                if (!list) return;
+                const divider = document.createElement('md-divider');
+                divider.setAttribute('inset', '');
+                const item = document.createElement('md-list-item');
+                item.innerHTML = `
+                    <md-checkbox slot="start" checked aria-label="Novo Insumo"></md-checkbox>
+                    <div slot="headline">Rolamento Linear LM8UU</div>
+                    <div slot="supporting-text">Guia linear de aço temperado</div>
+                    <div slot="trailing-supporting-text" class="mono-num">2 un · R$ 18,00</div>
+                    <md-icon-button slot="end" class="bom-remove-btn" aria-label="Remover Item"><md-icon>delete</md-icon></md-icon-button>
+                `;
+                list.appendChild(divider);
+                list.appendChild(item);
+                showSnackbar('Rolamento adicionado à lista BOM', 'playlist_add');
             });
 
-            // Executa cálculo inicial
-            recalculateLiveSummary();
-        });
+            // Dialogs
+            const catalogDialog = document.getElementById('m3-dialog-catalog');
+            const alertDialog = document.getElementById('m3-dialog-alert');
+            const scrollableDialog = document.getElementById('m3-dialog-scrollable');
+
+            ['btn-show-demo-dialog', 'fab-new-filament', 'action-open-dialog'].forEach(id => {
+                document.getElementById(id)?.addEventListener('click', () => catalogDialog?.show());
+            });
+
+            document.getElementById('m3-btn-dialog-close')?.addEventListener('click', () => catalogDialog?.close());
+            document.getElementById('m3-btn-dialog-confirm')?.addEventListener('click', () => {
+                const name = document.getElementById('m3-input-filament-name')?.value?.trim() || 'Novo Filamento';
+                const price = parseFloat(document.getElementById('m3-input-filament-price')?.value || 150) || 150;
+                const spool = parseFloat(document.getElementById('m3-input-filament-spool')?.value || 1000) || 1000;
+                const perGram = price / spool;
+                const key = `custom_${Date.now()}`;
+
+                FILAMENT_RATES[key] = { rate: perGram, label: name };
+                const option = document.createElement('md-select-option');
+                option.value = key;
+                option.innerHTML = `
+                    <div slot="headline">${name}</div>
+                    <span slot="supporting-text">${brl(perGram)}/g (${brl(price)} / ${spool}g)</span>
+                `;
+                filSelect?.appendChild(option);
+                if (filSelect) {
+                    filSelect.value = key;
+                    recalculate();
+                }
+
+                catalogDialog?.close();
+                showSnackbar(`Filamento "${name}" cadastrado e selecionado!`, 'check_circle');
+            });
+
+            // Alert Dialog
+            ['action-open-alert', 'btn-open-alert-dialog'].forEach(id => {
+                document.getElementById(id)?.addEventListener('click', () => alertDialog?.show());
+            });
+            document.getElementById('alert-cancel-btn')?.addEventListener('click', () => alertDialog?.close());
+
+            const resetDefaultsFn = () => {
+                document.getElementById('m3-time-hours').value = '4';
+                document.getElementById('m3-time-minutes').value = '30';
+                document.getElementById('m3-weight-grams').value = '125';
+                document.getElementById('m3-profit-slider').value = 50;
+                recalculate();
+                showSnackbar('Parâmetros restaurados para o padrão.', 'restart_alt');
+            };
+            document.getElementById('alert-confirm-btn')?.addEventListener('click', () => {
+                alertDialog?.close();
+                resetDefaultsFn();
+            });
+            document.getElementById('action-reset-defaults')?.addEventListener('click', resetDefaultsFn);
+
+            // Scrollable Dialog
+            document.getElementById('btn-open-scrollable-dialog')?.addEventListener('click', () => scrollableDialog?.show());
+            document.getElementById('scrollable-close-btn')?.addEventListener('click', () => scrollableDialog?.close());
+
+            // Action Buttons
+            document.getElementById('m3-btn-save-quote')?.addEventListener('click', () => {
+                showSnackbar('Proposta aprovada! Ordem de impressão registrada.', 'verified');
+            });
+            document.getElementById('m3-btn-download-pdf')?.addEventListener('click', () => {
+                showSnackbar('Gerando PDF comercial...', 'picture_as_pdf');
+            });
+            document.getElementById('m3-btn-recalc')?.addEventListener('click', () => {
+                recalculate();
+                showSnackbar('Custos atualizados.', 'sync');
+            });
+            document.getElementById('m3-btn-duplicate')?.addEventListener('click', () => {
+                showSnackbar('Parâmetros copiados para nova placa.', 'content_copy');
+            });
+
+            recalculate();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     </script>
 </body>
 </html>
