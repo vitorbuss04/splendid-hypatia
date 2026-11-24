@@ -108,7 +108,51 @@ if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
     @app.get("/")
+    @app.get("/dashboard")
     def serve_index():
+        return FileResponse(
+            str(FRONTEND_DIR / "dashboard-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/calculator")
+    @app.get("/project-editor")
+    def serve_calculator():
+        return FileResponse(
+            str(FRONTEND_DIR / "calculator-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/projects")
+    def serve_projects():
+        return FileResponse(
+            str(FRONTEND_DIR / "projects-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/printers")
+    def serve_printers():
+        return FileResponse(
+            str(FRONTEND_DIR / "printers-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/filaments")
+    def serve_filaments():
+        return FileResponse(
+            str(FRONTEND_DIR / "filaments-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/settings")
+    def serve_settings():
+        return FileResponse(
+            str(FRONTEND_DIR / "settings-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/classic")
+    def serve_classic():
         return FileResponse(
             str(FRONTEND_DIR / "index.html"),
             headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
@@ -125,6 +169,48 @@ if FRONTEND_DIR.exists():
             headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
         )
 
+    @app.get("/dashboard-m3")
+    def serve_dashboard_m3():
+        return FileResponse(
+            str(FRONTEND_DIR / "dashboard-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/projects-m3")
+    def serve_projects_m3():
+        return FileResponse(
+            str(FRONTEND_DIR / "projects-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/printers-m3")
+    def serve_printers_m3():
+        return FileResponse(
+            str(FRONTEND_DIR / "printers-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/filaments-m3")
+    def serve_filaments_m3():
+        return FileResponse(
+            str(FRONTEND_DIR / "filaments-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/settings-m3")
+    def serve_settings_m3():
+        return FileResponse(
+            str(FRONTEND_DIR / "settings-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+    @app.get("/calculator-m3")
+    def serve_calculator_m3():
+        return FileResponse(
+            str(FRONTEND_DIR / "calculator-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
     @app.get("/{catchall:path}")
     def serve_spa(catchall: str):
         # Do not catch API routes
@@ -134,9 +220,9 @@ if FRONTEND_DIR.exists():
         target_path = (FRONTEND_DIR / catchall).resolve()
         if target_path.is_file() and target_path.is_relative_to(FRONTEND_DIR.resolve()):
             return FileResponse(str(target_path))
-        # Otherwise fallback to index.html for SPA routing
+        # Otherwise fallback to the new Material 3 Dashboard root
         return FileResponse(
-            str(FRONTEND_DIR / "index.html"),
+            str(FRONTEND_DIR / "dashboard-m3.html"),
             headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
         )
 
