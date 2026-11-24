@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- MANDATORY: Declare supported color schemes before first paint -->
+    <meta name="color-scheme" content="light dark">
+    <title>3D Print Calc Pro | Configurações &amp; Taxas</title>
+
+    <!-- Google Fonts: Roboto, Roboto Mono & Material Symbols Outlined -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://esm.run" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+
+    <!-- Shared Material 3 Tokens, Color-Scheme & Structural CSS Grid Layout -->
+    <link rel="stylesheet" href="/static/css/material-theme.css?v=2.0.8">
+
+    <!-- Official Import Map: Unbundled @material/web@2.5.0 shares singletons cleanly -->
+    <script type="importmap">
+    {
+      "imports": {
+        "tslib": "https://esm.run/tslib@2.8.1",
+        "lit": "https://esm.run/lit@3.3.3",
+        "lit/": "https://esm.run/lit@3.3.3/",
+        "@lit/context": "https://esm.run/@lit/context@1.1.6",
+        "@material/web/": "https://cdn.jsdelivr.net/npm/@material/web@2.5.0/",
+        "@material/material-color-utilities": "https://esm.run/@material/material-color-utilities"
+      }
+    }
+    </script>
+
+    <!-- Register Official @material/web Components -->
+    <script type="module">
+        import '@material/web/all.js';
+        import '@material/web/labs/card/elevated-card.js';
+        import '@material/web/labs/card/filled-card.js';
+        import '@material/web/labs/card/outlined-card.js';
+        import '@material/web/labs/navigationdrawer/navigation-drawer-modal.js';
+        import '@material/web/labs/badge/badge.js';
+
+        import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
+        if (typescaleStyles?.styleSheet) {
+            document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+        }
+    </script>
+</head>
+<body>
+    <!-- Modal Navigation Drawer (@material/web/labs/navigationdrawer) -->
+    <md-navigation-drawer-modal id="nav-drawer" pivot="start" aria-label="Menu de Navegação Principal">
+        <div class="drawer-content" style="height: 100%;">
+            <div class="row-between" style="padding: 8px 12px;">
+                <div class="row">
+                    <div class="icon-badge-surface" aria-hidden="true">
+                        <md-icon class="filled">precision_manufacturing</md-icon>
+                    </div>
+                    <div class="col" style="gap: 2px;">
+                        <span class="md-typescale-title-medium">3D Print Calc Pro</span>
+                        <span class="md-typescale-label-small muted-text">Material Design 3</span>
+                    </div>
+                </div>
+                <md-icon-button id="drawer-close-btn" aria-label="Fechar Menu">
+                    <md-icon>close</md-icon>
+                </md-icon-button>
+            </div>
+
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Navegação</span>
+            <md-list aria-label="Navegação da Plataforma">
+                <md-list-item type="button" href="/">
+                    <md-icon slot="start">dashboard</md-icon>
+                    <div slot="headline">Visão Geral</div>
+                    <div slot="supporting-text">Dashboard e métricas da oficina</div>
+                </md-list-item>
+                <md-list-item type="button" href="/calculator">
+                    <md-icon slot="start">calculate</md-icon>
+                    <div slot="headline">Calculadora 3D</div>
+                    <div slot="supporting-text">Placas, 3MF/G-code, BOM e taxas</div>
+                </md-list-item>
+                <md-list-item type="button" href="/projects">
+                    <md-icon slot="start">folder_open</md-icon>
+                    <div slot="headline">Projetos &amp; Orçamentos</div>
+                    <div slot="supporting-text">Lista, busca e filtros</div>
+                </md-list-item>
+                <md-list-item type="button" href="/printers">
+                    <md-icon slot="start">print</md-icon>
+                    <div slot="headline">Minhas Impressoras</div>
+                    <div slot="supporting-text">Tarifa horária, energia e manutenção</div>
+                </md-list-item>
+                <md-list-item type="button" href="/filaments">
+                    <md-icon slot="start">toll</md-icon>
+                    <div slot="headline">Meus Filamentos</div>
+                    <div slot="supporting-text">Carretéis, polímeros e custo/g</div>
+                </md-list-item>
+                <md-list-item type="button" href="/settings">
+                    <md-icon slot="start" class="filled" style="color: var(--md-sys-color-primary);">settings</md-icon>
+                    <div slot="headline">Configurações &amp; Taxas</div>
+                    <div slot="supporting-text">Empresa, PIX e taxas padrão</div>
+                </md-list-item>
+            </md-list>
+
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Dynamic Color (HCT)</span>
+            <div style="padding: 4px 16px;" class="col">
+                <span class="md-typescale-body-small muted-text">Cor Semente do Tema:</span>
+                <div class="row-wrap">
+                    <button type="button" class="seed-btn" data-seed="#6750A4" style="background:#6750A4;" aria-label="M3 Baseline Purple" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#2563EB" style="background:#2563EB;" aria-label="Royal Cobalt" aria-pressed="true"></button>
+                    <button type="button" class="seed-btn" data-seed="#006874" style="background:#006874;" aria-label="Ocean Teal" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#006D3B" style="background:#006D3B;" aria-label="Emerald" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#B3261E" style="background:#B3261E;" aria-label="Crimson" aria-pressed="false"></button>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; padding: 12px 12px 4px;" class="col">
+                <md-divider></md-divider>
+                <div class="surface-subbox" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px;">
+                    <div class="row" style="min-width: 0;">
+                        <div class="icon-badge-surface secondary" style="width: 36px; height: 36px; border-radius: 9999px;" id="user-avatar">U</div>
+                        <div class="col" style="gap: 2px; min-width: 0;">
+                            <span class="md-typescale-label-large" id="user-display-name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Não conectado</span>
+                            <span class="md-typescale-body-small muted-text" id="user-display-company" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Oficina 3D</span>
+                        </div>
+                    </div>
+                    <md-icon-button id="btn-logout" aria-label="Sair da conta" title="Sair da conta">
+                        <md-icon>logout</md-icon>
+                    </md-icon-button>
+                </div>
+            </div>
+        </div>
+    </md-navigation-drawer-modal>
+
+    <div class="app-shell">
+        <!-- Sticky Top App Bar -->
+        <header class="top-app-bar">
+            <div class="top-app-bar-row">
+                <div class="top-app-bar-leading">
+                    <md-icon-button id="drawer-open-btn" aria-label="Abrir Menu Lateral">
+                        <md-icon>menu</md-icon>
+                    </md-icon-button>
+
+                    <div class="icon-badge-surface" aria-hidden="true">
+                        <md-icon class="filled">settings</md-icon>
+                    </div>
+
+                    <div class="top-app-bar-title-group">
+                        <span class="md-typescale-title-large">Configurações &amp; Taxas</span>
+                        <span class="md-typescale-body-small muted-text">3D Print Calc Pro · Preferências Globais da Oficina</span>
+                    </div>
+                </div>
+
+                <div class="top-app-bar-actions">
+                    <md-icon-button id="btn-refresh-settings" aria-label="Recarregar preferências" title="Recarregar do servidor">
+                        <md-icon>refresh</md-icon>
+                    </md-icon-button>
+
+                    <md-filled-tonal-icon-button id="theme-mode-toggle" toggle aria-label="Alternar Modo Escuro ou Claro" title="Alternar Claro / Escuro">
+                        <md-icon>light_mode</md-icon>
+                        <md-icon slot="selected" class="filled">dark_mode</md-icon>
+                    </md-filled-tonal-icon-button>
+
+                    <div style="position: relative;">
+                        <md-icon-button id="top-more-btn" aria-label="Mais Opções" aria-haspopup="menu" aria-controls="top-more-menu">
+                            <md-icon>more_vert</md-icon>
+                        </md-icon-button>
+
+                        <md-menu id="top-more-menu" anchor="top-more-btn" positioning="popover" has-overflow>
+                            <md-menu-item href="/">
+                                <md-icon slot="start">dashboard</md-icon>
+                                <div slot="headline">Visão Geral</div>
+                            </md-menu-item>
+                            <md-menu-item href="/calculator">
+                                <md-icon slot="start">calculate</md-icon>
+                                <div slot="headline">Calculadora 3D</div>
+                            </md-menu-item>
+                            <md-menu-item href="/projects">
+                                <md-icon slot="start">folder_open</md-icon>
+                                <div slot="headline">Projetos &amp; Orçamentos</div>
+                            </md-menu-item>
+                            <md-menu-item href="/printers">
+                                <md-icon slot="start">print</md-icon>
+                                <div slot="headline">Minhas Impressoras</div>
+                            </md-menu-item>
+                            <md-menu-item href="/filaments">
+                                <md-icon slot="start">toll</md-icon>
+                                <div slot="headline">Meus Filamentos</div>
+                            </md-menu-item>
+
+                            <md-sub-menu>
+                                <md-menu-item slot="item">
+                                    <md-icon slot="start">color_lens</md-icon>
+                                    <div slot="headline">Cor Semente (HCT)</div>
+                                    <md-icon slot="end">arrow_right</md-icon>
+                                </md-menu-item>
+                                <md-menu slot="menu">
+                                    <md-menu-item data-seed-menu="#6750A4"><div slot="headline">M3 Purple (#6750A4)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#2563EB"><div slot="headline">Royal Cobalt (#2563EB)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006874"><div slot="headline">Ocean Teal (#006874)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006D3B"><div slot="headline">Emerald (#006D3B)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#B3261E"><div slot="headline">Crimson (#B3261E)</div></md-menu-item>
+                                </md-menu>
+                            </md-sub-menu>
+                        </md-menu>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Single <main> Landmark -->
+        <main class="main-container" style="max-width: 960px;">
+            <md-linear-progress id="settings-loader" indeterminate four-color hidden aria-label="Carregando configurações"></md-linear-progress>
+
+            <!-- Page Header Card -->
+            <md-filled-card class="card-pad">
+                <div class="row" style="gap: 16px;">
+                    <div class="icon-badge-surface" aria-hidden="true">
+                        <md-icon class="filled">apartment</md-icon>
+                    </div>
+                    <div class="col" style="gap: 4px;">
+                        <h1 class="md-typescale-headline-small" style="margin: 0;">Dados da Minha Empresa / Oficina 3D</h1>
+                        <p class="md-typescale-body-medium muted-text" style="margin: 0;">
+                            Estas informações de cabeçalho, contato e chave PIX aparecerão em seus orçamentos comerciais e fichas técnicas em PDF.
+                        </p>
+                    </div>
+                </div>
+            </md-filled-card>
+
+            <!-- Assertive Alert Container for Save / Validation Errors -->
+            <div id="settings-error-box" class="surface-subbox" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); border-color: transparent;" role="alert" aria-live="assertive" hidden>
+                <div class="row" style="gap: 8px;">
+                    <md-icon>error</md-icon>
+                    <span id="settings-error-text" class="md-typescale-body-medium">Erro ao salvar configurações.</span>
+                </div>
+            </div>
+
+            <form id="form-settings" class="col" style="gap: 24px;" aria-label="Formulário de Preferências da Oficina">
+                <!-- SECTION A: Identidade Comercial & Pagamentos -->
+                <md-elevated-card class="card-pad">
+                    <div class="col" style="gap: 16px;">
+                        <div class="row" style="gap: 10px;">
+                            <md-icon style="color: var(--md-sys-color-primary);" aria-hidden="true">badge</md-icon>
+                            <h2 class="md-typescale-title-medium" style="margin: 0;">Identidade Comercial &amp; Pagamentos</h2>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <div class="grid-2col">
+                            <md-outlined-text-field id="pref-company" name="company_name" autocomplete="organization" label="Nome Fantasia / Razão Social" placeholder="Ex: Studio 3D Print">
+                                <md-icon slot="leading-icon">store</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field id="pref-fullname" name="full_name" autocomplete="name" label="Nome do Responsável Técnico" placeholder="Ex: Vitor Silva">
+                                <md-icon slot="leading-icon">person</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field id="pref-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" label="Telefone / WhatsApp Comercial" placeholder="Ex: (11) 98765-4321">
+                                <md-icon slot="leading-icon">call</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field id="pref-pix" name="pix_key" label="Chave PIX para Recebimento" placeholder="Ex: pix@minhaempresa.com.br" autocorrect="off" autocapitalize="none" spellcheck="false">
+                                <md-icon slot="leading-icon">qr_code</md-icon>
+                            </md-outlined-text-field>
+                        </div>
+                    </div>
+                </md-elevated-card>
+
+                <!-- SECTION B: Parâmetros Financeiros Padrão -->
+                <md-elevated-card class="card-pad">
+                    <div class="col" style="gap: 16px;">
+                        <div class="col" style="gap: 4px;">
+                            <div class="row" style="gap: 10px;">
+                                <md-icon style="color: var(--md-sys-color-tertiary);" aria-hidden="true">tune</md-icon>
+                                <h2 class="md-typescale-title-medium" style="margin: 0;">Parâmetros Financeiros Padrão</h2>
+                            </div>
+                            <span class="md-typescale-body-small muted-text">Valores preenchidos automaticamente na abertura de qualquer novo projeto/orçamento</span>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <div class="grid-3col">
+                            <md-outlined-text-field id="pref-energy" name="default_energy_rate" type="number" step="any" min="0" label="Tarifa de Energia" prefix-text="R$" suffix-text="/kWh" supporting-text="Média da concessionária local" required>
+                                <md-icon slot="leading-icon">bolt</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field id="pref-margin" name="default_profit_margin" type="number" step="any" min="0" label="Margem de Lucro Alvo" suffix-text="%" supporting-text="Margem líquida desejada" required>
+                                <md-icon slot="leading-icon">trending_up</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field id="pref-tax" name="default_tax_rate" type="number" step="any" min="0" max="99" label="Alíquota de Impostos" suffix-text="%" supporting-text="Alíquota NF / Simples" required>
+                                <md-icon slot="leading-icon">percent</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field id="pref-failure" name="default_failure_rate" type="number" step="any" min="0" label="Margem de Falha Padrão" suffix-text="%" supporting-text="Perdas de filamento e testes" required>
+                                <md-icon slot="leading-icon">warning</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field id="pref-cad-rate" name="default_cad_rate" type="number" step="any" min="0" label="Taxa CAD Padrão" prefix-text="R$" suffix-text="/h" supporting-text="Modelagem e ajustes de malha" required>
+                                <md-icon slot="leading-icon">design_services</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field id="pref-post-rate" name="default_post_rate" type="number" step="any" min="0" label="Taxa Pós Padrão" prefix-text="R$" suffix-text="/h" supporting-text="Lixamento, primer e montagem" required>
+                                <md-icon slot="leading-icon">build</md-icon>
+                            </md-outlined-text-field>
+                        </div>
+                    </div>
+                </md-elevated-card>
+
+                <!-- SECTION C: Termos Comerciais Padrão -->
+                <md-outlined-card class="card-pad">
+                    <div class="col" style="gap: 16px;">
+                        <div class="row" style="gap: 10px;">
+                            <md-icon style="color: var(--md-sys-color-secondary);" aria-hidden="true">payments</md-icon>
+                            <h2 class="md-typescale-title-medium" style="margin: 0;">Condições Comerciais &amp; Garantia Padrão</h2>
+                        </div>
+
+                        <md-divider></md-divider>
+
+                        <div class="grid-2col">
+                            <md-outlined-text-field id="pref-payment-terms" name="default_payment_terms" label="Condições de Pagamento Padrão" placeholder="Ex: 50% na aprovação e 50% na entrega.">
+                                <md-icon slot="leading-icon">credit_card</md-icon>
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field id="pref-warranty-terms" name="default_warranty_terms" label="Garantia Padrão da Oficina" placeholder="Ex: Garantia contra defeitos dimensionais ou delaminação de camadas.">
+                                <md-icon slot="leading-icon">verified_user</md-icon>
+                            </md-outlined-text-field>
+                        </div>
+                    </div>
+                </md-outlined-card>
+
+                <!-- Action Footer -->
+                <div class="row-between" style="justify-content: flex-end; gap: 12px;">
+                    <md-outlined-button type="button" id="btn-revert-preferences">
+                        <md-icon slot="icon">restart_alt</md-icon>
+                        Descartar Alterações
+                    </md-outlined-button>
+                    <md-filled-button type="submit" id="btn-save-preferences">
+                        <md-icon slot="icon">save</md-icon>
+                        Salvar Preferências
+                    </md-filled-button>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <!-- Auth Dialog -->
+    <md-dialog id="auth-dialog" aria-label="Autenticação 3D Print Calc Pro">
+        <md-icon slot="icon">lock_open</md-icon>
+        <div slot="headline">3D Print Calc Pro</div>
+
+        <div slot="content" class="col" style="min-width: 280px;">
+            <span class="md-typescale-body-small muted-text">Entre na sua conta para visualizar e editar as configurações da sua oficina.</span>
+
+            <md-tabs id="auth-tabs" aria-label="Modo de Autenticação">
+                <md-primary-tab selected>Entrar</md-primary-tab>
+                <md-primary-tab>Criar Conta</md-primary-tab>
+            </md-tabs>
+
+            <div id="auth-error-box" class="surface-subbox" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); border-color: transparent;" hidden>
+                <div class="row" style="gap: 8px;">
+                    <md-icon>error</md-icon>
+                    <span id="auth-error-text" class="md-typescale-body-small">Erro ao autenticar</span>
+                </div>
+            </div>
+
+            <form id="form-login" class="col">
+                <md-outlined-text-field id="login-email" type="email" autocomplete="username" label="E-mail" placeholder="seu@email.com" required>
+                    <md-icon slot="leading-icon">mail</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="login-password" type="password" autocomplete="current-password" label="Senha" required>
+                    <md-icon slot="leading-icon">key</md-icon>
+                </md-outlined-text-field>
+                <md-filled-button type="submit" class="full-width">
+                    <md-icon slot="icon">login</md-icon>
+                    Entrar no Sistema
+                </md-filled-button>
+            </form>
+
+            <form id="form-register" class="col" hidden>
+                <md-outlined-text-field id="reg-name" autocomplete="name" label="Nome Completo" required>
+                    <md-icon slot="leading-icon">person</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-company" autocomplete="organization" label="Empresa / Oficina (Opcional)">
+                    <md-icon slot="leading-icon">store</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-email" type="email" autocomplete="username" label="E-mail" required>
+                    <md-icon slot="leading-icon">mail</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-password" type="password" autocomplete="new-password" label="Senha (Mín. 6 dígitos)" minlength="6" required>
+                    <md-icon slot="leading-icon">key</md-icon>
+                </md-outlined-text-field>
+                <md-filled-button type="submit" class="full-width">
+                    <md-icon slot="icon">person_add</md-icon>
+                    Criar Conta Limpa
+                </md-filled-button>
+            </form>
+        </div>
+    </md-dialog>
+
+    <!-- M3 Snackbar Feedback -->
+    <div id="m3-snackbar" class="m3-snackbar" role="status" aria-live="polite">
+        <md-icon id="m3-snackbar-icon">check_circle</md-icon>
+        <span id="m3-snackbar-text" class="md-typescale-body-medium">Atualizado</span>
+    </div>
+
+    <!-- Real Backend REST API Client -->
+    <script src="/static/js/api.js"></script>
+
+    <!-- Official M3 Dynamic Theme + Settings Controller -->
+    <script type="module">
+        import {
+            argbFromHex,
+            themeFromSourceColor,
+            applyTheme,
+            hexFromArgb,
+        } from '@material/material-color-utilities';
+
+        // ---------------------------------------------------------------------
+        // 1. Dynamic HCT Color Theme Engine
+        // ---------------------------------------------------------------------
+        let currentSeed = '#2563EB';
+        const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        let isDarkMode = colorSchemeQuery.matches;
+        let userOverrodeTheme = false;
+
+        let currentUser = null;
+
+        function applyOfficialM3Theme(seedHex, dark) {
+            currentSeed = seedHex;
+            isDarkMode = dark;
+
+            const theme = themeFromSourceColor(argbFromHex(seedHex));
+            const root = document.documentElement;
+            applyTheme(theme, { target: root, dark });
+
+            const neutral = theme.palettes.neutral;
+            const tones = dark
+                ? {
+                    'surface-dim': 6,
+                    'surface-bright': 24,
+                    'surface-container-lowest': 4,
+                    'surface-container-low': 10,
+                    'surface-container': 12,
+                    'surface-container-high': 17,
+                    'surface-container-highest': 22,
+                }
+                : {
+                    'surface-dim': 87,
+                    'surface-bright': 98,
+                    'surface-container-lowest': 100,
+                    'surface-container-low': 96,
+                    'surface-container': 94,
+                    'surface-container-high': 92,
+                    'surface-container-highest': 90,
+                };
+
+            for (const [token, toneVal] of Object.entries(tones)) {
+                root.style.setProperty(`--md-sys-color-${token}`, hexFromArgb(neutral.tone(toneVal)));
+            }
+
+            const surfaceHex = hexFromArgb(neutral.tone(dark ? 6 : 98));
+            root.style.setProperty('--md-sys-color-surface', surfaceHex);
+            root.style.setProperty('--md-sys-color-background', surfaceHex);
+
+            root.dataset.theme = dark ? 'dark' : 'light';
+            root.style.colorScheme = dark ? 'dark' : 'light';
+
+            const themeBtn = document.getElementById('theme-mode-toggle');
+            if (themeBtn) themeBtn.selected = dark;
+
+            document.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.setAttribute('aria-pressed', btn.dataset.seed?.toUpperCase() === seedHex.toUpperCase() ? 'true' : 'false');
+            });
+        }
+
+        colorSchemeQuery.addEventListener('change', (e) => {
+            if (!userOverrodeTheme) {
+                applyOfficialM3Theme(currentSeed, e.matches);
+            }
+        });
+
+        // ---------------------------------------------------------------------
+        // 2. Formatting, Phone Masking & Notifications
+        // ---------------------------------------------------------------------
+        function formatPhoneInput(value) {
+            if (!value) return '';
+            const digits = String(value).replace(/\D/g, '').slice(0, 11);
+            if (digits.length <= 2) return digits.length > 0 ? `(${digits}` : '';
+            if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+            if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+            return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+        }
+
+        let snackbarTimer = null;
+        function showSnackbar(message, icon = 'check_circle') {
+            const bar = document.getElementById('m3-snackbar');
+            const textEl = document.getElementById('m3-snackbar-text');
+            const iconEl = document.getElementById('m3-snackbar-icon');
+            if (!bar) return;
+            textEl.textContent = message;
+            iconEl.textContent = icon;
+            bar.classList.add('visible');
+            clearTimeout(snackbarTimer);
+            snackbarTimer = setTimeout(() => bar.classList.remove('visible'), 3200);
+        }
+
+        // ---------------------------------------------------------------------
+        // 3. Load & Populate User Preferences
+        // ---------------------------------------------------------------------
+        async function fetchAndPopulateSettings() {
+            const loader = document.getElementById('settings-loader');
+            if (loader) loader.hidden = false;
+            document.getElementById('settings-error-box').hidden = true;
+
+            try {
+                const user = await API.auth.getMe();
+                currentUser = user;
+                updateUserProfile(user);
+                populateSettingsForm(user);
+            } catch (err) {
+                console.warn('Erro ao carregar configurações:', err);
+                if (!API.getToken()) {
+                    openAuthDialog();
+                } else {
+                    showSnackbar(err?.message || 'Erro ao carregar preferências.', 'error');
+                }
+            } finally {
+                if (loader) loader.hidden = true;
+            }
+        }
+
+        function updateUserProfile(user) {
+            if (!user) return;
+            const nameEl = document.getElementById('user-display-name');
+            const companyEl = document.getElementById('user-display-company');
+            const avatarEl = document.getElementById('user-avatar');
+
+            const fullName = user.full_name || user.email || 'Usuário';
+            const initials = fullName.split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() || '').join('') || 'U';
+            if (nameEl) nameEl.textContent = fullName;
+            if (companyEl) companyEl.textContent = user.company_name || 'Oficina 3D';
+            if (avatarEl) avatarEl.textContent = initials;
+        }
+
+        function populateSettingsForm(u) {
+            if (!u) return;
+            document.getElementById('pref-company').value = u.company_name || '';
+            document.getElementById('pref-fullname').value = u.full_name || '';
+            document.getElementById('pref-phone').value = u.phone ? formatPhoneInput(u.phone) : '';
+            document.getElementById('pref-pix').value = u.pix_key || '';
+            document.getElementById('pref-energy').value = String(u.default_energy_rate ?? 0.85);
+            document.getElementById('pref-margin').value = String(u.default_profit_margin ?? 30);
+            document.getElementById('pref-tax').value = String(u.default_tax_rate ?? 6);
+            document.getElementById('pref-failure').value = String(u.default_failure_rate ?? 10);
+            document.getElementById('pref-cad-rate').value = String(u.default_cad_rate ?? 50);
+            document.getElementById('pref-post-rate').value = String(u.default_post_rate ?? 30);
+            document.getElementById('pref-payment-terms').value = u.default_payment_terms || '';
+            document.getElementById('pref-warranty-terms').value = u.default_warranty_terms || '';
+        }
+
+        function openAuthDialog() {
+            const dlg = document.getElementById('auth-dialog');
+            if (dlg && !dlg.open) dlg.show();
+        }
+
+        function closeAuthDialog() {
+            const dlg = document.getElementById('auth-dialog');
+            if (dlg?.open) dlg.close();
+        }
+
+        function setAuthError(msg) {
+            const box = document.getElementById('auth-error-box');
+            const text = document.getElementById('auth-error-text');
+            if (!box || !text) return;
+            box.hidden = !msg;
+            if (msg) text.textContent = msg;
+        }
+
+        // ---------------------------------------------------------------------
+        // 4. Boot & Wire Listeners
+        // ---------------------------------------------------------------------
+        function init() {
+            applyOfficialM3Theme(currentSeed, isDarkMode);
+
+            // Drawer
+            const drawer = document.getElementById('nav-drawer');
+            const setDrawerOpen = (open) => {
+                if (!drawer) return;
+                drawer.opened = open;
+                drawer.classList.toggle('is-open', open);
+            };
+            document.getElementById('drawer-open-btn')?.addEventListener('click', () => setDrawerOpen(!drawer?.opened));
+            document.getElementById('drawer-close-btn')?.addEventListener('click', () => setDrawerOpen(false));
+            drawer?.addEventListener('navigation-drawer-changed', (e) => {
+                drawer.classList.toggle('is-open', Boolean(e.detail?.opened));
+            });
+
+            // Theme Toggle & Seed Presets
+            document.getElementById('theme-mode-toggle')?.addEventListener('change', (e) => {
+                userOverrodeTheme = true;
+                applyOfficialM3Theme(currentSeed, e.target.selected);
+                showSnackbar(e.target.selected ? 'Tema Escuro (M3 Dark) ativado' : 'Tema Claro (M3 Light) ativado', e.target.selected ? 'dark_mode' : 'light_mode');
+            });
+
+            document.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    applyOfficialM3Theme(btn.dataset.seed, isDarkMode);
+                    showSnackbar(`Paleta HCT aplicada: ${btn.dataset.seed}`, 'palette');
+                });
+            });
+
+            document.querySelectorAll('[data-seed-menu]').forEach(item => {
+                item.addEventListener('click', () => {
+                    applyOfficialM3Theme(item.dataset.seedMenu, isDarkMode);
+                    showSnackbar(`Cor semente alterada para ${item.dataset.seedMenu}`, 'palette');
+                });
+            });
+
+            // Top More Menu & Refresh
+            const moreBtn = document.getElementById('top-more-btn');
+            const moreMenu = document.getElementById('top-more-menu');
+            moreBtn?.addEventListener('click', () => {
+                if (moreMenu) moreMenu.open = !moreMenu.open;
+            });
+
+            document.getElementById('btn-refresh-settings')?.addEventListener('click', () => {
+                fetchAndPopulateSettings().then(() => showSnackbar('Configurações recarregadas!', 'sync'));
+            });
+
+            // Phone input dynamic mask
+            const phoneInput = document.getElementById('pref-phone');
+            phoneInput?.addEventListener('input', (e) => {
+                const formatted = formatPhoneInput(e.target.value);
+                if (e.target.value !== formatted) e.target.value = formatted;
+            });
+
+            // Revert unsaved edits
+            document.getElementById('btn-revert-preferences')?.addEventListener('click', () => {
+                if (currentUser) {
+                    populateSettingsForm(currentUser);
+                    document.getElementById('settings-error-box').hidden = true;
+                    showSnackbar('Alterações descartadas.', 'restart_alt');
+                }
+            });
+
+            // Save Preferences Submit
+            const formSettings = document.getElementById('form-settings');
+            const saveBtn = document.getElementById('btn-save-preferences');
+            const errBox = document.getElementById('settings-error-box');
+            const errText = document.getElementById('settings-error-text');
+
+            formSettings?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                errBox.hidden = true;
+
+                const taxVal = parseFloat(document.getElementById('pref-tax').value || 0);
+                if (taxVal < 0 || taxVal > 99) {
+                    errText.textContent = 'A alíquota de impostos deve estar entre 0% e 99%.';
+                    errBox.hidden = false;
+                    document.getElementById('pref-tax')?.focus();
+                    return;
+                }
+
+                const payload = {
+                    company_name: document.getElementById('pref-company').value.trim(),
+                    full_name: document.getElementById('pref-fullname').value.trim(),
+                    phone: document.getElementById('pref-phone').value.trim(),
+                    pix_key: document.getElementById('pref-pix').value.trim(),
+                    default_energy_rate: Math.max(0, parseFloat(document.getElementById('pref-energy').value || 0.85) || 0),
+                    default_profit_margin: Math.max(0, parseFloat(document.getElementById('pref-margin').value || 30) || 0),
+                    default_tax_rate: taxVal,
+                    default_failure_rate: Math.max(0, parseFloat(document.getElementById('pref-failure').value || 10) || 0),
+                    default_cad_rate: Math.max(0, parseFloat(document.getElementById('pref-cad-rate').value || 50) || 0),
+                    default_post_rate: Math.max(0, parseFloat(document.getElementById('pref-post-rate').value || 30) || 0),
+                    default_payment_terms: document.getElementById('pref-payment-terms').value.trim() || null,
+                    default_warranty_terms: document.getElementById('pref-warranty-terms').value.trim() || null,
+                };
+
+                if (saveBtn) saveBtn.disabled = true;
+                try {
+                    const updated = await API.auth.updatePreferences(payload);
+                    currentUser = updated;
+                    updateUserProfile(updated);
+                    showSnackbar('Preferências salvas com sucesso!', 'check_circle');
+                } catch (err) {
+                    errText.textContent = err.message || 'Erro ao salvar preferências.';
+                    errBox.hidden = false;
+                } finally {
+                    if (saveBtn) saveBtn.disabled = false;
+                }
+            });
+
+            // Auth Tabs & Forms
+            const authTabs = document.getElementById('auth-tabs');
+            const formLogin = document.getElementById('form-login');
+            const formRegister = document.getElementById('form-register');
+            authTabs?.addEventListener('change', () => {
+                const idx = authTabs.activeTabIndex;
+                formLogin.hidden = (idx !== 0);
+                formRegister.hidden = (idx !== 1);
+                setAuthError('');
+            });
+
+            formLogin?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                try {
+                    const email = document.getElementById('login-email').value;
+                    const pass = document.getElementById('login-password').value;
+                    await API.auth.login(email, pass);
+                    closeAuthDialog();
+                    await fetchAndPopulateSettings();
+                    showSnackbar('Login realizado com sucesso!', 'login');
+                } catch (err) {
+                    setAuthError(err.message || 'Credenciais inválidas.');
+                }
+            });
+
+            formRegister?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                try {
+                    const name = document.getElementById('reg-name').value;
+                    const company = document.getElementById('reg-company').value;
+                    const email = document.getElementById('reg-email').value;
+                    const pass = document.getElementById('reg-password').value;
+                    await API.auth.register(email, pass, name, company);
+                    closeAuthDialog();
+                    await fetchAndPopulateSettings();
+                    showSnackbar('Conta criada e carregada!', 'person_add');
+                } catch (err) {
+                    setAuthError(err.message || 'Não foi possível criar conta.');
+                }
+            });
+
+            document.getElementById('btn-logout')?.addEventListener('click', () => {
+                API.auth.logout();
+                setDrawerOpen(false);
+            });
+
+            window.addEventListener('auth:unauthorized', () => openAuthDialog());
+            window.addEventListener('auth:logout', () => {
+                currentUser = null;
+                openAuthDialog();
+                showSnackbar('Sessão encerrada.', 'logout');
+            });
+
+            // Boot Auth + Preferences Load
+            if (API.getToken()) {
+                fetchAndPopulateSettings();
+            } else {
+                openAuthDialog();
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>

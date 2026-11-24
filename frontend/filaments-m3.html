@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- MANDATORY: Declare supported color schemes before first paint -->
+    <meta name="color-scheme" content="light dark">
+    <title>3D Print Calc Pro | Meus Filamentos</title>
+
+    <!-- Google Fonts: Roboto, Roboto Mono & Material Symbols Outlined -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://esm.run" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+
+    <!-- Shared Material 3 Tokens, Color-Scheme & Structural CSS Grid Layout -->
+    <link rel="stylesheet" href="/static/css/material-theme.css?v=2.0.8">
+
+    <!-- Official Import Map: Unbundled @material/web@2.5.0 shares singletons cleanly -->
+    <script type="importmap">
+    {
+      "imports": {
+        "tslib": "https://esm.run/tslib@2.8.1",
+        "lit": "https://esm.run/lit@3.3.3",
+        "lit/": "https://esm.run/lit@3.3.3/",
+        "@lit/context": "https://esm.run/@lit/context@1.1.6",
+        "@material/web/": "https://cdn.jsdelivr.net/npm/@material/web@2.5.0/",
+        "@material/material-color-utilities": "https://esm.run/@material/material-color-utilities"
+      }
+    }
+    </script>
+
+    <!-- Register Official @material/web Components -->
+    <script type="module">
+        import '@material/web/all.js';
+        import '@material/web/labs/card/elevated-card.js';
+        import '@material/web/labs/card/filled-card.js';
+        import '@material/web/labs/card/outlined-card.js';
+        import '@material/web/labs/navigationdrawer/navigation-drawer-modal.js';
+        import '@material/web/labs/badge/badge.js';
+
+        import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
+        if (typescaleStyles?.styleSheet) {
+            document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+        }
+    </script>
+</head>
+<body>
+    <!-- Modal Navigation Drawer (@material/web/labs/navigationdrawer) -->
+    <md-navigation-drawer-modal id="nav-drawer" pivot="start" aria-label="Menu de Navegação Principal">
+        <div class="drawer-content" style="height: 100%;">
+            <div class="row-between" style="padding: 8px 12px;">
+                <div class="row">
+                    <div class="icon-badge-surface" aria-hidden="true">
+                        <md-icon class="filled">precision_manufacturing</md-icon>
+                    </div>
+                    <div class="col" style="gap: 2px;">
+                        <span class="md-typescale-title-medium">3D Print Calc Pro</span>
+                        <span class="md-typescale-label-small muted-text">Material Design 3</span>
+                    </div>
+                </div>
+                <md-icon-button id="drawer-close-btn" aria-label="Fechar Menu">
+                    <md-icon>close</md-icon>
+                </md-icon-button>
+            </div>
+
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Navegação</span>
+            <md-list aria-label="Navegação da Plataforma">
+                <md-list-item type="button" href="/">
+                    <md-icon slot="start">dashboard</md-icon>
+                    <div slot="headline">Visão Geral</div>
+                    <div slot="supporting-text">Dashboard e métricas da oficina</div>
+                </md-list-item>
+                <md-list-item type="button" href="/calculator">
+                    <md-icon slot="start">calculate</md-icon>
+                    <div slot="headline">Calculadora 3D</div>
+                    <div slot="supporting-text">Placas, 3MF/G-code, BOM e taxas</div>
+                </md-list-item>
+                <md-list-item type="button" href="/projects">
+                    <md-icon slot="start">folder_open</md-icon>
+                    <div slot="headline">Projetos &amp; Orçamentos</div>
+                    <div slot="supporting-text">Lista, busca e filtros</div>
+                </md-list-item>
+                <md-list-item type="button" href="/printers">
+                    <md-icon slot="start">print</md-icon>
+                    <div slot="headline">Minhas Impressoras</div>
+                    <div slot="supporting-text">Tarifa horária, energia e manutenção</div>
+                </md-list-item>
+                <md-list-item type="button" href="/filaments">
+                    <md-icon slot="start" class="filled" style="color: var(--md-sys-color-primary);">toll</md-icon>
+                    <div slot="headline">Meus Filamentos</div>
+                    <div slot="supporting-text">Carretéis, polímeros e custo/g</div>
+                </md-list-item>
+                <md-list-item type="button" href="/settings">
+                    <md-icon slot="start">settings</md-icon>
+                    <div slot="headline">Configurações &amp; Taxas</div>
+                    <div slot="supporting-text">Empresa, PIX e taxas padrão</div>
+                </md-list-item>
+            </md-list>
+
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Dynamic Color (HCT)</span>
+            <div style="padding: 4px 16px;" class="col">
+                <span class="md-typescale-body-small muted-text">Cor Semente do Tema:</span>
+                <div class="row-wrap">
+                    <button type="button" class="seed-btn" data-seed="#6750A4" style="background:#6750A4;" aria-label="M3 Baseline Purple" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#2563EB" style="background:#2563EB;" aria-label="Royal Cobalt" aria-pressed="true"></button>
+                    <button type="button" class="seed-btn" data-seed="#006874" style="background:#006874;" aria-label="Ocean Teal" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#006D3B" style="background:#006D3B;" aria-label="Emerald" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#B3261E" style="background:#B3261E;" aria-label="Crimson" aria-pressed="false"></button>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; padding: 12px 12px 4px;" class="col">
+                <md-divider></md-divider>
+                <div class="surface-subbox" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px;">
+                    <div class="row" style="min-width: 0;">
+                        <div class="icon-badge-surface secondary" style="width: 36px; height: 36px; border-radius: 9999px;" id="user-avatar">U</div>
+                        <div class="col" style="gap: 2px; min-width: 0;">
+                            <span class="md-typescale-label-large" id="user-display-name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Não conectado</span>
+                            <span class="md-typescale-body-small muted-text" id="user-display-company" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Oficina 3D</span>
+                        </div>
+                    </div>
+                    <md-icon-button id="btn-logout" aria-label="Sair da conta" title="Sair da conta">
+                        <md-icon>logout</md-icon>
+                    </md-icon-button>
+                </div>
+            </div>
+        </div>
+    </md-navigation-drawer-modal>
+
+    <div class="app-shell">
+        <!-- Sticky Top App Bar -->
+        <header class="top-app-bar">
+            <div class="top-app-bar-row">
+                <div class="top-app-bar-leading">
+                    <md-icon-button id="drawer-open-btn" aria-label="Abrir Menu Lateral">
+                        <md-icon>menu</md-icon>
+                    </md-icon-button>
+
+                    <div class="icon-badge-surface tertiary" aria-hidden="true">
+                        <md-icon class="filled">toll</md-icon>
+                    </div>
+
+                    <div class="top-app-bar-title-group">
+                        <span class="md-typescale-title-large">Meus Filamentos</span>
+                        <span class="md-typescale-body-small muted-text">3D Print Calc Pro · Estoque de Polímeros &amp; Custos</span>
+                    </div>
+                </div>
+
+                <div class="top-app-bar-actions">
+                    <md-icon-button id="btn-refresh-filaments" aria-label="Atualizar filamentos" title="Atualizar lista">
+                        <md-icon>refresh</md-icon>
+                    </md-icon-button>
+
+                    <md-filled-tonal-icon-button id="theme-mode-toggle" toggle aria-label="Alternar Modo Escuro ou Claro" title="Alternar Claro / Escuro">
+                        <md-icon>light_mode</md-icon>
+                        <md-icon slot="selected" class="filled">dark_mode</md-icon>
+                    </md-filled-tonal-icon-button>
+
+                    <div style="position: relative;">
+                        <md-icon-button id="top-more-btn" aria-label="Mais Opções" aria-haspopup="menu" aria-controls="top-more-menu">
+                            <md-icon>more_vert</md-icon>
+                        </md-icon-button>
+
+                        <md-menu id="top-more-menu" anchor="top-more-btn" positioning="popover" has-overflow>
+                            <md-menu-item href="/">
+                                <md-icon slot="start">dashboard</md-icon>
+                                <div slot="headline">Visão Geral</div>
+                            </md-menu-item>
+                            <md-menu-item href="/calculator">
+                                <md-icon slot="start">calculate</md-icon>
+                                <div slot="headline">Calculadora 3D</div>
+                            </md-menu-item>
+                            <md-menu-item href="/projects">
+                                <md-icon slot="start">folder_open</md-icon>
+                                <div slot="headline">Projetos &amp; Orçamentos</div>
+                            </md-menu-item>
+                            <md-menu-item href="/printers">
+                                <md-icon slot="start">print</md-icon>
+                                <div slot="headline">Minhas Impressoras</div>
+                            </md-menu-item>
+
+                            <md-sub-menu>
+                                <md-menu-item slot="item">
+                                    <md-icon slot="start">color_lens</md-icon>
+                                    <div slot="headline">Cor Semente (HCT)</div>
+                                    <md-icon slot="end">arrow_right</md-icon>
+                                </md-menu-item>
+                                <md-menu slot="menu">
+                                    <md-menu-item data-seed-menu="#6750A4"><div slot="headline">M3 Purple (#6750A4)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#2563EB"><div slot="headline">Royal Cobalt (#2563EB)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006874"><div slot="headline">Ocean Teal (#006874)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006D3B"><div slot="headline">Emerald (#006D3B)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#B3261E"><div slot="headline">Crimson (#B3261E)</div></md-menu-item>
+                                </md-menu>
+                            </md-sub-menu>
+                        </md-menu>
+                    </div>
+
+                    <md-filled-button id="btn-new-filament">
+                        <md-icon slot="icon">add</md-icon>
+                        Cadastrar Filamento
+                    </md-filled-button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-container">
+            <!-- Loading Progress Indicator -->
+            <md-linear-progress id="filaments-loader" indeterminate four-color hidden aria-label="Carregando filamentos"></md-linear-progress>
+
+            <!-- 1. SEARCH & MATERIAL FILTER CHIPS TOOLBAR (Semantic <search>) -->
+            <md-elevated-card class="card-pad">
+                <search aria-label="Buscar e filtrar filamentos">
+                    <div class="col" style="gap: 16px;">
+                        <div class="row-between">
+                            <div style="flex: 1; min-width: 240px; max-width: 440px;">
+                                <md-outlined-text-field
+                                    id="filament-search-input"
+                                    type="search"
+                                    label="Buscar filamento, marca ou cor"
+                                    placeholder="Buscar por nome, marca, cor ou polímero..."
+                                    autocomplete="off">
+                                    <md-icon slot="leading-icon">search</md-icon>
+                                    <md-icon-button id="btn-clear-search" slot="trailing-icon" aria-label="Limpar busca" hidden>
+                                        <md-icon>close</md-icon>
+                                    </md-icon-button>
+                                </md-outlined-text-field>
+                            </div>
+
+                            <div class="row-wrap">
+                                <md-assist-chip id="chip-total-filaments" label="0 filamentos">
+                                    <md-icon slot="icon">palette</md-icon>
+                                </md-assist-chip>
+                            </div>
+                        </div>
+
+                        <!-- Official M3 Filter Chips covering all 7 polymers + Todos -->
+                        <md-chip-set id="filament-material-chips" aria-label="Filtrar filamentos por tipo de material">
+                            <md-filter-chip data-material="" label="Todos os Materiais" selected></md-filter-chip>
+                            <md-filter-chip data-material="PLA" label="PLA"></md-filter-chip>
+                            <md-filter-chip data-material="PETG" label="PETG"></md-filter-chip>
+                            <md-filter-chip data-material="ABS" label="ABS"></md-filter-chip>
+                            <md-filter-chip data-material="TPU" label="TPU"></md-filter-chip>
+                            <md-filter-chip data-material="ASA" label="ASA"></md-filter-chip>
+                            <md-filter-chip data-material="Resina" label="Resina"></md-filter-chip>
+                            <md-filter-chip data-material="Outro" label="Outro"></md-filter-chip>
+                        </md-chip-set>
+                    </div>
+                </search>
+            </md-elevated-card>
+
+            <!-- 2. FILAMENTS CATALOG GRID -->
+            <section aria-label="Catálogo de Filamentos" id="filaments-grid" class="grid-catalog">
+                <!-- Populated dynamically with <md-elevated-card> semantic cards -->
+            </section>
+        </main>
+    </div>
+
+    <!-- =========================================================================
+         OFFICIAL MATERIAL 3 DIALOGS (Auth, Filament Form & Delete Confirm)
+         ========================================================================= -->
+
+    <!-- Auth Dialog -->
+    <md-dialog id="auth-dialog" aria-label="Autenticação 3D Print Calc Pro">
+        <md-icon slot="icon">lock_open</md-icon>
+        <div slot="headline">3D Print Calc Pro</div>
+
+        <div slot="content" class="col" style="min-width: 280px;">
+            <span class="md-typescale-body-small muted-text">Entre na sua conta para gerenciar seu estoque de filamentos no visual Material 3.</span>
+
+            <md-tabs id="auth-tabs" aria-label="Modo de Autenticação">
+                <md-primary-tab selected>Entrar</md-primary-tab>
+                <md-primary-tab>Criar Conta</md-primary-tab>
+            </md-tabs>
+
+            <div id="auth-error-box" class="surface-subbox" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); border-color: transparent;" hidden>
+                <div class="row" style="gap: 8px;">
+                    <md-icon>error</md-icon>
+                    <span id="auth-error-text" class="md-typescale-body-small">Erro ao autenticar</span>
+                </div>
+            </div>
+
+            <form id="form-login" class="col">
+                <md-outlined-text-field id="login-email" type="email" autocomplete="username" label="E-mail" placeholder="seu@email.com" required>
+                    <md-icon slot="leading-icon">mail</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="login-password" type="password" autocomplete="current-password" label="Senha" required>
+                    <md-icon slot="leading-icon">key</md-icon>
+                </md-outlined-text-field>
+                <md-filled-button type="submit" class="full-width">
+                    <md-icon slot="icon">login</md-icon>
+                    Entrar no Sistema
+                </md-filled-button>
+            </form>
+
+            <form id="form-register" class="col" hidden>
+                <md-outlined-text-field id="reg-name" autocomplete="name" label="Nome Completo" required>
+                    <md-icon slot="leading-icon">person</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-company" autocomplete="organization" label="Empresa / Oficina (Opcional)">
+                    <md-icon slot="leading-icon">store</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-email" type="email" autocomplete="username" label="E-mail" required>
+                    <md-icon slot="leading-icon">mail</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-password" type="password" autocomplete="new-password" label="Senha (Mín. 6 dígitos)" minlength="6" required>
+                    <md-icon slot="leading-icon">key</md-icon>
+                </md-outlined-text-field>
+                <md-filled-button type="submit" class="full-width">
+                    <md-icon slot="icon">person_add</md-icon>
+                    Criar Conta Limpa
+                </md-filled-button>
+            </form>
+        </div>
+    </md-dialog>
+
+    <!-- Create / Edit / Duplicate Filament Dialog -->
+    <md-dialog id="dialog-filament" aria-labelledby="dialog-filament-title">
+        <md-icon slot="icon">toll</md-icon>
+        <div slot="headline" id="dialog-filament-title">Cadastrar Filamento</div>
+
+        <form slot="content" id="form-filament" method="dialog" class="col" style="padding-top: 8px; gap: 14px;">
+            <div id="filament-form-error" class="surface-subbox" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); border-color: transparent;" role="alert" aria-live="polite" hidden>
+                <span id="filament-form-error-text" class="md-typescale-body-small">Preencha os campos obrigatórios corretamente.</span>
+            </div>
+
+            <div class="dialog-row-2">
+                <md-outlined-select id="filament-material" label="Tipo de Material *" menu-positioning="popover">
+                    <md-select-option value="PLA" selected><div slot="headline">PLA</div></md-select-option>
+                    <md-select-option value="PETG"><div slot="headline">PETG</div></md-select-option>
+                    <md-select-option value="ABS"><div slot="headline">ABS</div></md-select-option>
+                    <md-select-option value="TPU"><div slot="headline">TPU (Flexível)</div></md-select-option>
+                    <md-select-option value="ASA"><div slot="headline">ASA</div></md-select-option>
+                    <md-select-option value="Resina"><div slot="headline">Resina UV</div></md-select-option>
+                    <md-select-option value="Outro"><div slot="headline">Outro</div></md-select-option>
+                </md-outlined-select>
+
+                <md-outlined-text-field id="filament-brand" label="Marca / Fabricante *" placeholder="Ex: 3D Prime" required></md-outlined-text-field>
+            </div>
+
+            <div class="row" style="align-items: center;">
+                <input type="color" id="filament-color-hex" value="#10b981" class="m3-color-picker" aria-label="Amostra de cor do filamento" title="Seletor visual de cor">
+                <md-outlined-text-field id="filament-color" label="Nome da Cor *" placeholder="Ex: Preto" required style="flex: 1;"></md-outlined-text-field>
+            </div>
+
+            <div class="dialog-row-2">
+                <md-outlined-text-field id="filament-density" type="number" step="0.01" min="0.5" label="Densidade *" suffix-text="g/cm³" value="1.24" required></md-outlined-text-field>
+                <md-outlined-text-field id="filament-weight" type="number" step="any" min="1" label="Peso Carretel *" suffix-text="g" value="1000" required></md-outlined-text-field>
+            </div>
+
+            <md-outlined-text-field id="filament-price" type="number" step="any" min="0" label="Preço do Carretel *" prefix-text="R$" value="95.00" required></md-outlined-text-field>
+
+            <!-- Live Standardized Name & Cost per Gram Preview -->
+            <div class="tertiary-container-box">
+                <div class="row-between">
+                    <div class="row" style="gap: 10px; min-width: 0;">
+                        <span id="filament-preview-dot" class="m3-swatch-dot" style="background-color: #10b981;"></span>
+                        <div class="col" style="gap: 2px; min-width: 0;">
+                            <span class="md-typescale-label-small">NOME PADRONIZADO</span>
+                            <span class="md-typescale-title-small" id="filament-preview-text" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">PLA Preto - Marca</span>
+                        </div>
+                    </div>
+                    <span class="md-typescale-title-medium mono-num" id="filament-preview-cpg">R$ 0,10/g</span>
+                </div>
+            </div>
+        </form>
+
+        <div slot="actions">
+            <md-text-button type="button" id="filament-cancel-btn" value="cancel">Cancelar</md-text-button>
+            <md-filled-button type="button" id="filament-submit-btn">Salvar Filamento</md-filled-button>
+        </div>
+    </md-dialog>
+
+    <!-- Destructive Confirmation Dialog (Safe button has autofocus per guidance) -->
+    <md-dialog id="dialog-delete-filament" type="alert">
+        <md-icon slot="icon" style="color: var(--md-sys-color-error);">delete_forever</md-icon>
+        <div slot="headline">Remover filamento?</div>
+        <div class="md-typescale-body-medium muted-text" slot="content">
+            Deseja realmente remover <strong id="delete-filament-name">este filamento</strong>? Esta ação remove o carretel do catálogo.
+        </div>
+        <div slot="actions">
+            <md-text-button id="delete-confirm-btn" value="delete" style="--md-text-button-label-text-color: var(--md-sys-color-error);">Excluir</md-text-button>
+            <md-filled-tonal-button id="delete-cancel-btn" value="cancel" autofocus>Cancelar</md-filled-tonal-button>
+        </div>
+    </md-dialog>
+
+    <!-- M3 Snackbar Feedback -->
+    <div id="m3-snackbar" class="m3-snackbar" role="status" aria-live="polite">
+        <md-icon id="m3-snackbar-icon">check_circle</md-icon>
+        <span id="m3-snackbar-text" class="md-typescale-body-medium">Atualizado</span>
+    </div>
+
+    <!-- Real Backend REST API Client -->
+    <script src="/static/js/api.js"></script>
+
+    <!-- Official M3 Dynamic Theme + Filaments Catalog Controller -->
+    <script type="module">
+        import {
+            argbFromHex,
+            themeFromSourceColor,
+            applyTheme,
+            hexFromArgb,
+        } from '@material/material-color-utilities';
+
+        // ---------------------------------------------------------------------
+        // 1. Dynamic HCT Color Theme Engine
+        // ---------------------------------------------------------------------
+        let currentSeed = '#2563EB';
+        const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        let isDarkMode = colorSchemeQuery.matches;
+        let userOverrodeTheme = false;
+
+        const MATERIAL_DENSITIES = {
+            PLA: 1.24,
+            PETG: 1.27,
+            ABS: 1.04,
+            TPU: 1.21,
+            ASA: 1.07,
+            Resina: 1.15,
+            Outro: 1.24,
+        };
+
+        let allFilaments = [];
+        let activeMaterialFilter = '';
+        let editingFilamentId = null;
+        let deletingFilamentId = null;
+
+        function applyOfficialM3Theme(seedHex, dark) {
+            currentSeed = seedHex;
+            isDarkMode = dark;
+
+            const theme = themeFromSourceColor(argbFromHex(seedHex));
+            const root = document.documentElement;
+            applyTheme(theme, { target: root, dark });
+
+            const neutral = theme.palettes.neutral;
+            const tones = dark
+                ? {
+                    'surface-dim': 6,
+                    'surface-bright': 24,
+                    'surface-container-lowest': 4,
+                    'surface-container-low': 10,
+                    'surface-container': 12,
+                    'surface-container-high': 17,
+                    'surface-container-highest': 22,
+                }
+                : {
+                    'surface-dim': 87,
+                    'surface-bright': 98,
+                    'surface-container-lowest': 100,
+                    'surface-container-low': 96,
+                    'surface-container': 94,
+                    'surface-container-high': 92,
+                    'surface-container-highest': 90,
+                };
+
+            for (const [token, toneVal] of Object.entries(tones)) {
+                root.style.setProperty(`--md-sys-color-${token}`, hexFromArgb(neutral.tone(toneVal)));
+            }
+
+            const surfaceHex = hexFromArgb(neutral.tone(dark ? 6 : 98));
+            root.style.setProperty('--md-sys-color-surface', surfaceHex);
+            root.style.setProperty('--md-sys-color-background', surfaceHex);
+
+            root.dataset.theme = dark ? 'dark' : 'light';
+            root.style.colorScheme = dark ? 'dark' : 'light';
+
+            const themeBtn = document.getElementById('theme-mode-toggle');
+            if (themeBtn) themeBtn.selected = dark;
+
+            document.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.setAttribute('aria-pressed', btn.dataset.seed?.toUpperCase() === seedHex.toUpperCase() ? 'true' : 'false');
+            });
+        }
+
+        colorSchemeQuery.addEventListener('change', (e) => {
+            if (!userOverrodeTheme) {
+                applyOfficialM3Theme(currentSeed, e.matches);
+            }
+        });
+
+        // ---------------------------------------------------------------------
+        // 2. Formatting, Search Normalization & Security Helpers
+        // ---------------------------------------------------------------------
+        const brlFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+        const formatCurrency = (val) => brlFormatter.format(Number(val) || 0);
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function sanitizeHexColor(hex) {
+            return /^#[0-9A-Fa-f]{6}$/.test(String(hex || '').trim()) ? String(hex).trim() : '#10b981';
+        }
+
+        function normalizeSearchText(str) {
+            return (str || '')
+                .toString()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .trim();
+        }
+
+        function matchesSearch(text, term) {
+            const normTerm = normalizeSearchText(term);
+            if (!normTerm) return true;
+            const normText = normalizeSearchText(text);
+            if (normText.includes(normTerm)) return true;
+            const words = normTerm.split(/\s+/).filter(Boolean);
+            return words.every(word => normText.includes(word));
+        }
+
+        let snackbarTimer = null;
+        function showSnackbar(message, icon = 'check_circle') {
+            const bar = document.getElementById('m3-snackbar');
+            const textEl = document.getElementById('m3-snackbar-text');
+            const iconEl = document.getElementById('m3-snackbar-icon');
+            if (!bar) return;
+            textEl.textContent = message;
+            iconEl.textContent = icon;
+            bar.classList.add('visible');
+            clearTimeout(snackbarTimer);
+            snackbarTimer = setTimeout(() => bar.classList.remove('visible'), 3200);
+        }
+
+        // ---------------------------------------------------------------------
+        // 3. Load Live Filaments & Render Catalog Grid
+        // ---------------------------------------------------------------------
+        async function fetchAndRenderFilaments() {
+            const loader = document.getElementById('filaments-loader');
+            if (loader) loader.hidden = false;
+
+            try {
+                const [user, filaments] = await Promise.all([
+                    API.auth.getMe(),
+                    API.filaments.list(),
+                ]);
+
+                updateUserProfile(user);
+                allFilaments = Array.isArray(filaments) ? filaments : [];
+                updateCountsSummary(allFilaments.length);
+                renderFilamentsGrid();
+            } catch (err) {
+                console.warn('Erro ao carregar filamentos:', err);
+                if (!API.getToken()) {
+                    openAuthDialog();
+                } else {
+                    showSnackbar(err?.message || 'Erro ao carregar filamentos.', 'error');
+                }
+            } finally {
+                if (loader) loader.hidden = true;
+            }
+        }
+
+        function updateUserProfile(user) {
+            if (!user) return;
+            const nameEl = document.getElementById('user-display-name');
+            const companyEl = document.getElementById('user-display-company');
+            const avatarEl = document.getElementById('user-avatar');
+
+            const fullName = user.full_name || user.email || 'Usuário';
+            const initials = fullName.split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() || '').join('') || 'U';
+            if (nameEl) nameEl.textContent = fullName;
+            if (companyEl) companyEl.textContent = user.company_name || 'Oficina 3D';
+            if (avatarEl) avatarEl.textContent = initials;
+        }
+
+        function updateCountsSummary(total) {
+            const chip = document.getElementById('chip-total-filaments');
+            if (chip) chip.label = `${total} ${total === 1 ? 'filamento' : 'filamentos'}`;
+            const badge = document.getElementById('drawer-filaments-badge');
+            if (badge) badge.value = String(total);
+        }
+
+        function renderFilamentsGrid() {
+            const grid = document.getElementById('filaments-grid');
+            const searchInput = document.getElementById('filament-search-input');
+            const clearBtn = document.getElementById('btn-clear-search');
+            if (!grid) return;
+
+            const term = (searchInput?.value || '').trim();
+            if (clearBtn) clearBtn.hidden = (term === '');
+
+            let filtered = allFilaments;
+            if (activeMaterialFilter) {
+                filtered = filtered.filter(f => (f.material || '').toUpperCase() === activeMaterialFilter.toUpperCase());
+            }
+            if (term) {
+                filtered = filtered.filter(f => matchesSearch(`${f.name || ''} ${f.brand || ''} ${f.material || ''} ${f.color || ''}`, term));
+            }
+
+            if (allFilaments.length === 0) {
+                grid.innerHTML = `
+                    <md-outlined-card class="card-pad" style="grid-column: 1 / -1;">
+                        <div class="col" style="align-items: center; text-align: center; padding: 36px 16px;">
+                            <div class="icon-badge-surface tertiary" aria-hidden="true">
+                                <md-icon class="filled">toll</md-icon>
+                            </div>
+                            <h2 class="md-typescale-title-medium" style="margin: 0;">Nenhum filamento cadastrado</h2>
+                            <p class="md-typescale-body-small muted-text" style="max-width: 440px; margin: 0;">
+                                Cadastre suas marcas e carretéis reais para apurar o custo exato em gramas de cada projeto impresso.
+                            </p>
+                            <md-filled-button id="empty-create-filament-btn" style="margin-top: 8px;">
+                                <md-icon slot="icon">add</md-icon>
+                                Cadastrar Filamento
+                            </md-filled-button>
+                        </div>
+                    </md-outlined-card>
+                `;
+                document.getElementById('empty-create-filament-btn')?.addEventListener('click', () => openFilamentDialog(null));
+                return;
+            }
+
+            if (filtered.length === 0) {
+                const filterDesc = [
+                    term ? `busca "${escapeHtml(term)}"` : '',
+                    activeMaterialFilter ? `material "${escapeHtml(activeMaterialFilter)}"` : ''
+                ].filter(Boolean).join(' e ');
+
+                grid.innerHTML = `
+                    <md-outlined-card class="card-pad" style="grid-column: 1 / -1;">
+                        <div class="col" style="align-items: center; text-align: center; padding: 32px 16px;">
+                            <div class="icon-badge-surface secondary" aria-hidden="true">
+                                <md-icon>search_off</md-icon>
+                            </div>
+                            <h2 class="md-typescale-title-medium" style="margin: 0;">Nenhum filamento encontrado</h2>
+                            <p class="md-typescale-body-small muted-text" style="max-width: 420px; margin: 0;">
+                                Nenhum filamento encontrado para os filtros aplicados (${filterDesc}).
+                            </p>
+                            <md-outlined-button id="btn-empty-clear-filters" style="margin-top: 8px;">
+                                <md-icon slot="icon">close</md-icon>
+                                Limpar filtros
+                            </md-outlined-button>
+                        </div>
+                    </md-outlined-card>
+                `;
+                document.getElementById('btn-empty-clear-filters')?.addEventListener('click', clearFilamentFilters);
+                return;
+            }
+
+            grid.innerHTML = filtered.map(f => {
+                const hex = sanitizeHexColor(f.color_hex);
+                const cpg = Number(f.cost_per_gram || 0);
+                const density = Number(f.density_g_cm3 ?? 1.24).toFixed(2);
+                return `
+                    <md-elevated-card class="card-pad">
+                        <article class="col" style="gap: 14px; height: 100%; justify-content: space-between;">
+                            <header class="row-between" style="align-items: flex-start; flex-wrap: nowrap; gap: 8px;">
+                                <div class="row" style="gap: 12px; min-width: 0; flex: 1; align-items: flex-start;">
+                                    <div class="m3-swatch-box" style="background-color: ${hex}22;" aria-hidden="true">
+                                        <span class="m3-swatch-dot" style="background-color: ${hex};"></span>
+                                    </div>
+                                    <div class="col" style="gap: 4px; min-width: 0; flex: 1;">
+                                        <h2 class="md-typescale-title-medium line-clamp-2" style="margin: 0; line-height: 1.3;" title="${escapeHtml(f.name)}">
+                                            ${escapeHtml(f.name)}
+                                        </h2>
+                                        <div class="row-wrap" style="gap: 6px;">
+                                            <span class="m3-status-pill">${escapeHtml(f.material || 'PLA')}</span>
+                                            <span class="md-typescale-body-small muted-text">${escapeHtml(f.brand || 'Genérico')} • ${escapeHtml(f.color || 'Cor padrão')}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row" style="gap: 0; flex-shrink: 0; margin: -6px -8px 0 0;">
+                                    <md-icon-button data-action="duplicate" data-id="${Number(f.id)}" aria-label="Duplicar ${escapeHtml(f.name)}" title="Duplicar (Nova Cor)">
+                                        <md-icon>content_copy</md-icon>
+                                    </md-icon-button>
+                                    <md-icon-button data-action="edit" data-id="${Number(f.id)}" aria-label="Editar ${escapeHtml(f.name)}" title="Editar">
+                                        <md-icon>edit</md-icon>
+                                    </md-icon-button>
+                                    <md-icon-button data-action="delete" data-id="${Number(f.id)}" aria-label="Excluir ${escapeHtml(f.name)}" title="Excluir" style="--md-icon-button-icon-color: var(--md-sys-color-error);">
+                                        <md-icon>delete</md-icon>
+                                    </md-icon-button>
+                                </div>
+                            </header>
+
+                            <div class="tertiary-container-box" style="align-items: center; text-align: center;">
+                                <span class="md-typescale-label-medium">CUSTO POR GRAMA</span>
+                                <div class="md-typescale-headline-medium mono-num">
+                                    R$ ${cpg.toFixed(2).replace('.', ',')}<span class="md-typescale-body-small">/g</span>
+                                </div>
+                            </div>
+
+                            <footer class="col" style="gap: 10px;">
+                                <md-divider></md-divider>
+                                <div class="row-between">
+                                    <span class="md-typescale-body-small muted-text mono-num">Carretel: ${Number(f.spool_weight_g || 0)} g</span>
+                                    <span class="md-typescale-body-small muted-text mono-num">${density} g/cm³</span>
+                                    <span class="md-typescale-body-small muted-text mono-num">Preço: ${formatCurrency(f.spool_price)}</span>
+                                </div>
+                            </footer>
+                        </article>
+                    </md-elevated-card>
+                `;
+            }).join('');
+
+            grid.querySelectorAll('[data-action="duplicate"]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const f = allFilaments.find(item => item.id === Number(btn.dataset.id));
+                    if (f) openFilamentDialog(f, true);
+                });
+            });
+
+            grid.querySelectorAll('[data-action="edit"]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const f = allFilaments.find(item => item.id === Number(btn.dataset.id));
+                    if (f) openFilamentDialog(f, false);
+                });
+            });
+
+            grid.querySelectorAll('[data-action="delete"]').forEach(btn => {
+                btn.addEventListener('click', () => openDeleteDialog(Number(btn.dataset.id)));
+            });
+        }
+
+        function setMaterialFilter(mat) {
+            activeMaterialFilter = mat || '';
+            document.querySelectorAll('#filament-material-chips md-filter-chip').forEach(chip => {
+                chip.selected = (chip.getAttribute('data-material') === activeMaterialFilter);
+            });
+            renderFilamentsGrid();
+        }
+
+        function clearFilamentFilters() {
+            const input = document.getElementById('filament-search-input');
+            if (input) input.value = '';
+            setMaterialFilter('');
+        }
+
+        // ---------------------------------------------------------------------
+        // 4. Live Preview & Filament Modal Helpers
+        // ---------------------------------------------------------------------
+        function updateFilamentPreview() {
+            const mat = document.getElementById('filament-material')?.value || 'PLA';
+            const colorInput = document.getElementById('filament-color');
+            const colorVal = colorInput?.value?.trim();
+            const color = colorVal || 'Nova Cor';
+            const brand = document.getElementById('filament-brand')?.value?.trim() || 'Marca';
+            const hex = sanitizeHexColor(document.getElementById('filament-color-hex')?.value);
+
+            const weight = parseFloat(document.getElementById('filament-weight')?.value || 1000) || 1000;
+            const price = Math.max(0, parseFloat(document.getElementById('filament-price')?.value || 0) || 0);
+            const cpg = weight > 0 ? price / weight : 0;
+
+            document.getElementById('filament-preview-dot').style.backgroundColor = hex;
+            document.getElementById('filament-preview-text').textContent = `${mat} ${color} - ${brand}`;
+            document.getElementById('filament-preview-cpg').textContent = `R$ ${cpg.toFixed(2).replace('.', ',')}/g`;
+        }
+
+        function openFilamentDialog(filament = null, isDuplicate = false) {
+            const titleEl = document.getElementById('dialog-filament-title');
+            const errBox = document.getElementById('filament-form-error');
+            const colorInput = document.getElementById('filament-color');
+            errBox.hidden = true;
+
+            if (filament && !isDuplicate) {
+                editingFilamentId = filament.id;
+                titleEl.textContent = 'Editar Filamento';
+                document.getElementById('filament-material').value = filament.material || 'PLA';
+                document.getElementById('filament-brand').value = filament.brand || '';
+                colorInput.value = filament.color || '';
+                colorInput.placeholder = 'Ex: Preto';
+                document.getElementById('filament-color-hex').value = sanitizeHexColor(filament.color_hex);
+                document.getElementById('filament-density').value = String(filament.density_g_cm3 ?? (MATERIAL_DENSITIES[filament.material] || 1.24));
+                document.getElementById('filament-weight').value = String(filament.spool_weight_g);
+                document.getElementById('filament-price').value = String(filament.spool_price);
+            } else if (filament && isDuplicate) {
+                editingFilamentId = null;
+                titleEl.textContent = 'Cadastrar Filamento (Duplicar)';
+                document.getElementById('filament-material').value = filament.material || 'PLA';
+                document.getElementById('filament-brand').value = filament.brand || '';
+                colorInput.value = '';
+                colorInput.placeholder = 'Digite a nova cor...';
+                document.getElementById('filament-color-hex').value = sanitizeHexColor(filament.color_hex);
+                document.getElementById('filament-density').value = String(filament.density_g_cm3 ?? (MATERIAL_DENSITIES[filament.material] || 1.24));
+                document.getElementById('filament-weight').value = String(filament.spool_weight_g);
+                document.getElementById('filament-price').value = String(filament.spool_price);
+            } else {
+                editingFilamentId = null;
+                titleEl.textContent = 'Cadastrar Filamento';
+                document.getElementById('filament-material').value = 'PLA';
+                document.getElementById('filament-brand').value = '';
+                colorInput.value = '';
+                colorInput.placeholder = 'Ex: Preto';
+                document.getElementById('filament-color-hex').value = '#10b981';
+                document.getElementById('filament-density').value = '1.24';
+                document.getElementById('filament-weight').value = '1000';
+                document.getElementById('filament-price').value = '95.00';
+            }
+
+            updateFilamentPreview();
+            document.getElementById('dialog-filament')?.show();
+            if (isDuplicate) {
+                requestAnimationFrame(() => colorInput?.focus());
+            }
+        }
+
+        function openDeleteDialog(filamentId) {
+            const f = allFilaments.find(item => item.id === filamentId);
+            if (!f) return;
+            deletingFilamentId = filamentId;
+            document.getElementById('delete-filament-name').textContent = f.name || 'este filamento';
+            document.getElementById('dialog-delete-filament')?.show();
+        }
+
+        function openAuthDialog() {
+            const dlg = document.getElementById('auth-dialog');
+            if (dlg && !dlg.open) dlg.show();
+        }
+
+        function closeAuthDialog() {
+            const dlg = document.getElementById('auth-dialog');
+            if (dlg?.open) dlg.close();
+        }
+
+        function setAuthError(msg) {
+            const box = document.getElementById('auth-error-box');
+            const text = document.getElementById('auth-error-text');
+            if (!box || !text) return;
+            box.hidden = !msg;
+            if (msg) text.textContent = msg;
+        }
+
+        // ---------------------------------------------------------------------
+        // 5. Boot & Wire Listeners
+        // ---------------------------------------------------------------------
+        function init() {
+            applyOfficialM3Theme(currentSeed, isDarkMode);
+
+            // Drawer
+            const drawer = document.getElementById('nav-drawer');
+            const setDrawerOpen = (open) => {
+                if (!drawer) return;
+                drawer.opened = open;
+                drawer.classList.toggle('is-open', open);
+            };
+            document.getElementById('drawer-open-btn')?.addEventListener('click', () => setDrawerOpen(!drawer?.opened));
+            document.getElementById('drawer-close-btn')?.addEventListener('click', () => setDrawerOpen(false));
+            drawer?.addEventListener('navigation-drawer-changed', (e) => {
+                drawer.classList.toggle('is-open', Boolean(e.detail?.opened));
+            });
+
+            // Theme Toggle & Seed Presets
+            document.getElementById('theme-mode-toggle')?.addEventListener('change', (e) => {
+                userOverrodeTheme = true;
+                applyOfficialM3Theme(currentSeed, e.target.selected);
+                showSnackbar(e.target.selected ? 'Tema Escuro (M3 Dark) ativado' : 'Tema Claro (M3 Light) ativado', e.target.selected ? 'dark_mode' : 'light_mode');
+            });
+
+            document.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    applyOfficialM3Theme(btn.dataset.seed, isDarkMode);
+                    showSnackbar(`Paleta HCT aplicada: ${btn.dataset.seed}`, 'palette');
+                });
+            });
+
+            document.querySelectorAll('[data-seed-menu]').forEach(item => {
+                item.addEventListener('click', () => {
+                    applyOfficialM3Theme(item.dataset.seedMenu, isDarkMode);
+                    showSnackbar(`Cor semente alterada para ${item.dataset.seedMenu}`, 'palette');
+                });
+            });
+
+            // Top More Menu & Refresh
+            const moreBtn = document.getElementById('top-more-btn');
+            const moreMenu = document.getElementById('top-more-menu');
+            moreBtn?.addEventListener('click', () => {
+                if (moreMenu) moreMenu.open = !moreMenu.open;
+            });
+
+            document.getElementById('btn-refresh-filaments')?.addEventListener('click', () => {
+                fetchAndRenderFilaments().then(() => showSnackbar('Filamentos atualizados!', 'sync'));
+            });
+
+            // Search & Material Chips
+            const searchInput = document.getElementById('filament-search-input');
+            searchInput?.addEventListener('input', () => renderFilamentsGrid());
+            searchInput?.addEventListener('search', () => renderFilamentsGrid());
+            document.getElementById('btn-clear-search')?.addEventListener('click', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    renderFilamentsGrid();
+                }
+            });
+
+            document.getElementById('filament-material-chips')?.addEventListener('click', (e) => {
+                const chip = e.target.closest('md-filter-chip');
+                if (!chip) return;
+                const mat = chip.getAttribute('data-material') || '';
+                queueMicrotask(() => setMaterialFilter(mat));
+            });
+
+            // Auth Tabs & Forms
+            const authTabs = document.getElementById('auth-tabs');
+            const formLogin = document.getElementById('form-login');
+            const formRegister = document.getElementById('form-register');
+            authTabs?.addEventListener('change', () => {
+                const idx = authTabs.activeTabIndex;
+                formLogin.hidden = (idx !== 0);
+                formRegister.hidden = (idx !== 1);
+                setAuthError('');
+            });
+
+            formLogin?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                try {
+                    const email = document.getElementById('login-email').value;
+                    const pass = document.getElementById('login-password').value;
+                    await API.auth.login(email, pass);
+                    closeAuthDialog();
+                    await fetchAndRenderFilaments();
+                    showSnackbar('Login realizado com sucesso!', 'login');
+                } catch (err) {
+                    setAuthError(err.message || 'Credenciais inválidas.');
+                }
+            });
+
+            formRegister?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                try {
+                    const name = document.getElementById('reg-name').value;
+                    const company = document.getElementById('reg-company').value;
+                    const email = document.getElementById('reg-email').value;
+                    const pass = document.getElementById('reg-password').value;
+                    await API.auth.register(email, pass, name, company);
+                    closeAuthDialog();
+                    await fetchAndRenderFilaments();
+                    showSnackbar('Conta criada e carregada!', 'person_add');
+                } catch (err) {
+                    setAuthError(err.message || 'Não foi possível criar conta.');
+                }
+            });
+
+            document.getElementById('btn-logout')?.addEventListener('click', () => {
+                API.auth.logout();
+                setDrawerOpen(false);
+            });
+
+            window.addEventListener('auth:unauthorized', () => openAuthDialog());
+            window.addEventListener('auth:logout', () => {
+                allFilaments = [];
+                updateCountsSummary(0);
+                renderFilamentsGrid();
+                openAuthDialog();
+                showSnackbar('Sessão encerrada.', 'logout');
+            });
+
+            // Filament Dialog + Auto-Density + Live Preview + Validation
+            const filDlg = document.getElementById('dialog-filament');
+            const filSubmitBtn = document.getElementById('filament-submit-btn');
+            const filErrBox = document.getElementById('filament-form-error');
+            const filErrText = document.getElementById('filament-form-error-text');
+
+            document.getElementById('btn-new-filament')?.addEventListener('click', () => openFilamentDialog(null));
+            document.getElementById('filament-cancel-btn')?.addEventListener('click', () => {
+                editingFilamentId = null;
+                filDlg?.close('cancel');
+            });
+
+            document.getElementById('filament-material')?.addEventListener('change', (e) => {
+                const mat = e.target.value || 'PLA';
+                const densEl = document.getElementById('filament-density');
+                if (densEl) densEl.value = String(MATERIAL_DENSITIES[mat] ?? 1.24);
+                updateFilamentPreview();
+            });
+
+            ['filament-brand', 'filament-color', 'filament-color-hex', 'filament-weight', 'filament-price'].forEach(id => {
+                const el = document.getElementById(id);
+                el?.addEventListener('input', () => {
+                    filErrBox.hidden = true;
+                    updateFilamentPreview();
+                });
+            });
+
+            filSubmitBtn?.addEventListener('click', async () => {
+                const brandEl = document.getElementById('filament-brand');
+                const colorEl = document.getElementById('filament-color');
+                const weightEl = document.getElementById('filament-weight');
+
+                const mat = document.getElementById('filament-material').value || 'PLA';
+                const brand = brandEl.value.trim();
+                const color = colorEl.value.trim();
+                const spool_weight_g = parseFloat(weightEl.value);
+
+                if (!brand) {
+                    filErrText.textContent = 'Informe a marca do filamento.';
+                    filErrBox.hidden = false;
+                    brandEl.focus();
+                    return;
+                }
+                if (!color) {
+                    filErrText.textContent = 'Informe a cor do filamento.';
+                    filErrBox.hidden = false;
+                    colorEl.focus();
+                    return;
+                }
+                if (!(spool_weight_g > 0)) {
+                    filErrText.textContent = 'O peso do carretel deve ser maior que 0 g.';
+                    filErrBox.hidden = false;
+                    weightEl.focus();
+                    return;
+                }
+
+                const payload = {
+                    name: `${mat} ${color} - ${brand}`,
+                    brand,
+                    material: mat,
+                    color,
+                    color_hex: sanitizeHexColor(document.getElementById('filament-color-hex').value),
+                    density_g_cm3: Math.max(0.1, parseFloat(document.getElementById('filament-density').value || 1.24) || 1.24),
+                    spool_weight_g,
+                    spool_price: Math.max(0, parseFloat(document.getElementById('filament-price').value || 0) || 0),
+                };
+
+                filSubmitBtn.disabled = true;
+                try {
+                    if (editingFilamentId) {
+                        await API.filaments.update(editingFilamentId, payload);
+                        showSnackbar('Filamento atualizado com sucesso!', 'check_circle');
+                    } else {
+                        await API.filaments.create(payload);
+                        showSnackbar('Filamento cadastrado com sucesso!', 'toll');
+                    }
+                    editingFilamentId = null;
+                    filDlg?.close('save');
+                    await fetchAndRenderFilaments();
+                } catch (err) {
+                    filErrText.textContent = err.message || 'Erro ao salvar filamento.';
+                    filErrBox.hidden = false;
+                } finally {
+                    filSubmitBtn.disabled = false;
+                }
+            });
+
+            // Delete Dialog
+            const deleteDlg = document.getElementById('dialog-delete-filament');
+            deleteDlg?.addEventListener('close', () => {
+                deleteDlg.returnValue = '';
+            });
+            document.getElementById('delete-cancel-btn')?.addEventListener('click', () => {
+                deletingFilamentId = null;
+                deleteDlg?.close('cancel');
+            });
+            document.getElementById('delete-confirm-btn')?.addEventListener('click', async () => {
+                if (!deletingFilamentId) return;
+                try {
+                    await API.filaments.delete(deletingFilamentId);
+                    deletingFilamentId = null;
+                    deleteDlg?.close('delete');
+                    showSnackbar('Filamento removido.', 'delete');
+                    await fetchAndRenderFilaments();
+                } catch (err) {
+                    showSnackbar(err.message || 'Erro ao remover filamento.', 'error');
+                }
+            });
+
+            // Boot Auth + Data Load
+            if (API.getToken()) {
+                fetchAndRenderFilaments();
+            } else {
+                renderFilamentsGrid();
+                openAuthDialog();
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>

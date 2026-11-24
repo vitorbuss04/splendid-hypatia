@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- MANDATORY: Declare supported color schemes before first paint -->
+    <meta name="color-scheme" content="light dark">
+    <title>3D Print Calc Pro | Projetos &amp; Orçamentos</title>
+
+    <!-- Google Fonts: Roboto, Roboto Mono & Material Symbols Outlined -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://esm.run" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+
+    <!-- Shared Material 3 Tokens, Color-Scheme & Structural CSS Grid Layout -->
+    <link rel="stylesheet" href="/static/css/material-theme.css?v=2.0.8">
+
+    <!-- Official Import Map: Unbundled @material/web@2.5.0 shares singletons cleanly -->
+    <script type="importmap">
+    {
+      "imports": {
+        "tslib": "https://esm.run/tslib@2.8.1",
+        "lit": "https://esm.run/lit@3.3.3",
+        "lit/": "https://esm.run/lit@3.3.3/",
+        "@lit/context": "https://esm.run/@lit/context@1.1.6",
+        "@material/web/": "https://cdn.jsdelivr.net/npm/@material/web@2.5.0/",
+        "@material/material-color-utilities": "https://esm.run/@material/material-color-utilities"
+      }
+    }
+    </script>
+
+    <!-- Register Official @material/web Components -->
+    <script type="module">
+        import '@material/web/all.js';
+        import '@material/web/labs/card/elevated-card.js';
+        import '@material/web/labs/card/filled-card.js';
+        import '@material/web/labs/card/outlined-card.js';
+        import '@material/web/labs/navigationdrawer/navigation-drawer-modal.js';
+        import '@material/web/labs/badge/badge.js';
+
+        import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
+        if (typescaleStyles?.styleSheet) {
+            document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+        }
+    </script>
+</head>
+<body>
+    <!-- Modal Navigation Drawer (@material/web/labs/navigationdrawer) -->
+    <md-navigation-drawer-modal id="nav-drawer" pivot="start" aria-label="Menu de Navegação Principal">
+        <div class="drawer-content" style="height: 100%;">
+            <div class="row-between" style="padding: 8px 12px;">
+                <div class="row">
+                    <div class="icon-badge-surface" aria-hidden="true">
+                        <md-icon class="filled">precision_manufacturing</md-icon>
+                    </div>
+                    <div class="col" style="gap: 2px;">
+                        <span class="md-typescale-title-medium">3D Print Calc Pro</span>
+                        <span class="md-typescale-label-small muted-text">Material Design 3</span>
+                    </div>
+                </div>
+                <md-icon-button id="drawer-close-btn" aria-label="Fechar Menu">
+                    <md-icon>close</md-icon>
+                </md-icon-button>
+            </div>
+
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Navegação</span>
+            <md-list aria-label="Navegação da Plataforma">
+                <md-list-item type="button" href="/">
+                    <md-icon slot="start">dashboard</md-icon>
+                    <div slot="headline">Visão Geral</div>
+                    <div slot="supporting-text">Dashboard e métricas da oficina</div>
+                </md-list-item>
+                <md-list-item type="button" href="/calculator">
+                    <md-icon slot="start">calculate</md-icon>
+                    <div slot="headline">Calculadora 3D</div>
+                    <div slot="supporting-text">Placas, 3MF/G-code, BOM e taxas</div>
+                </md-list-item>
+                <md-list-item type="button" href="/projects">
+                    <md-icon slot="start" class="filled" style="color: var(--md-sys-color-primary);">folder_open</md-icon>
+                    <div slot="headline">Projetos &amp; Orçamentos</div>
+                    <div slot="supporting-text">Lista, busca e filtros</div>
+                </md-list-item>
+                <md-list-item type="button" href="/printers">
+                    <md-icon slot="start">print</md-icon>
+                    <div slot="headline">Minhas Impressoras</div>
+                    <div slot="supporting-text">Tarifa horária, energia e manutenção</div>
+                </md-list-item>
+                <md-list-item type="button" href="/filaments">
+                    <md-icon slot="start">toll</md-icon>
+                    <div slot="headline">Meus Filamentos</div>
+                    <div slot="supporting-text">Carretéis, polímeros e custo/g</div>
+                </md-list-item>
+                <md-list-item type="button" href="/settings">
+                    <md-icon slot="start">settings</md-icon>
+                    <div slot="headline">Configurações &amp; Taxas</div>
+                    <div slot="supporting-text">Empresa, PIX e taxas padrão</div>
+                </md-list-item>
+            </md-list>
+
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Dynamic Color (HCT)</span>
+            <div style="padding: 4px 16px;" class="col">
+                <span class="md-typescale-body-small muted-text">Cor Semente do Tema:</span>
+                <div class="row-wrap">
+                    <button type="button" class="seed-btn" data-seed="#6750A4" style="background:#6750A4;" aria-label="M3 Baseline Purple" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#2563EB" style="background:#2563EB;" aria-label="Royal Cobalt" aria-pressed="true"></button>
+                    <button type="button" class="seed-btn" data-seed="#006874" style="background:#006874;" aria-label="Ocean Teal" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#006D3B" style="background:#006D3B;" aria-label="Emerald" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#B3261E" style="background:#B3261E;" aria-label="Crimson" aria-pressed="false"></button>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; padding: 12px 12px 4px;" class="col">
+                <md-divider></md-divider>
+                <div class="surface-subbox" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px;">
+                    <div class="row" style="min-width: 0;">
+                        <div class="icon-badge-surface secondary" style="width: 36px; height: 36px; border-radius: 9999px;" id="user-avatar">U</div>
+                        <div class="col" style="gap: 2px; min-width: 0;">
+                            <span class="md-typescale-label-large" id="user-display-name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Não conectado</span>
+                            <span class="md-typescale-body-small muted-text" id="user-display-company" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Oficina 3D</span>
+                        </div>
+                    </div>
+                    <md-icon-button id="btn-logout" aria-label="Sair da conta" title="Sair da conta">
+                        <md-icon>logout</md-icon>
+                    </md-icon-button>
+                </div>
+            </div>
+        </div>
+    </md-navigation-drawer-modal>
+
+    <div class="app-shell">
+        <!-- Sticky Top App Bar -->
+        <header class="top-app-bar">
+            <div class="top-app-bar-row">
+                <div class="top-app-bar-leading">
+                    <md-icon-button id="drawer-open-btn" aria-label="Abrir Menu Lateral">
+                        <md-icon>menu</md-icon>
+                    </md-icon-button>
+
+                    <div class="icon-badge-surface" aria-hidden="true">
+                        <md-icon class="filled">folder_open</md-icon>
+                    </div>
+
+                    <div class="top-app-bar-title-group">
+                        <span class="md-typescale-title-large">Projetos &amp; Orçamentos</span>
+                        <span class="md-typescale-body-small muted-text">3D Print Calc Pro · Gestão Comercial &amp; Status</span>
+                    </div>
+                </div>
+
+                <div class="top-app-bar-actions">
+                    <md-icon-button id="btn-refresh-projects" aria-label="Atualizar lista de projetos" title="Atualizar projetos">
+                        <md-icon>refresh</md-icon>
+                    </md-icon-button>
+
+                    <md-filled-tonal-icon-button id="theme-mode-toggle" toggle aria-label="Alternar Modo Escuro ou Claro" title="Alternar Claro / Escuro">
+                        <md-icon>light_mode</md-icon>
+                        <md-icon slot="selected" class="filled">dark_mode</md-icon>
+                    </md-filled-tonal-icon-button>
+
+                    <div style="position: relative;">
+                        <md-icon-button id="top-more-btn" aria-label="Mais Opções" aria-haspopup="menu" aria-controls="top-more-menu">
+                            <md-icon>more_vert</md-icon>
+                        </md-icon-button>
+
+                        <md-menu id="top-more-menu" anchor="top-more-btn" positioning="popover" has-overflow>
+                            <md-menu-item href="/">
+                                <md-icon slot="start">dashboard</md-icon>
+                                <div slot="headline">Visão Geral</div>
+                            </md-menu-item>
+                            <md-menu-item href="/calculator">
+                                <md-icon slot="start">calculate</md-icon>
+                                <div slot="headline">Calculadora 3D</div>
+                            </md-menu-item>
+
+                            <md-sub-menu>
+                                <md-menu-item slot="item">
+                                    <md-icon slot="start">color_lens</md-icon>
+                                    <div slot="headline">Cor Semente (HCT)</div>
+                                    <md-icon slot="end">arrow_right</md-icon>
+                                </md-menu-item>
+                                <md-menu slot="menu">
+                                    <md-menu-item data-seed-menu="#6750A4"><div slot="headline">M3 Purple (#6750A4)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#2563EB"><div slot="headline">Royal Cobalt (#2563EB)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006874"><div slot="headline">Ocean Teal (#006874)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006D3B"><div slot="headline">Emerald (#006D3B)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#B3261E"><div slot="headline">Crimson (#B3261E)</div></md-menu-item>
+                                </md-menu>
+                            </md-sub-menu>
+                        </md-menu>
+                    </div>
+
+                    <md-filled-button id="btn-new-project">
+                        <md-icon slot="icon">add</md-icon>
+                        Novo Orçamento
+                    </md-filled-button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-container">
+            <!-- Loading Progress Indicator -->
+            <md-linear-progress id="projects-loader" indeterminate four-color hidden aria-label="Carregando projetos"></md-linear-progress>
+
+            <!-- 1. SEARCH & STATUS FILTER CHIPS TOOLBAR -->
+            <md-elevated-card class="card-pad" aria-label="Barra de Busca e Filtros">
+                <div class="col" style="gap: 16px;">
+                    <div class="row-between">
+                        <div style="flex: 1; min-width: 240px; max-width: 460px;">
+                            <md-outlined-text-field
+                                id="project-search-input"
+                                type="search"
+                                label="Buscar projeto ou cliente"
+                                placeholder="Buscar por projeto ou cliente..."
+                                autocomplete="off">
+                                <md-icon slot="leading-icon">search</md-icon>
+                                <md-icon-button id="btn-clear-search" slot="trailing-icon" aria-label="Limpar busca" hidden>
+                                    <md-icon>close</md-icon>
+                                </md-icon-button>
+                            </md-outlined-text-field>
+                        </div>
+
+                        <div class="row-wrap">
+                            <md-assist-chip id="chip-total-projects" label="0 projetos cadastrados">
+                                <md-icon slot="icon">folder_open</md-icon>
+                            </md-assist-chip>
+                        </div>
+                    </div>
+
+                    <!-- Official M3 Filter Chips (All 7 statuses matching original view) -->
+                    <md-chip-set id="status-filter-chips" aria-label="Filtrar orçamentos por status">
+                        <md-filter-chip data-status="all" label="Todos" selected></md-filter-chip>
+                        <md-filter-chip data-status="draft" label="Rascunho"></md-filter-chip>
+                        <md-filter-chip data-status="quoted" label="Orçado"></md-filter-chip>
+                        <md-filter-chip data-status="approved" label="Aprovado"></md-filter-chip>
+                        <md-filter-chip data-status="in_production" label="Em Produção"></md-filter-chip>
+                        <md-filter-chip data-status="completed" label="Concluído"></md-filter-chip>
+                        <md-filter-chip data-status="cancelled" label="Cancelado"></md-filter-chip>
+                    </md-chip-set>
+                </div>
+            </md-elevated-card>
+
+            <!-- 2. PROJECTS TABLE CARD -->
+            <md-outlined-card class="card-pad">
+                <div class="row-between">
+                    <div class="row">
+                        <div class="icon-badge-surface" aria-hidden="true">
+                            <md-icon class="filled">view_in_ar</md-icon>
+                        </div>
+                        <div class="col" style="gap: 2px;">
+                            <h1 id="projects-table-title" class="md-typescale-title-large" style="margin: 0;">Lista de Projetos &amp; Orçamentos</h1>
+                            <span class="md-typescale-body-small muted-text">Gerencie orçamentos, duplique projetos, gere PDF comercial e ficha técnica de produção</span>
+                        </div>
+                    </div>
+                    <md-outlined-button href="/">
+                        <md-icon slot="icon">dashboard</md-icon>
+                        Visão Geral
+                    </md-outlined-button>
+                </div>
+
+                <md-divider></md-divider>
+
+                <div id="projects-table-container" tabindex="0" role="region" aria-labelledby="projects-table-title" class="table-wrapper">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <md-divider id="projects-footer-divider" hidden></md-divider>
+                <div id="projects-footer-summary" class="row-between" hidden>
+                    <span id="projects-count-footer" class="md-typescale-body-small muted-text"></span>
+                    <md-text-button href="/calculator">
+                        <md-icon slot="icon">calculate</md-icon>
+                        Abrir Calculadora 3D
+                    </md-text-button>
+                </div>
+            </md-outlined-card>
+        </main>
+    </div>
+
+    <!-- =========================================================================
+         OFFICIAL MATERIAL 3 DIALOGS (Auth, New Project, Quick Edit & Delete Confirm)
+         ========================================================================= -->
+
+    <!-- Auth Dialog -->
+    <md-dialog id="auth-dialog" aria-label="Autenticação 3D Print Calc Pro">
+        <md-icon slot="icon">lock_open</md-icon>
+        <div slot="headline">3D Print Calc Pro</div>
+
+        <div slot="content" class="col" style="min-width: 280px;">
+            <span class="md-typescale-body-small muted-text">Entre na sua conta para gerenciar seus projetos e orçamentos no visual Material 3.</span>
+
+            <md-tabs id="auth-tabs" aria-label="Modo de Autenticação">
+                <md-primary-tab selected>Entrar</md-primary-tab>
+                <md-primary-tab>Criar Conta</md-primary-tab>
+            </md-tabs>
+
+            <div id="auth-error-box" class="surface-subbox" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); border-color: transparent;" hidden>
+                <div class="row" style="gap: 8px;">
+                    <md-icon>error</md-icon>
+                    <span id="auth-error-text" class="md-typescale-body-small">Erro ao autenticar</span>
+                </div>
+            </div>
+
+            <form id="form-login" class="col">
+                <md-outlined-text-field id="login-email" type="email" label="E-mail" placeholder="seu@email.com" required>
+                    <md-icon slot="leading-icon">mail</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="login-password" type="password" label="Senha" required>
+                    <md-icon slot="leading-icon">key</md-icon>
+                </md-outlined-text-field>
+                <md-filled-button type="submit" class="full-width">
+                    <md-icon slot="icon">login</md-icon>
+                    Entrar no Sistema
+                </md-filled-button>
+            </form>
+
+            <form id="form-register" class="col" hidden>
+                <md-outlined-text-field id="reg-name" label="Nome Completo" required>
+                    <md-icon slot="leading-icon">person</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-company" label="Empresa / Oficina (Opcional)">
+                    <md-icon slot="leading-icon">store</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-email" type="email" label="E-mail" required>
+                    <md-icon slot="leading-icon">mail</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-password" type="password" label="Senha (Mín. 6 dígitos)" minlength="6" required>
+                    <md-icon slot="leading-icon">key</md-icon>
+                </md-outlined-text-field>
+                <md-filled-button type="submit" class="full-width">
+                    <md-icon slot="icon">person_add</md-icon>
+                    Criar Conta Limpa
+                </md-filled-button>
+            </form>
+        </div>
+    </md-dialog>
+
+    <!-- New Project Dialog -->
+    <md-dialog id="dialog-new-project">
+        <md-icon slot="icon">post_add</md-icon>
+        <div slot="headline">Novo Orçamento</div>
+
+        <form slot="content" id="form-new-project" method="dialog" class="col" style="padding-top: 8px;">
+            <md-outlined-text-field id="new-proj-name" label="Nome do Projeto" placeholder="Ex: Lote Suportes Articulados" required autofocus>
+                <md-icon slot="leading-icon">edit</md-icon>
+            </md-outlined-text-field>
+            <md-outlined-text-field id="new-proj-client" label="Cliente (Opcional)" placeholder="Nome do cliente">
+                <md-icon slot="leading-icon">person</md-icon>
+            </md-outlined-text-field>
+            <md-outlined-select id="new-proj-status" label="Status Inicial" menu-positioning="popover">
+                <md-select-option value="draft" selected><div slot="headline">Rascunho</div></md-select-option>
+                <md-select-option value="quoted"><div slot="headline">Orçado</div></md-select-option>
+                <md-select-option value="approved"><div slot="headline">Aprovado</div></md-select-option>
+                <md-select-option value="in_production"><div slot="headline">Em Produção</div></md-select-option>
+            </md-outlined-select>
+        </form>
+
+        <div slot="actions">
+            <md-text-button id="new-proj-cancel" form="form-new-project" value="cancel">Cancelar</md-text-button>
+            <md-filled-button id="new-proj-submit">Criar Orçamento</md-filled-button>
+        </div>
+    </md-dialog>
+
+    <!-- Quick Edit Project Metadata & Status Dialog -->
+    <md-dialog id="dialog-edit-project">
+        <md-icon slot="icon">edit</md-icon>
+        <div slot="headline">Editar Orçamento</div>
+
+        <form slot="content" id="form-edit-project" method="dialog" class="col" style="padding-top: 8px;">
+            <md-outlined-text-field id="edit-proj-name" label="Nome do Projeto" required autofocus>
+                <md-icon slot="leading-icon">edit</md-icon>
+            </md-outlined-text-field>
+            <md-outlined-text-field id="edit-proj-client" label="Cliente">
+                <md-icon slot="leading-icon">person</md-icon>
+            </md-outlined-text-field>
+            <md-outlined-select id="edit-proj-status" label="Status Comercial" menu-positioning="popover">
+                <md-select-option value="draft"><div slot="headline">Rascunho</div></md-select-option>
+                <md-select-option value="quoted"><div slot="headline">Orçado</div></md-select-option>
+                <md-select-option value="approved"><div slot="headline">Aprovado</div></md-select-option>
+                <md-select-option value="in_production"><div slot="headline">Em Produção</div></md-select-option>
+                <md-select-option value="completed"><div slot="headline">Concluído</div></md-select-option>
+                <md-select-option value="cancelled"><div slot="headline">Cancelado</div></md-select-option>
+            </md-outlined-select>
+        </form>
+
+        <div slot="actions">
+            <md-text-button id="edit-open-calculator" href="/calculator" style="margin-right: auto;">Calculadora Completa</md-text-button>
+            <md-text-button id="edit-proj-cancel" form="form-edit-project" value="cancel">Cancelar</md-text-button>
+            <md-filled-button id="edit-proj-submit">Salvar Alterações</md-filled-button>
+        </div>
+    </md-dialog>
+
+    <!-- Destructive Confirmation Dialog (Safe button has autofocus per guidance) -->
+    <md-dialog id="dialog-delete-project" type="alert">
+        <md-icon slot="icon" style="color: var(--md-sys-color-error);">delete_forever</md-icon>
+        <div slot="headline">Excluir orçamento?</div>
+        <div slot="content" class="md-typescale-body-medium muted-text">
+            Deseja realmente excluir <strong id="delete-project-name">este orçamento</strong>? Esta ação remove o projeto permanentemente e não pode ser desfeita.
+        </div>
+        <div slot="actions">
+            <md-text-button id="delete-confirm-btn" value="delete" style="--md-text-button-label-text-color: var(--md-sys-color-error);">Excluir</md-text-button>
+            <md-filled-tonal-button id="delete-cancel-btn" value="cancel" autofocus>Cancelar</md-filled-tonal-button>
+        </div>
+    </md-dialog>
+
+    <!-- M3 Snackbar Feedback -->
+    <div id="m3-snackbar" class="m3-snackbar" role="status" aria-live="polite">
+        <md-icon id="m3-snackbar-icon">check_circle</md-icon>
+        <span id="m3-snackbar-text" class="md-typescale-body-medium">Atualizado</span>
+    </div>
+
+    <!-- Real Backend REST API Client -->
+    <script src="/static/js/api.js"></script>
+
+    <!-- Official M3 Dynamic Theme + Projects List & Filter Controller -->
+    <script type="module">
+        import {
+            argbFromHex,
+            themeFromSourceColor,
+            applyTheme,
+            hexFromArgb,
+        } from '@material/material-color-utilities';
+
+        // ---------------------------------------------------------------------
+        // 1. Dynamic HCT Color Theme Engine (Identical to test-material & dashboard-m3)
+        // ---------------------------------------------------------------------
+        let currentSeed = '#2563EB';
+        const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        let isDarkMode = colorSchemeQuery.matches;
+        let userOverrodeTheme = false;
+
+        let allProjects = [];
+        let activeStatusFilter = 'all';
+        let editingProjectId = null;
+        let deletingProjectId = null;
+
+        function applyOfficialM3Theme(seedHex, dark) {
+            currentSeed = seedHex;
+            isDarkMode = dark;
+
+            const theme = themeFromSourceColor(argbFromHex(seedHex));
+            const root = document.documentElement;
+            applyTheme(theme, { target: root, dark });
+
+            const neutral = theme.palettes.neutral;
+            const tones = dark
+                ? {
+                    'surface-dim': 6,
+                    'surface-bright': 24,
+                    'surface-container-lowest': 4,
+                    'surface-container-low': 10,
+                    'surface-container': 12,
+                    'surface-container-high': 17,
+                    'surface-container-highest': 22,
+                }
+                : {
+                    'surface-dim': 87,
+                    'surface-bright': 98,
+                    'surface-container-lowest': 100,
+                    'surface-container-low': 96,
+                    'surface-container': 94,
+                    'surface-container-high': 92,
+                    'surface-container-highest': 90,
+                };
+
+            for (const [token, toneVal] of Object.entries(tones)) {
+                root.style.setProperty(`--md-sys-color-${token}`, hexFromArgb(neutral.tone(toneVal)));
+            }
+
+            const surfaceHex = hexFromArgb(neutral.tone(dark ? 6 : 98));
+            root.style.setProperty('--md-sys-color-surface', surfaceHex);
+            root.style.setProperty('--md-sys-color-background', surfaceHex);
+
+            root.dataset.theme = dark ? 'dark' : 'light';
+            root.style.colorScheme = dark ? 'dark' : 'light';
+
+            const themeBtn = document.getElementById('theme-mode-toggle');
+            if (themeBtn) themeBtn.selected = dark;
+
+            document.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.setAttribute('aria-pressed', btn.dataset.seed?.toUpperCase() === seedHex.toUpperCase() ? 'true' : 'false');
+            });
+        }
+
+        colorSchemeQuery.addEventListener('change', (e) => {
+            if (!userOverrodeTheme) {
+                applyOfficialM3Theme(currentSeed, e.matches);
+            }
+        });
+
+        // ---------------------------------------------------------------------
+        // 2. Formatting, Search Normalization & Security Helpers
+        // ---------------------------------------------------------------------
+        const brlFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+        const formatCurrency = (val) => brlFormatter.format(Number(val) || 0);
+
+        const STATUS_MAP = {
+            draft: { label: 'Rascunho', icon: 'edit_note' },
+            quoted: { label: 'Orçado', icon: 'request_quote' },
+            approved: { label: 'Aprovado', icon: 'check_circle' },
+            in_production: { label: 'Em Produção', icon: 'precision_manufacturing' },
+            completed: { label: 'Concluído', icon: 'task_alt' },
+            cancelled: { label: 'Cancelado', icon: 'cancel' },
+        };
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function normalizeSearchText(str) {
+            return (str || '')
+                .toString()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .trim();
+        }
+
+        function matchesSearch(text, term) {
+            const normTerm = normalizeSearchText(term);
+            if (!normTerm) return true;
+            const normText = normalizeSearchText(text);
+            if (normText.includes(normTerm)) return true;
+            const words = normTerm.split(/\s+/).filter(Boolean);
+            return words.every(word => normText.includes(word));
+        }
+
+        let snackbarTimer = null;
+        function showSnackbar(message, icon = 'check_circle') {
+            const bar = document.getElementById('m3-snackbar');
+            const textEl = document.getElementById('m3-snackbar-text');
+            const iconEl = document.getElementById('m3-snackbar-icon');
+            if (!bar) return;
+            textEl.textContent = message;
+            iconEl.textContent = icon;
+            bar.classList.add('visible');
+            clearTimeout(snackbarTimer);
+            snackbarTimer = setTimeout(() => bar.classList.remove('visible'), 3200);
+        }
+
+        // ---------------------------------------------------------------------
+        // 3. Load Live Projects Data & Render Table / Filters
+        // ---------------------------------------------------------------------
+        async function fetchAndRenderProjects() {
+            const loader = document.getElementById('projects-loader');
+            if (loader) loader.hidden = false;
+
+            try {
+                const [user, projects] = await Promise.all([
+                    API.auth.getMe(),
+                    API.projects.list(),
+                ]);
+
+                updateUserProfile(user);
+                allProjects = Array.isArray(projects) ? projects : [];
+                updateCountsSummary(allProjects.length);
+                renderProjectsTable();
+            } catch (err) {
+                console.warn('Erro ao carregar projetos:', err);
+                if (!API.getToken()) {
+                    openAuthDialog();
+                } else {
+                    showSnackbar(err?.message || 'Erro ao carregar projetos.', 'error');
+                }
+            } finally {
+                if (loader) loader.hidden = true;
+            }
+        }
+
+        function updateUserProfile(user) {
+            if (!user) return;
+            const nameEl = document.getElementById('user-display-name');
+            const companyEl = document.getElementById('user-display-company');
+            const avatarEl = document.getElementById('user-avatar');
+
+            const fullName = user.full_name || user.email || 'Usuário';
+            const initials = fullName.split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() || '').join('') || 'U';
+            if (nameEl) nameEl.textContent = fullName;
+            if (companyEl) companyEl.textContent = user.company_name || 'Oficina 3D';
+            if (avatarEl) avatarEl.textContent = initials;
+        }
+
+        function updateCountsSummary(total) {
+            const chip = document.getElementById('chip-total-projects');
+            if (chip) chip.label = `${total} ${total === 1 ? 'projeto cadastrado' : 'projetos cadastrados'}`;
+            const badge = document.getElementById('drawer-projects-badge');
+            if (badge) badge.value = String(total);
+        }
+
+        function renderProjectsTable() {
+            const container = document.getElementById('projects-table-container');
+            const footerDiv = document.getElementById('projects-footer-divider');
+            const footerSum = document.getElementById('projects-footer-summary');
+            const footerCount = document.getElementById('projects-count-footer');
+            const searchInput = document.getElementById('project-search-input');
+            const clearBtn = document.getElementById('btn-clear-search');
+            if (!container) return;
+
+            const term = (searchInput?.value || '').trim();
+            if (clearBtn) clearBtn.hidden = (term === '');
+
+            let filtered = allProjects;
+            if (term) {
+                filtered = filtered.filter(p => matchesSearch(`${p.name || ''} ${p.client_name || ''}`, term));
+            }
+            if (activeStatusFilter !== 'all') {
+                filtered = filtered.filter(p => p.status === activeStatusFilter);
+            }
+
+            if (filtered.length === 0) {
+                const hasFilters = term !== '' || activeStatusFilter !== 'all';
+                if (footerDiv) footerDiv.hidden = true;
+                if (footerSum) footerSum.hidden = true;
+
+                container.innerHTML = `
+                    <div class="col" style="align-items: center; text-align: center; padding: 40px 16px;">
+                        <div class="icon-badge-surface" aria-hidden="true">
+                            <md-icon>${hasFilters ? 'search_off' : 'create_new_folder'}</md-icon>
+                        </div>
+                        <h2 class="md-typescale-title-medium" style="margin: 0;">
+                            ${hasFilters ? 'Nenhum projeto encontrado' : 'Nenhum projeto cadastrado'}
+                        </h2>
+                        <p class="md-typescale-body-small muted-text" style="max-width: 380px; margin: 0;">
+                            ${hasFilters
+                                ? (term
+                                    ? `Nenhum projeto encontrado para "<strong>${escapeHtml(term)}</strong>". Tente buscar por outros termos ou limpar os filtros.`
+                                    : 'Não encontramos resultados para o filtro selecionado. Tente alterar o status ou limpar os filtros.')
+                                : 'Comece criando seu primeiro orçamento profissional com cálculo automático de custos e margem.'}
+                        </p>
+                        <div class="row-wrap" style="margin-top: 8px; justify-content: center;">
+                            ${hasFilters ? `
+                                <md-outlined-button id="btn-empty-clear-filters">
+                                    <md-icon slot="icon">close</md-icon>
+                                    Limpar Filtros
+                                </md-outlined-button>
+                            ` : ''}
+                            <md-filled-button id="btn-empty-new-project">
+                                <md-icon slot="icon">add</md-icon>
+                                Criar Novo Orçamento
+                            </md-filled-button>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('btn-empty-clear-filters')?.addEventListener('click', clearProjectFilters);
+                document.getElementById('btn-empty-new-project')?.addEventListener('click', () => {
+                    document.getElementById('dialog-new-project')?.show();
+                });
+                return;
+            }
+
+            if (footerDiv) footerDiv.hidden = false;
+            if (footerSum) footerSum.hidden = false;
+            if (footerCount) {
+                footerCount.innerHTML = `Exibindo <strong>${filtered.length}</strong> de <strong>${allProjects.length}</strong> projetos`;
+            }
+
+            container.innerHTML = `
+                <table class="m3-data-table" style="--label-2:'Cliente';--label-3:'Placas';--label-4:'Tempo Total';--label-5:'Custo Base';--label-6:'Preço Venda';--label-7:'Status';--label-8:'Ações';">
+                    <thead>
+                        <tr>
+                            <th scope="col">Projeto</th>
+                            <th scope="col">Cliente</th>
+                            <th scope="col">Placas</th>
+                            <th scope="col">Tempo Total</th>
+                            <th scope="col">Custo Base</th>
+                            <th scope="col">Preço Venda</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" style="text-align: right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(p => {
+                            const st = STATUS_MAP[p.status] || { label: p.status || 'Rascunho', icon: 'label' };
+                            const statusClass = escapeHtml(p.status || 'draft');
+                            const paddedId = String(p.id).padStart(4, '0');
+                            return `
+                                <tr>
+                                    <th scope="row">
+                                        <div class="row" style="gap: 10px;">
+                                            <div class="icon-badge-surface" style="width: 34px; height: 34px; border-radius: 8px;" aria-hidden="true">
+                                                <md-icon style="font-size: 18px; width: 18px; height: 18px;">package_2</md-icon>
+                                            </div>
+                                            <div class="col" style="gap: 1px;">
+                                                <span title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
+                                                <span class="md-typescale-label-small mono-num muted-text">#${paddedId}</span>
+                                            </div>
+                                        </div>
+                                    </th>
+                                    <td>
+                                        ${p.client_name
+                                            ? `<span class="row" style="gap: 6px;"><md-icon style="font-size: 16px; width: 16px; height: 16px;" class="muted-text">person</md-icon>${escapeHtml(p.client_name)}</span>`
+                                            : `<span class="muted-text">—</span>`}
+                                    </td>
+                                    <td>
+                                        <span class="m3-status-pill mono-num">${Number(p.plates_count || 0)} un</span>
+                                    </td>
+                                    <td class="mono-num">${Number(p.total_time_hours || 0).toFixed(1)} h</td>
+                                    <td class="mono-num muted-text">${formatCurrency(p.base_cost)}</td>
+                                    <td class="mono-num" style="font-weight: 700; color: var(--md-sys-color-primary);">
+                                        ${formatCurrency(p.final_price_to_client)}
+                                    </td>
+                                    <td>
+                                        <span class="m3-status-pill ${statusClass}">
+                                            ${escapeHtml(st.label)}
+                                        </span>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <div class="row" style="justify-content: flex-end; gap: 2px;">
+                                            <md-icon-button href="/calculator?id=${Number(p.id)}" aria-label="Editar orçamento ${escapeHtml(p.name)}" title="Editar na Calculadora">
+                                                <md-icon>edit</md-icon>
+                                            </md-icon-button>
+                                            <md-icon-button data-action="duplicate" data-id="${Number(p.id)}" aria-label="Duplicar ${escapeHtml(p.name)}" title="Duplicar">
+                                                <md-icon>content_copy</md-icon>
+                                            </md-icon-button>
+                                            <md-icon-button data-action="preview-client" data-id="${Number(p.id)}" aria-label="Visualizar Orçamento PDF" title="Visualizar Orçamento PDF">
+                                                <md-icon>visibility</md-icon>
+                                            </md-icon-button>
+                                            <md-icon-button data-action="preview-tech" data-id="${Number(p.id)}" aria-label="Ficha Técnica de Produção" title="Ficha Técnica de Produção">
+                                                <md-icon>assignment</md-icon>
+                                            </md-icon-button>
+                                            <md-icon-button data-action="delete" data-id="${Number(p.id)}" aria-label="Excluir ${escapeHtml(p.name)}" title="Excluir" style="--md-icon-button-icon-color: var(--md-sys-color-error);">
+                                                <md-icon>delete</md-icon>
+                                            </md-icon-button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            container.querySelectorAll('[data-action="edit"]').forEach(btn => {
+                btn.addEventListener('click', () => openEditDialog(Number(btn.dataset.id)));
+            });
+
+            container.querySelectorAll('[data-action="duplicate"]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    try {
+                        await API.projects.duplicate(Number(btn.dataset.id));
+                        showSnackbar('Projeto duplicado com sucesso!', 'content_copy');
+                        await fetchAndRenderProjects();
+                    } catch (e) {
+                        showSnackbar(e.message || 'Erro ao duplicar projeto.', 'error');
+                    }
+                });
+            });
+
+            container.querySelectorAll('[data-action="preview-client"]').forEach(btn => {
+                btn.addEventListener('click', () => API.pdf.preview(Number(btn.dataset.id), 'client'));
+            });
+
+            container.querySelectorAll('[data-action="preview-tech"]').forEach(btn => {
+                btn.addEventListener('click', () => API.pdf.preview(Number(btn.dataset.id), 'technical'));
+            });
+
+            container.querySelectorAll('[data-action="delete"]').forEach(btn => {
+                btn.addEventListener('click', () => openDeleteDialog(Number(btn.dataset.id)));
+            });
+        }
+
+        function setStatusFilter(status) {
+            activeStatusFilter = status || 'all';
+            document.querySelectorAll('#status-filter-chips md-filter-chip').forEach(chip => {
+                chip.selected = (chip.getAttribute('data-status') === activeStatusFilter);
+            });
+            renderProjectsTable();
+        }
+
+        function clearProjectFilters() {
+            const input = document.getElementById('project-search-input');
+            if (input) input.value = '';
+            setStatusFilter('all');
+        }
+
+        // ---------------------------------------------------------------------
+        // 4. Dialogs (Auth, New, Edit, Delete)
+        // ---------------------------------------------------------------------
+        function openAuthDialog() {
+            const dlg = document.getElementById('auth-dialog');
+            if (dlg && !dlg.open) dlg.show();
+        }
+
+        function closeAuthDialog() {
+            const dlg = document.getElementById('auth-dialog');
+            if (dlg?.open) dlg.close();
+        }
+
+        function setAuthError(msg) {
+            const box = document.getElementById('auth-error-box');
+            const text = document.getElementById('auth-error-text');
+            if (!box || !text) return;
+            box.hidden = !msg;
+            if (msg) text.textContent = msg;
+        }
+
+        function openEditDialog(projectId) {
+            const proj = allProjects.find(p => p.id === projectId);
+            if (!proj) return;
+            editingProjectId = projectId;
+            const calcBtn = document.getElementById('edit-open-calculator');
+            if (calcBtn) calcBtn.setAttribute('href', `/calculator?id=${Number(projectId)}`);
+            document.getElementById('edit-proj-name').value = proj.name || '';
+            document.getElementById('edit-proj-client').value = proj.client_name || '';
+            document.getElementById('edit-proj-status').value = proj.status || 'draft';
+            document.getElementById('dialog-edit-project')?.show();
+        }
+
+        function openDeleteDialog(projectId) {
+            const proj = allProjects.find(p => p.id === projectId);
+            if (!proj) return;
+            deletingProjectId = projectId;
+            document.getElementById('delete-project-name').textContent = proj.name || 'este orçamento';
+            document.getElementById('dialog-delete-project')?.show();
+        }
+
+        // ---------------------------------------------------------------------
+        // 5. Boot & Wire Listeners
+        // ---------------------------------------------------------------------
+        function init() {
+            applyOfficialM3Theme(currentSeed, isDarkMode);
+
+            // Drawer
+            const drawer = document.getElementById('nav-drawer');
+            const setDrawerOpen = (open) => {
+                if (!drawer) return;
+                drawer.opened = open;
+                drawer.classList.toggle('is-open', open);
+            };
+            document.getElementById('drawer-open-btn')?.addEventListener('click', () => setDrawerOpen(!drawer?.opened));
+            document.getElementById('drawer-close-btn')?.addEventListener('click', () => setDrawerOpen(false));
+            drawer?.addEventListener('navigation-drawer-changed', (e) => {
+                drawer.classList.toggle('is-open', Boolean(e.detail?.opened));
+            });
+
+            // Theme Toggle & Seed Presets
+            document.getElementById('theme-mode-toggle')?.addEventListener('change', (e) => {
+                userOverrodeTheme = true;
+                applyOfficialM3Theme(currentSeed, e.target.selected);
+                showSnackbar(e.target.selected ? 'Tema Escuro (M3 Dark) ativado' : 'Tema Claro (M3 Light) ativado', e.target.selected ? 'dark_mode' : 'light_mode');
+            });
+
+            document.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    applyOfficialM3Theme(btn.dataset.seed, isDarkMode);
+                    showSnackbar(`Paleta HCT aplicada: ${btn.dataset.seed}`, 'palette');
+                });
+            });
+
+            document.querySelectorAll('[data-seed-menu]').forEach(item => {
+                item.addEventListener('click', () => {
+                    applyOfficialM3Theme(item.dataset.seedMenu, isDarkMode);
+                    showSnackbar(`Cor semente alterada para ${item.dataset.seedMenu}`, 'palette');
+                });
+            });
+
+            // Top More Menu & Refresh
+            const moreBtn = document.getElementById('top-more-btn');
+            const moreMenu = document.getElementById('top-more-menu');
+            moreBtn?.addEventListener('click', () => {
+                if (moreMenu) moreMenu.open = !moreMenu.open;
+            });
+
+            document.getElementById('btn-refresh-projects')?.addEventListener('click', () => {
+                fetchAndRenderProjects().then(() => showSnackbar('Lista de projetos atualizada!', 'sync'));
+            });
+
+            // Search & Filter Chips
+            const searchInput = document.getElementById('project-search-input');
+            searchInput?.addEventListener('input', () => renderProjectsTable());
+            searchInput?.addEventListener('search', () => renderProjectsTable());
+            document.getElementById('btn-clear-search')?.addEventListener('click', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    renderProjectsTable();
+                }
+            });
+
+            const chipsContainer = document.getElementById('status-filter-chips');
+            chipsContainer?.addEventListener('click', (e) => {
+                const chip = e.target.closest('md-filter-chip');
+                if (!chip) return;
+                const status = chip.getAttribute('data-status') || 'all';
+                // Defer to after md-filter-chip finishes its internal toggle click handler
+                queueMicrotask(() => setStatusFilter(status));
+            });
+
+            // Auth Tabs & Forms
+            const authTabs = document.getElementById('auth-tabs');
+            const formLogin = document.getElementById('form-login');
+            const formRegister = document.getElementById('form-register');
+            authTabs?.addEventListener('change', () => {
+                const idx = authTabs.activeTabIndex;
+                formLogin.hidden = (idx !== 0);
+                formRegister.hidden = (idx !== 1);
+                setAuthError('');
+            });
+
+            formLogin?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                try {
+                    const email = document.getElementById('login-email').value;
+                    const pass = document.getElementById('login-password').value;
+                    await API.auth.login(email, pass);
+                    closeAuthDialog();
+                    await fetchAndRenderProjects();
+                    showSnackbar('Login realizado com sucesso!', 'login');
+                } catch (err) {
+                    setAuthError(err.message || 'Credenciais inválidas.');
+                }
+            });
+
+            formRegister?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                try {
+                    const name = document.getElementById('reg-name').value;
+                    const company = document.getElementById('reg-company').value;
+                    const email = document.getElementById('reg-email').value;
+                    const pass = document.getElementById('reg-password').value;
+                    await API.auth.register(email, pass, name, company);
+                    closeAuthDialog();
+                    await fetchAndRenderProjects();
+                    showSnackbar('Conta criada e carregada!', 'person_add');
+                } catch (err) {
+                    setAuthError(err.message || 'Não foi possível criar conta.');
+                }
+            });
+
+            document.getElementById('btn-logout')?.addEventListener('click', () => {
+                API.auth.logout();
+                setDrawerOpen(false);
+            });
+
+            window.addEventListener('auth:unauthorized', () => openAuthDialog());
+            window.addEventListener('auth:logout', () => {
+                allProjects = [];
+                updateCountsSummary(0);
+                renderProjectsTable();
+                openAuthDialog();
+                showSnackbar('Sessão encerrada.', 'logout');
+            });
+
+            // New Project Dialog
+            const newDlg = document.getElementById('dialog-new-project');
+            document.getElementById('btn-new-project')?.addEventListener('click', () => {
+                document.getElementById('new-proj-name').value = '';
+                document.getElementById('new-proj-client').value = '';
+                document.getElementById('new-proj-status').value = 'draft';
+                newDlg?.show();
+            });
+            document.getElementById('new-proj-cancel')?.addEventListener('click', () => newDlg?.close());
+            document.getElementById('new-proj-submit')?.addEventListener('click', async () => {
+                const name = document.getElementById('new-proj-name')?.value?.trim();
+                const client_name = document.getElementById('new-proj-client')?.value?.trim() || null;
+                const status = document.getElementById('new-proj-status')?.value || 'draft';
+                if (!name) return;
+                try {
+                    await API.projects.create({ name, client_name, status });
+                    newDlg?.close();
+                    showSnackbar(`Orçamento "${name}" criado!`, 'check_circle');
+                    await fetchAndRenderProjects();
+                } catch (err) {
+                    showSnackbar(err.message || 'Erro ao criar orçamento.', 'error');
+                }
+            });
+
+            // Edit Project Dialog
+            const editDlg = document.getElementById('dialog-edit-project');
+            document.getElementById('edit-proj-cancel')?.addEventListener('click', () => {
+                editingProjectId = null;
+                editDlg?.close();
+            });
+            document.getElementById('edit-proj-submit')?.addEventListener('click', async () => {
+                if (!editingProjectId) return;
+                const name = document.getElementById('edit-proj-name')?.value?.trim();
+                const client_name = document.getElementById('edit-proj-client')?.value?.trim() || null;
+                const status = document.getElementById('edit-proj-status')?.value || 'draft';
+                if (!name) return;
+                try {
+                    await API.projects.update(editingProjectId, { name, client_name, status });
+                    editingProjectId = null;
+                    editDlg?.close();
+                    showSnackbar('Orçamento atualizado!', 'check_circle');
+                    await fetchAndRenderProjects();
+                } catch (err) {
+                    showSnackbar(err.message || 'Erro ao atualizar orçamento.', 'error');
+                }
+            });
+
+            // Delete Confirmation Dialog (resets returnValue cleanly on close)
+            const deleteDlg = document.getElementById('dialog-delete-project');
+            deleteDlg?.addEventListener('close', () => {
+                deleteDlg.returnValue = '';
+            });
+            document.getElementById('delete-cancel-btn')?.addEventListener('click', () => {
+                deletingProjectId = null;
+                deleteDlg?.close('cancel');
+            });
+            document.getElementById('delete-confirm-btn')?.addEventListener('click', async () => {
+                if (!deletingProjectId) return;
+                try {
+                    await API.projects.delete(deletingProjectId);
+                    deletingProjectId = null;
+                    deleteDlg?.close('delete');
+                    showSnackbar('Projeto excluído com sucesso.', 'delete');
+                    await fetchAndRenderProjects();
+                } catch (err) {
+                    showSnackbar(err.message || 'Erro ao excluir projeto.', 'error');
+                }
+            });
+
+            // Boot Auth + Data Load
+            if (API.getToken()) {
+                fetchAndRenderProjects();
+            } else {
+                renderProjectsTable();
+                openAuthDialog();
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
