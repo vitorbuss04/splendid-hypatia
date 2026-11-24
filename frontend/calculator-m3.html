@@ -1,0 +1,3343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- MANDATORY: Declare supported color schemes before first paint -->
+    <meta name="color-scheme" content="light dark">
+    <title>3D Print Calc Pro | Calculadora &amp; Orçamentos 3D</title>
+
+    <!-- Google Fonts: Roboto, Roboto Mono & Material Symbols Outlined -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://esm.run" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+
+    <!-- Shared Material 3 Tokens, Color-Scheme & Structural CSS Grid Layout -->
+    <link rel="stylesheet" href="/static/css/material-theme.css?v=2.0.8">
+
+    <!-- Official Import Map: Unbundled @material/web@2.5.0 shares singletons cleanly -->
+    <script type="importmap">
+    {
+      "imports": {
+        "tslib": "https://esm.run/tslib@2.8.1",
+        "lit": "https://esm.run/lit@3.3.3",
+        "lit/": "https://esm.run/lit@3.3.3/",
+        "@lit/context": "https://esm.run/@lit/context@1.1.6",
+        "@material/web/": "https://cdn.jsdelivr.net/npm/@material/web@2.5.0/",
+        "@material/material-color-utilities": "https://esm.run/@material/material-color-utilities"
+      }
+    }
+    </script>
+
+    <!-- Register Official @material/web Components -->
+    <script type="module">
+        import '@material/web/all.js';
+        import '@material/web/labs/card/elevated-card.js';
+        import '@material/web/labs/card/filled-card.js';
+        import '@material/web/labs/card/outlined-card.js';
+        import '@material/web/labs/navigationdrawer/navigation-drawer-modal.js';
+        import '@material/web/labs/badge/badge.js';
+
+        import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
+        if (typescaleStyles?.styleSheet) {
+            document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+        }
+    </script>
+
+    <!-- Client-side 3MF & G-Code Parsers -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="/static/js/parsers/gcode.js?v=1.6.0"></script>
+    <script src="/static/js/parsers/threemf.js?v=1.6.0"></script>
+
+    <style>
+        /* Page-scoped Calculator M3 styles using strictly Material 3 system tokens */
+        .visually-hidden {
+            position: absolute;
+            clip-path: inset(50%);
+            overflow: hidden;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            border: 0;
+            white-space: nowrap;
+        }
+
+        /* Isolate heavy calculator section reflows for snappy 60FPS live calculations (INP) */
+        .calc-section {
+            content-visibility: auto;
+            contain-intrinsic-size: auto 420px;
+        }
+
+        @supports not (content-visibility: auto) {
+            .calc-section {
+                contain: layout style paint;
+            }
+        }
+
+        .sticky-terminal {
+            top: 84px;
+        }
+
+        .terminal-inner {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 16px 18px;
+        }
+
+        @media (min-width: 980px) {
+            .terminal-inner {
+                max-height: calc(100dvh - 104px);
+            }
+        }
+
+        .terminal-top {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .terminal-scroll-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-inline-end: 4px;
+        }
+
+        .terminal-footer {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        /* Fieldset semantic reset with M3 typography */
+        .m3-fieldset {
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--md-sys-shape-corner-medium);
+            background-color: var(--md-sys-color-surface-container-low);
+            padding: 16px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .m3-legend {
+            padding: 0 8px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--md-sys-color-primary);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Hybrid Slicer Dropzone */
+        .m3-dropzone {
+            position: relative;
+            border: 2px dashed var(--md-sys-color-outline);
+            border-radius: var(--md-sys-shape-corner-large);
+            background-color: var(--md-sys-color-surface-container);
+            padding: 28px 20px;
+            text-align: center;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.15s ease;
+        }
+
+        .m3-dropzone:hover,
+        .m3-dropzone.dragover {
+            border-color: var(--md-sys-color-primary);
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+
+        .m3-dropzone.dragover {
+            transform: scale(1.005);
+        }
+
+        .dropzone-icon-wrap {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--md-sys-shape-corner-large);
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Plate parameters responsive grid */
+        .plate-params-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
+            gap: 12px;
+            align-items: start;
+        }
+
+        .plate-time-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        @media (min-width: 720px) {
+            .plate-time-pair-cell {
+                grid-column: span 2;
+            }
+        }
+
+        /* BOM item layout: 2 clean tiers prevent narrow-column select/input overlaps */
+        .bom-row-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 14px;
+            border-radius: var(--md-sys-shape-corner-medium);
+            background-color: var(--md-sys-color-surface-container);
+            border: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        .bom-top-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .bom-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+            gap: 12px;
+            align-items: start;
+        }
+
+        /* Cost Composition Horizontal Bar (Semantic & Color-blind friendly) */
+        .cpv-bar {
+            display: flex;
+            height: 10px;
+            width: 100%;
+            border-radius: var(--md-sys-shape-corner-full);
+            overflow: hidden;
+            background-color: var(--md-sys-color-surface-container-highest);
+            gap: 2px;
+            padding: 2px;
+        }
+
+        .cpv-seg {
+            height: 100%;
+            border-radius: var(--md-sys-shape-corner-full);
+            transition: width 0.25s ease;
+            min-width: 2px;
+        }
+
+        .cpv-mat { background-color: var(--md-sys-color-primary); }
+        .cpv-mach { background-color: var(--md-sys-color-tertiary); }
+        .cpv-labor { background-color: var(--md-sys-color-secondary); }
+        .cpv-bom { background-color: #0284c7; }
+        .cpv-over { background-color: var(--md-sys-color-outline); }
+
+        .cpv-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 14px;
+            font-size: 11px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+
+        .cpv-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 9999px;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .summary-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .scrap-alert-box {
+            background-color: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-on-error-container);
+            border-radius: var(--md-sys-shape-corner-medium);
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .scrap-alert-box[hidden],
+        .manual-rate-box[hidden],
+        #calc-error-box[hidden] {
+            display: none;
+        }
+
+        .proj-actions-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        /* Non-intrusive validation styling only after user interaction */
+        md-outlined-text-field:user-invalid,
+        input:user-invalid,
+        textarea:user-invalid {
+            --md-outlined-text-field-outline-color: var(--md-sys-color-error);
+            --md-outlined-text-field-label-text-color: var(--md-sys-color-error);
+        }
+
+        .assistant-dropzone {
+            border: 1.5px dashed var(--md-sys-color-outline);
+            border-radius: var(--md-sys-shape-corner-medium);
+            background-color: var(--md-sys-color-surface-container-low);
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .assistant-dropzone.dragover,
+        .assistant-dropzone:hover {
+            border-color: var(--md-sys-color-primary);
+            background-color: var(--md-sys-color-primary-container);
+        }
+    </style>
+</head>
+<body>
+    <!-- Modal Navigation Drawer (@material/web/labs/navigationdrawer) -->
+    <md-navigation-drawer-modal id="nav-drawer" pivot="start" aria-label="Menu de Navegação Principal">
+        <div class="drawer-content" style="height: 100%;">
+            <div class="row-between" style="padding: 8px 12px;">
+                <div class="row">
+                    <div class="icon-badge-surface" aria-hidden="true">
+                        <md-icon class="filled">precision_manufacturing</md-icon>
+                    </div>
+                    <div class="col" style="gap: 2px;">
+                        <span class="md-typescale-title-medium">3D Print Calc Pro</span>
+                        <span class="md-typescale-label-small muted-text">Material Design 3</span>
+                    </div>
+                </div>
+                <md-icon-button id="drawer-close-btn" aria-label="Fechar Menu">
+                    <md-icon>close</md-icon>
+                </md-icon-button>
+            </div>
+
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Navegação</span>
+            <md-list aria-label="Navegação da Plataforma">
+                <md-list-item type="button" href="/">
+                    <md-icon slot="start">dashboard</md-icon>
+                    <div slot="headline">Visão Geral</div>
+                    <div slot="supporting-text">Dashboard e métricas da oficina</div>
+                </md-list-item>
+                <md-list-item type="button" href="/calculator">
+                    <md-icon slot="start" class="filled" style="color: var(--md-sys-color-primary);">calculate</md-icon>
+                    <div slot="headline">Calculadora 3D</div>
+                    <div slot="supporting-text">Placas, 3MF/G-code, BOM e taxas</div>
+                </md-list-item>
+                <md-list-item type="button" href="/projects">
+                    <md-icon slot="start">folder_open</md-icon>
+                    <div slot="headline">Projetos &amp; Orçamentos</div>
+                    <div slot="supporting-text">Lista, busca e filtros</div>
+                </md-list-item>
+                <md-list-item type="button" href="/printers">
+                    <md-icon slot="start">print</md-icon>
+                    <div slot="headline">Minhas Impressoras</div>
+                    <div slot="supporting-text">Tarifa horária, energia e manutenção</div>
+                </md-list-item>
+                <md-list-item type="button" href="/filaments">
+                    <md-icon slot="start">toll</md-icon>
+                    <div slot="headline">Meus Filamentos</div>
+                    <div slot="supporting-text">Carretéis, polímeros e custo/g</div>
+                </md-list-item>
+                <md-list-item type="button" href="/settings">
+                    <md-icon slot="start">settings</md-icon>
+                    <div slot="headline">Configurações &amp; Taxas</div>
+                    <div slot="supporting-text">Empresa, PIX e taxas padrão</div>
+                </md-list-item>
+            </md-list>
+
+            <md-divider></md-divider>
+
+            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Dynamic Color (HCT)</span>
+            <div style="padding: 4px 16px;" class="col">
+                <span class="md-typescale-body-small muted-text">Cor Semente do Tema:</span>
+                <div class="row-wrap">
+                    <button type="button" class="seed-btn" data-seed="#6750A4" style="background:#6750A4;" aria-label="M3 Baseline Purple" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#2563EB" style="background:#2563EB;" aria-label="Royal Cobalt" aria-pressed="true"></button>
+                    <button type="button" class="seed-btn" data-seed="#006874" style="background:#006874;" aria-label="Ocean Teal" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#006D3B" style="background:#006D3B;" aria-label="Emerald" aria-pressed="false"></button>
+                    <button type="button" class="seed-btn" data-seed="#B3261E" style="background:#B3261E;" aria-label="Crimson" aria-pressed="false"></button>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; padding: 12px 12px 4px;" class="col">
+                <md-divider></md-divider>
+                <div class="surface-subbox" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px;">
+                    <div class="row" style="min-width: 0;">
+                        <div class="icon-badge-surface secondary" style="width: 36px; height: 36px; border-radius: 9999px;" id="user-avatar">U</div>
+                        <div class="col" style="gap: 2px; min-width: 0;">
+                            <span class="md-typescale-label-large" id="user-display-name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Não conectado</span>
+                            <span class="md-typescale-body-small muted-text" id="user-display-company" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Oficina 3D</span>
+                        </div>
+                    </div>
+                    <md-icon-button id="btn-logout" aria-label="Sair da conta" title="Sair da conta">
+                        <md-icon>logout</md-icon>
+                    </md-icon-button>
+                </div>
+            </div>
+        </div>
+    </md-navigation-drawer-modal>
+
+    <div class="app-shell">
+        <!-- Sticky Top App Bar -->
+        <header class="top-app-bar">
+            <div class="top-app-bar-row">
+                <div class="top-app-bar-leading">
+                    <md-icon-button id="drawer-open-btn" aria-label="Abrir Menu Lateral">
+                        <md-icon>menu</md-icon>
+                    </md-icon-button>
+
+                    <div class="icon-badge-surface" aria-hidden="true">
+                        <md-icon class="filled">calculate</md-icon>
+                    </div>
+
+                    <div class="top-app-bar-title-group">
+                        <h1 class="md-typescale-title-large" id="editor-project-title" style="margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Novo Orçamento</h1>
+                        <span class="md-typescale-body-small muted-text" id="editor-project-subtitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Defina placas, arquivos 3MF/G-code e parâmetros comerciais</span>
+                    </div>
+                </div>
+
+                <div class="top-app-bar-actions">
+                    <md-outlined-button id="btn-open-saved-project" type="button">
+                        <md-icon slot="icon">folder_open</md-icon>
+                        Carregar
+                    </md-outlined-button>
+
+                    <md-filled-tonal-button id="btn-new-calc" type="button">
+                        <md-icon slot="icon">post_add</md-icon>
+                        Novo
+                    </md-filled-tonal-button>
+
+                    <md-icon-button id="btn-refresh-resources" aria-label="Recarregar impressoras, filamentos e taxas" title="Sincronizar catálogo e taxas">
+                        <md-icon>refresh</md-icon>
+                    </md-icon-button>
+
+                    <md-filled-tonal-icon-button id="theme-mode-toggle" toggle aria-label="Alternar Modo Escuro ou Claro" title="Alternar Claro / Escuro">
+                        <md-icon>light_mode</md-icon>
+                        <md-icon slot="selected" class="filled">dark_mode</md-icon>
+                    </md-filled-tonal-icon-button>
+
+                    <div style="position: relative;">
+                        <md-icon-button id="top-more-btn" aria-label="Mais Opções" aria-haspopup="menu" aria-controls="top-more-menu">
+                            <md-icon>more_vert</md-icon>
+                        </md-icon-button>
+
+                        <md-menu id="top-more-menu" anchor="top-more-btn" positioning="popover" has-overflow>
+                            <md-menu-item href="/">
+                                <md-icon slot="start">dashboard</md-icon>
+                                <div slot="headline">Visão Geral</div>
+                            </md-menu-item>
+                            <md-menu-item href="/projects">
+                                <md-icon slot="start">folder_open</md-icon>
+                                <div slot="headline">Projetos &amp; Orçamentos</div>
+                            </md-menu-item>
+                            <md-menu-item href="/printers">
+                                <md-icon slot="start">print</md-icon>
+                                <div slot="headline">Minhas Impressoras</div>
+                            </md-menu-item>
+                            <md-menu-item href="/filaments">
+                                <md-icon slot="start">toll</md-icon>
+                                <div slot="headline">Meus Filamentos</div>
+                            </md-menu-item>
+                            <md-menu-item href="/settings">
+                                <md-icon slot="start">settings</md-icon>
+                                <div slot="headline">Configurações &amp; Taxas</div>
+                            </md-menu-item>
+
+                            <md-sub-menu>
+                                <md-menu-item slot="item">
+                                    <md-icon slot="start">color_lens</md-icon>
+                                    <div slot="headline">Cor Semente (HCT)</div>
+                                    <md-icon slot="end">arrow_right</md-icon>
+                                </md-menu-item>
+                                <md-menu slot="menu">
+                                    <md-menu-item data-seed-menu="#6750A4"><div slot="headline">M3 Purple (#6750A4)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#2563EB"><div slot="headline">Royal Cobalt (#2563EB)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006874"><div slot="headline">Ocean Teal (#006874)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#006D3B"><div slot="headline">Emerald (#006D3B)</div></md-menu-item>
+                                    <md-menu-item data-seed-menu="#B3261E"><div slot="headline">Crimson (#B3261E)</div></md-menu-item>
+                                </md-menu>
+                            </md-sub-menu>
+                        </md-menu>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Single <main> Landmark -->
+        <main class="main-container">
+            <md-linear-progress id="calc-loader" indeterminate four-color hidden aria-label="Carregando dados da calculadora"></md-linear-progress>
+
+            <!-- Assertive Alert Container for Save / Validation Errors -->
+            <div id="calc-error-box" class="surface-subbox" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); border-color: transparent;" role="alert" aria-live="assertive" hidden>
+                <div class="row" style="gap: 8px;">
+                    <md-icon>error</md-icon>
+                    <span id="calc-error-text" class="md-typescale-body-medium">Erro ao salvar projeto.</span>
+                </div>
+            </div>
+
+            <!-- Main Two-Column Responsive Workspace Grid -->
+            <div class="grid-workspace">
+                <!-- LEFT COLUMN: Project Info, Slicer Dropzone, Multi-Plate, BOM & Commercial Terms -->
+                <div class="col" style="gap: 20px; min-width: 0;">
+
+                    <!-- 1. Project & Client Metadata Card -->
+                    <md-elevated-card class="card-pad calc-section">
+                        <form id="form-calc-project" class="col" style="gap: 16px;" aria-labelledby="heading-proj-meta" novalidate>
+                            <div class="row-between">
+                                <div class="row" style="gap: 10px;">
+                                    <md-icon style="color: var(--md-sys-color-primary);" aria-hidden="true">badge</md-icon>
+                                    <h2 id="heading-proj-meta" class="md-typescale-title-medium" style="margin: 0;">Informações do Projeto &amp; Cliente</h2>
+                                </div>
+                                <span id="project-id-pill" class="m3-status-pill mono-num" hidden>#0000</span>
+                            </div>
+
+                            <md-divider></md-divider>
+
+                            <div class="grid-2col">
+                                <div style="grid-column: 1 / -1;">
+                                    <md-outlined-text-field
+                                        id="proj-name"
+                                        name="name"
+                                        label="Título do Projeto *"
+                                        placeholder="Ex: Gabinete Modular para Rádio"
+                                        required>
+                                        <md-icon slot="leading-icon">edit</md-icon>
+                                    </md-outlined-text-field>
+                                </div>
+
+                                <md-outlined-text-field
+                                    id="proj-client-name"
+                                    name="client_name"
+                                    autocomplete="name"
+                                    label="Nome do Cliente"
+                                    placeholder="Ex: João da Silva">
+                                    <md-icon slot="leading-icon">person</md-icon>
+                                </md-outlined-text-field>
+
+                                <md-outlined-select id="proj-status" name="status" label="Status do Orçamento" menu-positioning="popover" value="draft">
+                                    <md-select-option value="draft" selected><div slot="headline">Rascunho</div></md-select-option>
+                                    <md-select-option value="quoted"><div slot="headline">Orçado / Enviado</div></md-select-option>
+                                    <md-select-option value="approved"><div slot="headline">Aprovado pelo Cliente</div></md-select-option>
+                                    <md-select-option value="in_production"><div slot="headline">Em Produção</div></md-select-option>
+                                    <md-select-option value="completed"><div slot="headline">Concluído</div></md-select-option>
+                                    <md-select-option value="cancelled"><div slot="headline">Cancelado</div></md-select-option>
+                                </md-outlined-select>
+
+                                <md-outlined-text-field
+                                    id="proj-client-email"
+                                    name="client_email"
+                                    type="email"
+                                    autocomplete="email"
+                                    label="E-mail do Cliente"
+                                    placeholder="cliente@email.com">
+                                    <md-icon slot="leading-icon">mail</md-icon>
+                                </md-outlined-text-field>
+
+                                <md-outlined-text-field
+                                    id="proj-client-phone"
+                                    name="client_phone"
+                                    type="tel"
+                                    autocomplete="tel"
+                                    inputmode="tel"
+                                    label="Telefone / WhatsApp"
+                                    placeholder="(11) 98765-4321">
+                                    <md-icon slot="leading-icon">call</md-icon>
+                                </md-outlined-text-field>
+                            </div>
+                        </form>
+                    </md-elevated-card>
+
+                    <!-- 2. Hybrid Slicer File Upload Dropzone (.3MF & .GCODE) -->
+                    <md-outlined-card class="card-pad calc-section">
+                        <div class="col" style="gap: 14px;">
+                            <div class="col" style="gap: 4px;">
+                                <div class="row" style="gap: 10px;">
+                                    <md-icon style="color: var(--md-sys-color-primary);" aria-hidden="true">cloud_upload</md-icon>
+                                    <h2 class="md-typescale-title-medium" style="margin: 0;">Importar Arquivos do Fatiador (Individual ou Lote)</h2>
+                                </div>
+                                <span class="md-typescale-body-small muted-text">Detecção automática de múltiplas placas, tempo de impressão, gramatura e combinação inteligente com seu estoque de filamentos</span>
+                            </div>
+
+                            <div id="dropzone" class="m3-dropzone">
+                                <md-ripple></md-ripple>
+                                <div class="dropzone-icon-wrap" aria-hidden="true">
+                                    <md-icon class="filled" style="font-size: 28px; width: 28px; height: 28px;">cloud_upload</md-icon>
+                                </div>
+                                <div class="col" style="gap: 4px; align-items: center;">
+                                    <span class="md-typescale-title-small">Arraste seus arquivos 3MF ou G-code aqui</span>
+                                    <span class="md-typescale-body-small muted-text" style="max-width: 480px;">
+                                        Envio individual ou múltiplo em lote: cada arquivo gera ou preenche placas com tempo e consumo calculados automaticamente
+                                    </span>
+                                </div>
+
+                                <div class="row-wrap" style="justify-content: center; gap: 8px;">
+                                    <span class="m3-status-pill quoted mono-num">.3MF</span>
+                                    <span class="m3-status-pill completed mono-num">.GCODE</span>
+                                    <span class="m3-status-pill quoted mono-num">.GCODE.3MF</span>
+                                    <span class="m3-status-pill">Importação em Lote</span>
+                                </div>
+
+                                <md-filled-tonal-button type="button" id="btn-pick-slicer-files" style="margin-top: 4px;">
+                                    <md-icon slot="icon">upload_file</md-icon>
+                                    Selecionar Arquivos do Fatiador
+                                </md-filled-tonal-button>
+
+                                <input type="file" id="file-slicer-input" accept=".3mf,.gcode,.gcode.3mf" multiple class="visually-hidden">
+                            </div>
+                        </div>
+                    </md-outlined-card>
+
+                    <!-- 3. Multi-Plate Manager -->
+                    <md-elevated-card class="card-pad calc-section">
+                        <div class="col" style="gap: 16px;">
+                            <div class="row-between">
+                                <div class="col" style="gap: 4px;">
+                                    <div class="row" style="gap: 10px;">
+                                        <md-icon style="color: var(--md-sys-color-primary);" aria-hidden="true">layers</md-icon>
+                                        <h2 class="md-typescale-title-medium" style="margin: 0;">Placas Impressas</h2>
+                                    </div>
+                                    <span class="md-typescale-body-small muted-text">Adicione uma ou múltiplas placas com impressoras, filamentos, purga e margens de falha independentes</span>
+                                </div>
+
+                                <md-filled-tonal-button type="button" id="btn-open-batch-global" title="Calculadora de Lotes e Cópias">
+                                    <md-icon slot="icon">calculate</md-icon>
+                                    Multiplicar / Lote
+                                </md-filled-tonal-button>
+                            </div>
+
+                            <md-divider></md-divider>
+
+                            <div id="plates-container" class="col" style="gap: 16px;">
+                                <!-- Dynamic M3 plate cards rendered here -->
+                            </div>
+
+                            <md-filled-tonal-button type="button" id="btn-add-plate-bottom" class="full-width">
+                                <md-icon slot="icon">add</md-icon>
+                                Adicionar Nova Placa
+                            </md-filled-tonal-button>
+                        </div>
+                    </md-elevated-card>
+
+                    <!-- 4. BOM (Bill of Materials) Accessories & Packaging -->
+                    <md-elevated-card class="card-pad calc-section">
+                        <div class="col" style="gap: 16px;">
+                            <div class="row-between">
+                                <div class="col" style="gap: 4px;">
+                                    <div class="row" style="gap: 10px;">
+                                        <md-icon style="color: var(--md-sys-color-tertiary);" aria-hidden="true">inventory_2</md-icon>
+                                        <h2 class="md-typescale-title-medium" style="margin: 0;">Componentes &amp; Acessórios Adicionais (BOM)</h2>
+                                    </div>
+                                    <span class="md-typescale-body-small muted-text">Parafusos, insertos roscados, ímãs, rolamentos, eletrônica e embalagens</span>
+                                </div>
+
+                                <md-filled-tonal-button type="button" id="btn-add-bom">
+                                    <md-icon slot="icon">add</md-icon>
+                                    Novo Insumo
+                                </md-filled-tonal-button>
+                            </div>
+
+                            <md-divider></md-divider>
+
+                            <div id="bom-container" class="col" style="gap: 12px;">
+                                <!-- Dynamic BOM rows rendered here -->
+                            </div>
+                        </div>
+                    </md-elevated-card>
+
+                    <!-- 5. Services, Labor, Overhead & Commercial Conditions -->
+                    <md-elevated-card class="card-pad calc-section">
+                        <div class="col" style="gap: 20px;">
+                            <div class="col" style="gap: 4px;">
+                                <div class="row" style="gap: 10px;">
+                                    <md-icon style="color: var(--md-sys-color-secondary);" aria-hidden="true">tune</md-icon>
+                                    <h2 class="md-typescale-title-medium" style="margin: 0;">Mão de Obra, Custos Indiretos &amp; Condições Comerciais</h2>
+                                </div>
+                                <span class="md-typescale-body-small muted-text">Horas de engenharia, acabamento, custos fixos, lucro alvo, impostos, desconto e logística</span>
+                            </div>
+
+                            <!-- Sub-group A: Labor -->
+                            <fieldset class="m3-fieldset">
+                                <legend class="m3-legend">
+                                    <md-icon style="font-size: 16px; width: 16px; height: 16px;" aria-hidden="true">schedule</md-icon>
+                                    Mão de Obra Operacional (CAD &amp; Pós-Processamento)
+                                </legend>
+                                <div class="grid-2col">
+                                    <md-outlined-text-field id="proj-cad-hours" type="number" step="any" min="0" value="0" label="Horas Modelagem CAD" suffix-text="h">
+                                        <md-icon slot="leading-icon">design_services</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <md-outlined-text-field id="proj-cad-rate" type="number" step="any" min="0" value="50" label="Taxa CAD" prefix-text="R$" suffix-text="/h">
+                                        <md-icon slot="leading-icon">schedule</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <md-outlined-text-field id="proj-post-hours" type="number" step="any" min="0" value="0" label="Horas Pós-Processo" suffix-text="h">
+                                        <md-icon slot="leading-icon">build</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <md-outlined-text-field id="proj-post-rate" type="number" step="any" min="0" value="30" label="Taxa Pós-Processo" prefix-text="R$" suffix-text="/h">
+                                        <md-icon slot="leading-icon">schedule</md-icon>
+                                    </md-outlined-text-field>
+                                </div>
+                            </fieldset>
+
+                            <!-- Sub-group B: Overhead, Margin, Tax & Discount -->
+                            <fieldset class="m3-fieldset">
+                                <legend class="m3-legend">
+                                    <md-icon style="font-size: 16px; width: 16px; height: 16px;" aria-hidden="true">percent</md-icon>
+                                    Custos Indiretos, Margem &amp; Parâmetros Fiscais
+                                </legend>
+                                <div class="grid-2col">
+                                    <md-outlined-text-field id="proj-overhead" type="number" step="any" min="0" value="0" label="Overhead / Indiretos" prefix-text="R$">
+                                        <md-icon slot="leading-icon">store</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <md-outlined-text-field id="proj-margin" type="number" step="any" min="0" value="30" label="Margem de Lucro Alvo" suffix-text="%">
+                                        <md-icon slot="leading-icon">trending_up</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <md-outlined-text-field id="proj-tax" type="number" step="any" min="0" max="99" value="6" label="Impostos / Taxas" suffix-text="%">
+                                        <md-icon slot="leading-icon">percent</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <md-outlined-text-field id="proj-discount" type="number" step="any" min="0" max="100" value="0" label="Desconto Comercial" suffix-text="%">
+                                        <md-icon slot="leading-icon">sell</md-icon>
+                                    </md-outlined-text-field>
+                                </div>
+                            </fieldset>
+
+                            <!-- Sub-group C: Logistics & Terms -->
+                            <fieldset class="m3-fieldset">
+                                <legend class="m3-legend">
+                                    <md-icon style="font-size: 16px; width: 16px; height: 16px;" aria-hidden="true">local_shipping</md-icon>
+                                    Logística, Prazo &amp; Condições Contratuais
+                                </legend>
+                                <div class="grid-2col">
+                                    <md-outlined-text-field id="proj-shipping" type="number" step="any" min="0" value="0" label="Custo de Frete / Envio" prefix-text="R$">
+                                        <md-icon slot="leading-icon">local_shipping</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <md-outlined-text-field id="proj-delivery-days" type="number" step="1" min="0" value="3" label="Prazo de Entrega" suffix-text="dias">
+                                        <md-icon slot="leading-icon">schedule</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <md-outlined-text-field id="proj-payment-terms" label="Condições de Pagamento" placeholder="Deixe em branco para usar o padrão da oficina">
+                                        <md-icon slot="leading-icon">credit_card</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <md-outlined-text-field id="proj-warranty-terms" label="Condições de Garantia" placeholder="Deixe em branco para usar o padrão da oficina">
+                                        <md-icon slot="leading-icon">verified_user</md-icon>
+                                    </md-outlined-text-field>
+
+                                    <div style="grid-column: 1 / -1;">
+                                        <md-outlined-text-field
+                                            id="proj-notes"
+                                            type="textarea"
+                                            rows="3"
+                                            label="Observações do Orçamento / Requisitos Técnicos"
+                                            placeholder="Ex: Peças para uso sob carga mecânica. Impressão em PETG com 5 perímetros e 30% preenchimento.">
+                                        </md-outlined-text-field>
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </div>
+                    </md-elevated-card>
+                </div>
+
+                <!-- RIGHT COLUMN: Sticky Real-Time Financial Terminal -->
+                <aside class="sticky-terminal" aria-label="Resumo Financeiro em Tempo Real">
+                    <md-filled-card>
+                        <div class="terminal-inner">
+                            <!-- Fixed Top: Header, Hero Final Price & Net Profit -->
+                            <div class="terminal-top">
+                                <div class="row-between">
+                                    <div class="row" style="gap: 10px;">
+                                        <div class="icon-badge-surface" style="width: 36px; height: 36px;" aria-hidden="true">
+                                            <md-icon class="filled">calculate</md-icon>
+                                        </div>
+                                        <div class="col" style="gap: 1px;">
+                                            <h2 class="md-typescale-title-medium" style="margin: 0;">Resumo Financeiro</h2>
+                                            <span class="md-typescale-label-small muted-text">Terminal em Tempo Real</span>
+                                        </div>
+                                    </div>
+                                    <span class="m3-status-pill mono-num">BRL</span>
+                                </div>
+
+                                <!-- 1. Hero Final Price Pod -->
+                                <div class="primary-container-box" style="padding: 12px 16px; gap: 4px;">
+                                    <div class="row-between">
+                                        <span class="md-typescale-label-small" style="text-transform: uppercase; letter-spacing: 0.05em;">Preço Final de Venda</span>
+                                        <span id="live-per-unit-hint" class="md-typescale-label-small mono-num" style="opacity: 0.9;"></span>
+                                    </div>
+                                    <div class="md-typescale-headline-large mono-num" style="font-weight: 700;" id="live-final-price">R$ 0,00</div>
+                                    <span class="md-typescale-body-small" style="opacity: 0.85;">Com margem, impostos e frete</span>
+                                </div>
+
+                                <!-- 2. Net Profit & Effective Margin Pod -->
+                                <div class="surface-subbox" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 12px;">
+                                    <div class="row" style="gap: 8px; min-width: 0;">
+                                        <div class="icon-badge-surface tertiary" style="width: 32px; height: 32px;" aria-hidden="true">
+                                            <md-icon class="filled" style="font-size: 18px; width: 18px; height: 18px;">trending_up</md-icon>
+                                        </div>
+                                        <div class="col" style="gap: 1px;">
+                                            <span class="md-typescale-label-large">Lucro Líquido Real</span>
+                                            <span class="md-typescale-label-small muted-text">Pós-custos e impostos</span>
+                                        </div>
+                                    </div>
+                                    <div class="row" style="align-items: center; gap: 6px;">
+                                        <span class="md-typescale-title-medium mono-num" style="font-weight: 700;" id="live-net-profit">R$ 0,00</span>
+                                        <span class="m3-status-pill completed mono-num profit-margin-pill">+0.0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Scrollable Middle Breakdown (keeps footer CTAs permanently visible inside viewport) -->
+                            <div class="terminal-scroll-body">
+                                <!-- 3. Scrap Loss & Actual Realized Profit Pod (shown when failures exist) -->
+                                <div id="live-scrap-section" class="scrap-alert-box" hidden>
+                                    <div class="summary-line" style="font-weight: 600;">
+                                        <span class="row" style="gap: 6px;">
+                                            <md-icon style="font-size: 18px; width: 18px; height: 18px;">warning</md-icon>
+                                            Perdas de Impressão (Refugo):
+                                        </span>
+                                        <span class="mono-num" id="live-scrap-cost">- R$ 0,00</span>
+                                    </div>
+                                    <span class="md-typescale-body-small mono-num" id="live-scrap-details">0.0g • 0.0h</span>
+                                    <md-divider></md-divider>
+                                    <div class="summary-line" style="font-size: 12px;">
+                                        <span>Lucro Realizado (c/ perdas):</span>
+                                        <strong class="mono-num" id="live-actual-net-profit">R$ 0,00</strong>
+                                    </div>
+                                </div>
+
+                                <!-- 4. CPV Distribution Bar -->
+                                <div class="col" style="gap: 5px;">
+                                    <div class="row-between">
+                                        <span class="md-typescale-label-small muted-text" style="text-transform: uppercase; letter-spacing: 0.05em;">Composição do CPV</span>
+                                        <span class="md-typescale-label-small mono-num muted-text" id="cpv-percent-summary">Base 100%</span>
+                                    </div>
+                                    <div class="cpv-bar" aria-label="Distribuição de Custos">
+                                        <div class="cpv-seg cpv-mat cost-bar-mat" style="width: 20%;" title="Filamento"></div>
+                                        <div class="cpv-seg cpv-mach cost-bar-mach" style="width: 20%;" title="Máquina & Energia"></div>
+                                        <div class="cpv-seg cpv-labor cost-bar-labor" style="width: 20%;" title="Mão de Obra"></div>
+                                        <div class="cpv-seg cpv-bom cost-bar-bom" style="width: 20%;" title="BOM"></div>
+                                        <div class="cpv-seg cpv-over cost-bar-over" style="width: 20%;" title="Overhead"></div>
+                                    </div>
+                                    <div class="cpv-legend">
+                                        <span class="row" style="gap: 4px;"><span class="cpv-dot" style="background: var(--md-sys-color-primary);"></span>Filamento</span>
+                                        <span class="row" style="gap: 4px;"><span class="cpv-dot" style="background: var(--md-sys-color-tertiary);"></span>Máquina</span>
+                                        <span class="row" style="gap: 4px;"><span class="cpv-dot" style="background: var(--md-sys-color-secondary);"></span>M.O.</span>
+                                        <span class="row" style="gap: 4px;"><span class="cpv-dot" style="background: #0284c7;"></span>BOM</span>
+                                        <span class="row" style="gap: 4px;"><span class="cpv-dot" style="background: var(--md-sys-color-outline);"></span>Overhead</span>
+                                    </div>
+                                </div>
+
+                                <md-divider></md-divider>
+
+                                <!-- 5. Operational Telemetry -->
+                                <div class="col" style="gap: 5px;">
+                                    <div class="summary-line">
+                                        <span class="row muted-text" style="gap: 6px;">
+                                            <md-icon style="font-size: 16px; width: 16px; height: 16px;">scale</md-icon>
+                                            Consumo Filamento:
+                                        </span>
+                                        <strong class="mono-num" id="live-weight">0.0 g</strong>
+                                    </div>
+                                    <div class="summary-line">
+                                        <span class="row muted-text" style="gap: 6px;">
+                                            <md-icon style="font-size: 16px; width: 16px; height: 16px;">schedule</md-icon>
+                                            Tempo Total Impressão:
+                                        </span>
+                                        <strong class="mono-num" id="live-time">0.0 h</strong>
+                                    </div>
+                                </div>
+
+                                <md-divider></md-divider>
+
+                                <!-- 6. Detailed Cost Breakdown -->
+                                <div class="col" style="gap: 5px;">
+                                    <div class="summary-line">
+                                        <span class="muted-text">Filamento (c/ perda):</span>
+                                        <span class="mono-num" id="live-material-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="summary-line">
+                                        <span class="muted-text">Máquina &amp; Energia:</span>
+                                        <span class="mono-num" id="live-machine-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="summary-line">
+                                        <span class="muted-text">Insumos Adicionais (BOM):</span>
+                                        <span class="mono-num" id="live-bom-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="summary-line">
+                                        <span class="muted-text">Mão de Obra (CAD + Pós):</span>
+                                        <span class="mono-num" id="live-labor-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="summary-line">
+                                        <span class="muted-text">Indiretos (Overhead):</span>
+                                        <span class="mono-num" id="live-overhead-cost">R$ 0,00</span>
+                                    </div>
+                                    <div class="surface-subbox" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 8px 12px; margin-top: 2px;">
+                                        <span class="md-typescale-label-large">Custo Base Total (CPV)</span>
+                                        <span class="md-typescale-title-medium mono-num" style="font-weight: 700;" id="live-base-cost">R$ 0,00</span>
+                                    </div>
+                                </div>
+
+                                <md-divider></md-divider>
+
+                                <!-- 7. Commercial Pricing Breakdown -->
+                                <div class="col" style="gap: 5px;">
+                                    <div class="summary-line">
+                                        <span class="muted-text">Preço Sugerido (s/ frete):</span>
+                                        <span class="mono-num" id="live-suggested-price">R$ 0,00</span>
+                                    </div>
+                                    <div class="summary-line" id="live-discount-row">
+                                        <span class="muted-text">Desconto Comercial:</span>
+                                        <span class="mono-num" style="color: var(--md-sys-color-error);" id="live-discount-amount">- R$ 0,00</span>
+                                    </div>
+                                    <div class="summary-line" id="live-shipping-row">
+                                        <span class="muted-text">Frete / Logística:</span>
+                                        <span class="mono-num" id="live-shipping-amount">+ R$ 0,00</span>
+                                    </div>
+                                    <div class="summary-line">
+                                        <span class="muted-text">Impostos Estimados:</span>
+                                        <span class="mono-num muted-text" id="live-tax-amount">R$ 0,00</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 8. Fixed Terminal CTAs (always visible on screen) -->
+                            <div class="terminal-footer">
+                                <md-filled-button type="button" id="btn-save-project" class="full-width">
+                                    <md-icon slot="icon">save</md-icon>
+                                    Salvar Projeto
+                                </md-filled-button>
+
+                                <div class="proj-actions-row">
+                                    <md-filled-tonal-button type="button" id="btn-export-client" title="Gerar / Visualizar Orçamento em PDF">
+                                        <md-icon slot="icon">picture_as_pdf</md-icon>
+                                        Orçamento PDF
+                                    </md-filled-tonal-button>
+                                    <md-outlined-button type="button" id="btn-export-tech" title="Gerar Ficha Técnica / Ordem de Serviço">
+                                        <md-icon slot="icon">assignment</md-icon>
+                                        Ordem Serviço
+                                    </md-outlined-button>
+                                </div>
+                            </div>
+                        </div>
+                    </md-filled-card>
+                </aside>
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= DIALOG: BATCH / MULTIPLIER CALCULATOR ================= -->
+    <md-dialog id="dialog-batch" aria-label="Calculadora de Lotes e Cópias">
+        <md-icon slot="icon">calculate</md-icon>
+        <div slot="headline" id="modal-batch-title">Calculadora de Lotes &amp; Cópias</div>
+
+        <div slot="content" class="col" style="min-width: min(500px, 85vw); gap: 16px; padding-top: 8px;">
+            <div class="surface-subbox">
+                <md-outlined-text-field
+                    id="batch-target-units"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value="100"
+                    label="Quantas peças o cliente pediu no total?"
+                    suffix-text="peças"
+                    supporting-text="Calcularemos quantas impressões serão necessárias com base nas peças por mesa de cada placa">
+                </md-outlined-text-field>
+
+                <div class="row-wrap" style="gap: 6px;">
+                    <span class="md-typescale-label-small muted-text">Atalhos:</span>
+                    <md-assist-chip class="batch-unit-chip" data-units="20" label="20 un"></md-assist-chip>
+                    <md-assist-chip class="batch-unit-chip" data-units="50" label="50 un"></md-assist-chip>
+                    <md-assist-chip class="batch-unit-chip" data-units="100" label="100 un"></md-assist-chip>
+                    <md-assist-chip class="batch-unit-chip" data-units="200" label="200 un"></md-assist-chip>
+                </div>
+            </div>
+
+            <div id="batch-plates-list" class="col" style="max-height: 260px; overflow-y: auto; gap: 10px;">
+                <!-- Rendered dynamically -->
+            </div>
+
+            <div class="surface-subbox" style="padding: 12px;">
+                <span class="md-typescale-label-medium muted-text">Multiplicação Rápida de Cópias:</span>
+                <div class="row-wrap" style="gap: 8px;">
+                    <md-outlined-button type="button" class="batch-mult-btn" data-factor="1">1x (Reset)</md-outlined-button>
+                    <md-filled-tonal-button type="button" class="batch-mult-btn" data-factor="2">2x</md-filled-tonal-button>
+                    <md-filled-tonal-button type="button" class="batch-mult-btn" data-factor="3">3x</md-filled-tonal-button>
+                    <md-filled-tonal-button type="button" class="batch-mult-btn" data-factor="5">5x</md-filled-tonal-button>
+                    <md-filled-tonal-button type="button" class="batch-mult-btn" data-factor="10">10x</md-filled-tonal-button>
+                </div>
+            </div>
+        </div>
+
+        <div slot="actions">
+            <md-text-button type="button" id="batch-cancel-btn">Cancelar</md-text-button>
+            <md-filled-button type="button" id="batch-apply-all-btn">
+                <md-icon slot="icon">check_circle</md-icon>
+                Aplicar a Todas as Placas
+            </md-filled-button>
+        </div>
+    </md-dialog>
+
+    <!-- ================= DIALOG: FAILURE / SCRAP REGISTRATION & LAYER ASSISTANT ================= -->
+    <md-dialog id="dialog-failure" aria-label="Registrar Falha ou Refugo na Placa">
+        <md-icon slot="icon" style="color: var(--md-sys-color-error);">warning</md-icon>
+        <div slot="headline">Registrar Falha / Descarte</div>
+
+        <form slot="content" id="form-plate-failure" class="col" style="min-width: min(500px, 85vw); gap: 14px; padding-top: 8px;">
+            <input type="hidden" id="fail-plate-idx" value="0">
+            <input type="hidden" id="fail-plate-id" value="">
+
+            <!-- Affected Plate Banner -->
+            <div class="surface-subbox" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 14px;">
+                <div class="col" style="gap: 2px;">
+                    <span class="md-typescale-label-small muted-text">PLACA AFETADA</span>
+                    <strong class="md-typescale-title-small" id="fail-plate-name">Placa 1</strong>
+                </div>
+                <span class="md-typescale-body-small mono-num muted-text" id="fail-plate-specs">Previsto: 0.0h • 0.0g</span>
+            </div>
+
+            <!-- Layer Assistant Expandable Accordion -->
+            <div class="surface-subbox">
+                <div class="row-between">
+                    <div class="row" style="gap: 10px;">
+                        <md-icon style="color: var(--md-sys-color-primary);" aria-hidden="true">layers</md-icon>
+                        <div class="col" style="gap: 2px;">
+                            <span class="md-typescale-label-large">Assistente de Camada (G-code / 3MF)</span>
+                            <span class="md-typescale-body-small muted-text">Calcule perda exata pela camada ou altura Z</span>
+                        </div>
+                    </div>
+                    <md-outlined-button type="button" id="fail-assistant-toggle-btn" aria-expanded="false">
+                        <md-icon slot="icon">expand_more</md-icon>
+                        Abrir
+                    </md-outlined-button>
+                </div>
+
+                <div id="fail-assistant-body" class="col" style="gap: 12px; padding-top: 8px;" hidden>
+                    <div id="fail-file-dropzone" class="assistant-dropzone">
+                        <input type="file" id="fail-file-input" accept=".gcode,.3mf,.gcode.3mf" class="visually-hidden">
+                        <md-icon style="color: var(--md-sys-color-primary);">upload_file</md-icon>
+                        <span class="md-typescale-label-large" id="fail-file-label">Carregar .gcode ou .3mf</span>
+                        <span class="md-typescale-body-small muted-text">Arraste ou selecione para indexar as camadas</span>
+                    </div>
+
+                    <div id="fail-layer-controls" class="col" style="gap: 12px;" hidden>
+                        <div class="row-between">
+                            <span class="md-typescale-label-medium" id="fail-analyzed-filename" style="overflow: hidden; text-overflow: ellipsis;">arquivo.gcode</span>
+                            <span class="m3-status-pill mono-num" id="fail-analyzed-stats">0 camadas • 0.00 mm</span>
+                        </div>
+
+                        <div class="dialog-row-2">
+                            <md-outlined-text-field id="fail-input-layer" type="number" min="1" step="1" value="1" label="Camada da Falha" suffix-text="un"></md-outlined-text-field>
+                            <md-outlined-text-field id="fail-input-z" type="number" min="0" step="0.01" value="0.20" label="Altura Z" suffix-text="mm"></md-outlined-text-field>
+                        </div>
+
+                        <div class="col" style="gap: 4px;">
+                            <md-slider id="fail-layer-slider" min="1" max="100" value="1" labeled aria-label="Selecionar camada da falha"></md-slider>
+                            <div class="row-between md-typescale-label-small mono-num muted-text">
+                                <span>Camada 1</span>
+                                <span id="fail-slider-layer-label">Camada 1 (0%)</span>
+                                <span id="fail-slider-max-label">Camada 100</span>
+                            </div>
+                        </div>
+
+                        <div class="primary-container-box" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 14px;">
+                            <div class="col" style="gap: 2px;">
+                                <span class="md-typescale-label-small">PERDA CALCULADA</span>
+                                <span class="md-typescale-title-small mono-num">
+                                    <span id="fail-calc-filament">0.0 g</span> · <span id="fail-calc-time">0h 00m</span>
+                                </span>
+                            </div>
+                            <md-filled-button type="button" id="btn-apply-calc-loss">
+                                <md-icon slot="icon">bolt</md-icon>
+                                Aplicar
+                            </md-filled-button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lost Time Dual Inputs -->
+            <div class="dialog-row-2">
+                <md-outlined-text-field id="fail-time-h" type="number" min="0" step="1" value="0" label="Horas Perdidas" suffix-text="h"></md-outlined-text-field>
+                <md-outlined-text-field id="fail-time-m" type="number" min="0" max="59" step="1" value="0" label="Minutos Perdidos" suffix-text="min"></md-outlined-text-field>
+            </div>
+
+            <!-- Lost Filament Weight -->
+            <div class="col" style="gap: 6px;">
+                <div class="row-between">
+                    <span class="md-typescale-label-medium muted-text">Peso desperdiçado até abortar</span>
+                    <md-text-button type="button" id="btn-fill-full-weight">Usar peso total da placa</md-text-button>
+                </div>
+                <md-outlined-text-field id="fail-filament-g" type="number" step="any" min="0" value="0" label="Filamento Desperdiçado" suffix-text="g" required>
+                    <md-icon slot="leading-icon">scale</md-icon>
+                </md-outlined-text-field>
+            </div>
+
+            <!-- Failure Reason -->
+            <md-outlined-select id="fail-reason" label="Motivo Principal da Falha" menu-positioning="popover" value="warping">
+                <md-select-option value="warping" selected><div slot="headline">Descolamento da mesa / Warping</div></md-select-option>
+                <md-select-option value="nozzle_clog"><div slot="headline">Entupimento do Bico (Clog)</div></md-select-option>
+                <md-select-option value="filament_runout"><div slot="headline">Falta ou quebra de filamento</div></md-select-option>
+                <md-select-option value="layer_shift"><div slot="headline">Perda de passos / Layer Shift</div></md-select-option>
+                <md-select-option value="spaghetti"><div slot="headline">Peça soltou / Spaghetti</div></md-select-option>
+                <md-select-option value="power_loss"><div slot="headline">Queda de energia</div></md-select-option>
+                <md-select-option value="slicing_error"><div slot="headline">Erro de fatiamento / suportes</div></md-select-option>
+                <md-select-option value="other"><div slot="headline">Outro motivo</div></md-select-option>
+            </md-outlined-select>
+
+            <md-outlined-text-field id="fail-notes" type="textarea" rows="2" label="Anotações / Causa Raiz (Opcional)" placeholder="Ex: Carretel precisou de secagem antes de reimprimir"></md-outlined-text-field>
+
+            <div class="surface-subbox" style="gap: 10px; padding: 12px 14px;">
+                <label class="row" style="cursor: pointer; gap: 10px;">
+                    <md-checkbox id="fail-reprinted" checked></md-checkbox>
+                    <span class="md-typescale-body-medium">Requer reimpressão da placa</span>
+                </label>
+                <label class="row" style="cursor: pointer; gap: 10px;">
+                    <md-checkbox id="fail-charge-client"></md-checkbox>
+                    <span class="md-typescale-body-medium">Repassar custo desta falha ao cliente (não abater do lucro)</span>
+                </label>
+            </div>
+
+            <!-- Live Loss Cost Preview -->
+            <div class="scrap-alert-box" style="flex-direction: row; align-items: center; justify-content: space-between;">
+                <div class="col" style="gap: 2px;">
+                    <span class="md-typescale-label-small">CUSTO DESTA PERDA</span>
+                    <span class="md-typescale-body-small mono-num" id="fail-cost-calc-text">Filamento: R$ 0,00 + Máquina: R$ 0,00</span>
+                </div>
+                <strong class="md-typescale-title-large mono-num" id="fail-cost-total">R$ 0,00</strong>
+            </div>
+        </form>
+
+        <div slot="actions">
+            <md-text-button type="button" id="fail-cancel-btn">Cancelar</md-text-button>
+            <md-filled-button type="submit" form="form-plate-failure" id="fail-submit-btn">
+                <md-icon slot="icon">check_circle</md-icon>
+                Confirmar Falha
+            </md-filled-button>
+        </div>
+    </md-dialog>
+
+    <!-- ================= DIALOG: LOAD EXISTING SAVED PROJECT ================= -->
+    <md-dialog id="dialog-open-project" aria-label="Carregar Orçamento Existente">
+        <md-icon slot="icon">folder_open</md-icon>
+        <div slot="headline">Carregar Orçamento Salvo</div>
+
+        <div slot="content" class="col" style="min-width: min(440px, 85vw); gap: 12px; padding-top: 8px;">
+            <md-outlined-text-field id="open-project-search" type="search" label="Filtrar orçamentos" placeholder="Nome do projeto ou cliente..." autocomplete="off">
+                <md-icon slot="leading-icon">search</md-icon>
+            </md-outlined-text-field>
+
+            <div id="open-project-list" style="max-height: 300px; overflow-y: auto;">
+                <md-list id="open-project-items" aria-label="Orçamentos salvos"></md-list>
+            </div>
+        </div>
+
+        <div slot="actions">
+            <md-text-button type="button" id="open-project-close">Fechar</md-text-button>
+        </div>
+    </md-dialog>
+
+    <!-- ================= AUTH DIALOG ================= -->
+    <md-dialog id="auth-dialog" aria-label="Autenticação 3D Print Calc Pro">
+        <md-icon slot="icon">lock_open</md-icon>
+        <div slot="headline">3D Print Calc Pro</div>
+
+        <div slot="content" class="col" style="min-width: 280px;">
+            <span class="md-typescale-body-small muted-text">Entre na sua conta para orçar usando suas impressoras, filamentos e taxas configuradas.</span>
+
+            <md-tabs id="auth-tabs" aria-label="Modo de Autenticação">
+                <md-primary-tab selected>Entrar</md-primary-tab>
+                <md-primary-tab>Criar Conta</md-primary-tab>
+            </md-tabs>
+
+            <div id="auth-error-box" class="surface-subbox" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); border-color: transparent;" hidden>
+                <div class="row" style="gap: 8px;">
+                    <md-icon>error</md-icon>
+                    <span id="auth-error-text" class="md-typescale-body-small">Erro ao autenticar</span>
+                </div>
+            </div>
+
+            <form id="form-login" class="col">
+                <md-outlined-text-field id="login-email" type="email" autocomplete="username" label="E-mail" placeholder="seu@email.com" required>
+                    <md-icon slot="leading-icon">mail</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="login-password" type="password" autocomplete="current-password" label="Senha" required>
+                    <md-icon slot="leading-icon">key</md-icon>
+                </md-outlined-text-field>
+                <md-filled-button type="submit" class="full-width">
+                    <md-icon slot="icon">login</md-icon>
+                    Entrar no Sistema
+                </md-filled-button>
+            </form>
+
+            <form id="form-register" class="col" hidden>
+                <md-outlined-text-field id="reg-name" autocomplete="name" label="Nome Completo" required>
+                    <md-icon slot="leading-icon">person</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-company" autocomplete="organization" label="Empresa / Oficina (Opcional)">
+                    <md-icon slot="leading-icon">store</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-email" type="email" autocomplete="username" label="E-mail" required>
+                    <md-icon slot="leading-icon">mail</md-icon>
+                </md-outlined-text-field>
+                <md-outlined-text-field id="reg-password" type="password" autocomplete="new-password" label="Senha (Mín. 6 dígitos)" minlength="6" required>
+                    <md-icon slot="leading-icon">key</md-icon>
+                </md-outlined-text-field>
+                <md-filled-button type="submit" class="full-width">
+                    <md-icon slot="icon">person_add</md-icon>
+                    Criar Conta Limpa
+                </md-filled-button>
+            </form>
+        </div>
+    </md-dialog>
+
+    <!-- M3 Snackbar Feedback -->
+    <div id="m3-snackbar" class="m3-snackbar" role="status" aria-live="polite">
+        <md-icon id="m3-snackbar-icon">check_circle</md-icon>
+        <span id="m3-snackbar-text" class="md-typescale-body-medium">Atualizado</span>
+    </div>
+
+    <!-- Real Backend REST API Client -->
+    <script src="/static/js/api.js"></script>
+
+    <!-- Official M3 Dynamic Theme + Full Multi-Plate 3D Calculator Controller -->
+    <script type="module">
+        import {
+            argbFromHex,
+            themeFromSourceColor,
+            applyTheme,
+            hexFromArgb,
+        } from '@material/material-color-utilities';
+
+        // ---------------------------------------------------------------------
+        // 1. Dynamic HCT Color Theme Engine
+        // ---------------------------------------------------------------------
+        let currentSeed = '#2563EB';
+        const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        let isDarkMode = colorSchemeQuery.matches;
+        let userOverrodeTheme = false;
+
+        function applyOfficialM3Theme(seedHex, dark) {
+            currentSeed = seedHex;
+            isDarkMode = dark;
+
+            const theme = themeFromSourceColor(argbFromHex(seedHex));
+            const root = document.documentElement;
+            applyTheme(theme, { target: root, dark });
+
+            const neutral = theme.palettes.neutral;
+            const tones = dark
+                ? {
+                    'surface-dim': 6,
+                    'surface-bright': 24,
+                    'surface-container-lowest': 4,
+                    'surface-container-low': 10,
+                    'surface-container': 12,
+                    'surface-container-high': 17,
+                    'surface-container-highest': 22,
+                }
+                : {
+                    'surface-dim': 87,
+                    'surface-bright': 98,
+                    'surface-container-lowest': 100,
+                    'surface-container-low': 96,
+                    'surface-container': 94,
+                    'surface-container-high': 92,
+                    'surface-container-highest': 90,
+                };
+
+            for (const [token, toneVal] of Object.entries(tones)) {
+                root.style.setProperty(`--md-sys-color-${token}`, hexFromArgb(neutral.tone(toneVal)));
+            }
+
+            const surfaceHex = hexFromArgb(neutral.tone(dark ? 6 : 98));
+            root.style.setProperty('--md-sys-color-surface', surfaceHex);
+            root.style.setProperty('--md-sys-color-background', surfaceHex);
+
+            root.dataset.theme = dark ? 'dark' : 'light';
+            root.style.colorScheme = dark ? 'dark' : 'light';
+
+            const themeBtn = document.getElementById('theme-mode-toggle');
+            if (themeBtn) themeBtn.selected = dark;
+
+            document.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.setAttribute('aria-pressed', btn.dataset.seed?.toUpperCase() === seedHex.toUpperCase() ? 'true' : 'false');
+            });
+        }
+
+        colorSchemeQuery.addEventListener('change', (e) => {
+            if (!userOverrodeTheme) {
+                applyOfficialM3Theme(currentSeed, e.matches);
+            }
+        });
+
+        // ---------------------------------------------------------------------
+        // 2. Calculator State & Helpers
+        // ---------------------------------------------------------------------
+        const state = {
+            user: null,
+            printers: [],
+            filaments: [],
+            projects: [],
+            currentProject: null,
+            currentPlates: [],
+            currentBOM: [],
+            currentFailures: [],
+        };
+
+        const batchState = {
+            targetPlateIdx: null,
+            targetUnits: 100,
+        };
+
+        const failureAssistantState = {
+            plateIdx: null,
+            analysis: null,
+            currentLayer: 1,
+            currentZ: 0.20,
+        };
+
+        const REASON_LABELS = {
+            warping: 'Descolamento / Warping',
+            nozzle_clog: 'Entupimento do Bico',
+            filament_runout: 'Falta/Quebra de Filamento',
+            layer_shift: 'Perda de Passos (Layer Shift)',
+            spaghetti: 'Spaghetti / Peça Soltou',
+            power_loss: 'Queda de Energia',
+            slicing_error: 'Erro de Fatiamento',
+            other: 'Outro Motivo',
+        };
+
+        function formatCurrency(val) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0);
+        }
+
+        function parseLocaleFloat(val, fallback = 0) {
+            if (typeof val === 'number') return Number.isFinite(val) ? val : fallback;
+            if (!val && val !== 0) return fallback;
+            let str = String(val).trim().replace(/\s+/g, '');
+            if (str === '' || str === '-' || str === '.' || str === ',') return fallback;
+            if (str.includes(',') && str.includes('.')) {
+                if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+                    str = str.replace(/\./g, '').replace(',', '.');
+                } else {
+                    str = str.replace(/,/g, '');
+                }
+            } else if (str.includes(',')) {
+                str = str.replace(',', '.');
+            }
+            const parsed = parseFloat(str);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        }
+
+        function escapeHtml(str) {
+            if (!str && str !== 0) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatPhoneInput(value) {
+            if (!value) return '';
+            const digits = String(value).replace(/\D/g, '').slice(0, 11);
+            if (digits.length <= 2) return digits.length > 0 ? `(${digits}` : '';
+            if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+            if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+            return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+        }
+
+        function cleanProfileName(profile, fileName = '') {
+            if (typeof window.cleanFilamentProfileName === 'function') {
+                return window.cleanFilamentProfileName(profile, fileName);
+            }
+            return (profile || '').trim();
+        }
+
+        function findBestMatchingFilament(filaments, plateName = '', slicerProfile = '', filamentType = '', hexColor = '') {
+            if (!filaments || filaments.length === 0) return null;
+            const norm = (s) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+            const profNorm = norm(slicerProfile);
+            const nameNorm = norm(plateName);
+            const typeNorm = norm(filamentType);
+            const hexNorm = norm(hexColor);
+
+            const colorMatches = (fColor) => {
+                if (!fColor) return false;
+                const cNorm = norm(fColor);
+                if (cNorm && (cNorm.includes(nameNorm) || nameNorm.includes(cNorm))) return true;
+                const parts = String(fColor).toLowerCase().split(/[\s\-_]+/).map(p => norm(p)).filter(p => p.length >= 3);
+                return parts.some(p => nameNorm.includes(p));
+            };
+
+            for (const f of filaments) {
+                const fBrand = norm(f.brand);
+                const fMat = norm(f.material);
+                if (fBrand && fMat && (profNorm.includes(fBrand) || fBrand.includes(profNorm)) && (profNorm.includes(fMat) || typeNorm.includes(fMat))) {
+                    if (colorMatches(f.color) || (hexNorm && norm(f.color_hex) === hexNorm)) return f;
+                }
+            }
+            for (const f of filaments) {
+                const fMat = norm(f.material);
+                if (fMat && (profNorm.includes(fMat) || typeNorm.includes(fMat))) {
+                    if (colorMatches(f.color) || (hexNorm && norm(f.color_hex) === hexNorm)) return f;
+                }
+            }
+            for (const f of filaments) {
+                const fBrand = norm(f.brand);
+                const fMat = norm(f.material);
+                if (fBrand && fMat && (profNorm.includes(fBrand) || fBrand.includes(profNorm)) && (profNorm.includes(fMat) || typeNorm.includes(fMat))) return f;
+            }
+            for (const f of filaments) {
+                const fName = norm(f.name);
+                if (fName && (profNorm.includes(fName) || fName.includes(profNorm))) return f;
+            }
+            if (typeNorm) {
+                const types = filamentType.split(',').map(s => norm(s)).filter(Boolean);
+                for (const f of filaments) {
+                    if (f.material && types.includes(norm(f.material))) return f;
+                }
+            }
+            return filaments[0];
+        }
+
+        let snackbarTimer = null;
+        function showSnackbar(message, icon = 'check_circle') {
+            const bar = document.getElementById('m3-snackbar');
+            const textEl = document.getElementById('m3-snackbar-text');
+            const iconEl = document.getElementById('m3-snackbar-icon');
+            if (!bar) return;
+            textEl.textContent = message;
+            iconEl.textContent = icon;
+            bar.classList.add('visible');
+            clearTimeout(snackbarTimer);
+            snackbarTimer = setTimeout(() => bar.classList.remove('visible'), 3400);
+        }
+
+        function setText(id, txt) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = txt;
+        }
+
+        function updateUserProfile(user) {
+            if (!user) return;
+            const fullName = user.full_name || user.email || 'Usuário';
+            const initials = fullName.split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() || '').join('') || 'U';
+            setText('user-display-name', fullName);
+            setText('user-display-company', user.company_name || 'Oficina 3D');
+            setText('user-avatar', initials);
+        }
+
+        // ---------------------------------------------------------------------
+        // 3. Project Loading & Resetting
+        // ---------------------------------------------------------------------
+        function createDefaultPlate(idx = 1) {
+            const defaultPrinter = state.printers[0] || null;
+            const defaultFilament = state.filaments[0] || null;
+            return {
+                name: `Placa ${idx}`,
+                printer_id: defaultPrinter ? defaultPrinter.id : null,
+                filament_id: defaultFilament ? defaultFilament.id : null,
+                custom_printer_hourly_rate: defaultPrinter ? null : 2.50,
+                custom_filament_cost_per_g: defaultFilament ? null : 0.10,
+                print_time_hours: 0,
+                part_weight_g: 0,
+                purge_weight_g: 0,
+                slicer_filament_profile: null,
+                failure_margin_percent: (state.user?.default_failure_rate ?? 10),
+                quantity: 1,
+                parts_per_plate: 1,
+                notes: '',
+            };
+        }
+
+        function openNewProject(updateUrl = true) {
+            state.currentProject = null;
+            state.currentPlates = [createDefaultPlate(1)];
+            state.currentBOM = [];
+            state.currentFailures = [];
+
+            const u = state.user || {};
+            setText('editor-project-title', 'Novo Orçamento');
+            setText('editor-project-subtitle', 'Defina placas, arquivos 3MF/G-code e parâmetros comerciais');
+            const idPill = document.getElementById('project-id-pill');
+            if (idPill) idPill.hidden = true;
+
+            document.getElementById('proj-name').value = '';
+            document.getElementById('proj-client-name').value = '';
+            document.getElementById('proj-client-email').value = '';
+            document.getElementById('proj-client-phone').value = '';
+            document.getElementById('proj-status').value = 'draft';
+            document.getElementById('proj-cad-hours').value = '0';
+            document.getElementById('proj-cad-rate').value = String(u.default_cad_rate ?? 50);
+            document.getElementById('proj-post-hours').value = '0';
+            document.getElementById('proj-post-rate').value = String(u.default_post_rate ?? 30);
+            document.getElementById('proj-overhead').value = '0';
+            document.getElementById('proj-margin').value = String(u.default_profit_margin ?? 30);
+            document.getElementById('proj-tax').value = String(u.default_tax_rate ?? 6);
+            document.getElementById('proj-discount').value = '0';
+            document.getElementById('proj-shipping').value = '0';
+            document.getElementById('proj-delivery-days').value = '3';
+            document.getElementById('proj-notes').value = '';
+
+            const payEl = document.getElementById('proj-payment-terms');
+            const warEl = document.getElementById('proj-warranty-terms');
+            const defPay = (u.default_payment_terms || '').trim();
+            const defWar = (u.default_warranty_terms || '').trim();
+            payEl.value = '';
+            warEl.value = '';
+            payEl.placeholder = defPay ? `Padrão da oficina: ${defPay}` : 'Deixe em branco para usar o padrão da oficina';
+            warEl.placeholder = defWar ? `Padrão da oficina: ${defWar}` : 'Deixe em branco para usar o padrão da oficina';
+
+            document.getElementById('calc-error-box').hidden = true;
+
+            if (updateUrl && window.location.search) {
+                window.history.replaceState({}, '', '/calculator');
+            }
+
+            renderPlates();
+            renderBOM();
+            recalcLiveSummary();
+        }
+
+        async function loadProjectIntoCalculator(projectId) {
+            const loader = document.getElementById('calc-loader');
+            if (loader) loader.hidden = false;
+            try {
+                const proj = await API.projects.get(projectId);
+                const u = state.user || {};
+                state.currentProject = proj;
+                state.currentPlates = (proj.plates && proj.plates.length > 0)
+                    ? proj.plates.map(p => ({ ...p, parts_per_plate: p.parts_per_plate || 1 }))
+                    : [createDefaultPlate(1)];
+                state.currentBOM = proj.bom_items ? proj.bom_items.map(b => ({ ...b })) : [];
+                state.currentFailures = (proj.failure_logs && proj.failure_logs.length > 0)
+                    ? JSON.parse(JSON.stringify(proj.failure_logs))
+                    : [];
+
+                setText('editor-project-title', proj.name || 'Editar Orçamento');
+                setText('editor-project-subtitle', `Orçamento #${String(proj.id).padStart(4, '0')} · Cliente: ${proj.client_name || 'Não informado'}`);
+                const idPill = document.getElementById('project-id-pill');
+                if (idPill) {
+                    idPill.textContent = `#${String(proj.id).padStart(4, '0')}`;
+                    idPill.hidden = false;
+                }
+
+                document.getElementById('proj-name').value = proj.name || '';
+                document.getElementById('proj-client-name').value = proj.client_name || '';
+                document.getElementById('proj-client-email').value = proj.client_email || '';
+                document.getElementById('proj-client-phone').value = formatPhoneInput(proj.client_phone || '');
+                document.getElementById('proj-status').value = proj.status || 'draft';
+                document.getElementById('proj-cad-hours').value = String(proj.cad_hours ?? 0);
+                document.getElementById('proj-cad-rate').value = String(proj.cad_hourly_rate ?? u.default_cad_rate ?? 50);
+                document.getElementById('proj-post-hours').value = String(proj.post_process_hours ?? 0);
+                document.getElementById('proj-post-rate').value = String(proj.post_process_hourly_rate ?? u.default_post_rate ?? 30);
+                document.getElementById('proj-overhead').value = String(proj.overhead_cost ?? 0);
+                document.getElementById('proj-margin').value = String(proj.profit_margin_percent ?? u.default_profit_margin ?? 30);
+                document.getElementById('proj-tax').value = String(proj.tax_rate_percent ?? u.default_tax_rate ?? 6);
+                document.getElementById('proj-discount').value = String(proj.discount_percent ?? 0);
+                document.getElementById('proj-shipping').value = String(proj.shipping_cost ?? 0);
+                document.getElementById('proj-delivery-days').value = String(proj.delivery_days ?? 3);
+
+                const payEl = document.getElementById('proj-payment-terms');
+                const warEl = document.getElementById('proj-warranty-terms');
+                const defPay = (u.default_payment_terms || '').trim();
+                const defWar = (u.default_warranty_terms || '').trim();
+                payEl.placeholder = defPay ? `Padrão da oficina: ${defPay}` : 'Deixe em branco para usar o padrão da oficina';
+                warEl.placeholder = defWar ? `Padrão da oficina: ${defWar}` : 'Deixe em branco para usar o padrão da oficina';
+                payEl.value = proj.payment_terms || '';
+                warEl.value = proj.warranty_terms || '';
+                document.getElementById('proj-notes').value = proj.notes || '';
+                document.getElementById('calc-error-box').hidden = true;
+
+                window.history.replaceState({}, '', `/calculator?id=${proj.id}`);
+                renderPlates();
+                renderBOM();
+                recalcLiveSummary();
+                showSnackbar(`Orçamento "${proj.name}" carregado!`, 'folder_open');
+            } catch (err) {
+                showSnackbar(err?.message || 'Erro ao carregar orçamento.', 'error');
+                openNewProject(true);
+            } finally {
+                if (loader) loader.hidden = true;
+            }
+        }
+
+        async function bootstrapCalculatorData(preserveCurrentEdit = false) {
+            const loader = document.getElementById('calc-loader');
+            if (loader) loader.hidden = false;
+            try {
+                const [user, printers, filaments, projects] = await Promise.all([
+                    API.auth.getMe(),
+                    API.printers.list(),
+                    API.filaments.list(),
+                    API.projects.list(),
+                ]);
+                state.user = user;
+                state.printers = printers || [];
+                state.filaments = filaments || [];
+                state.projects = projects || [];
+                updateUserProfile(user);
+
+                const urlId = new URLSearchParams(window.location.search).get('id');
+                if (preserveCurrentEdit) {
+                    renderPlates();
+                    recalcLiveSummary();
+                } else if (urlId && Number(urlId) > 0) {
+                    await loadProjectIntoCalculator(Number(urlId));
+                } else {
+                    openNewProject(false);
+                }
+            } catch (err) {
+                console.warn('Falha ao carregar recursos:', err);
+                if (!API.getToken()) {
+                    openAuthDialog();
+                } else {
+                    showSnackbar(err?.message || 'Erro ao carregar dados da conta.', 'error');
+                }
+            } finally {
+                if (loader) loader.hidden = true;
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 4. Multi-Plate Manager (Official M3 Outlined Cards + Selects)
+        // ---------------------------------------------------------------------
+        function calculateLocalFailureCost(f, plate, printersMap = null, filamentsMap = null) {
+            if (!printersMap) {
+                printersMap = {};
+                state.printers.forEach(p => { printersMap[p.id] = p; });
+            }
+            if (!filamentsMap) {
+                filamentsMap = {};
+                state.filaments.forEach(fil => { filamentsMap[fil.id] = fil; });
+            }
+
+            let costPerGram = 0.09;
+            let machineRate = 2.0;
+            if (plate) {
+                const fil = plate.filament_id ? filamentsMap[plate.filament_id] : null;
+                if (fil && fil.spool_weight_g > 0) costPerGram = fil.spool_price / fil.spool_weight_g;
+                else if (plate.custom_filament_cost_per_g != null) costPerGram = parseLocaleFloat(plate.custom_filament_cost_per_g, 0.09);
+
+                const pr = plate.printer_id ? printersMap[plate.printer_id] : null;
+                if (pr) machineRate = pr.machine_hourly_rate ?? 2.0;
+                else if (plate.custom_printer_hourly_rate != null) machineRate = parseLocaleFloat(plate.custom_printer_hourly_rate, 2.0);
+            }
+
+            const lostGrams = Number(f.lost_filament_weight_g) || 0;
+            const lostHours = Number(f.lost_time_hours) || 0;
+            const materialLoss = lostGrams * costPerGram;
+            const machineLoss = lostHours * machineRate;
+            return {
+                material_loss: materialLoss,
+                machine_loss: machineLoss,
+                total_cost: materialLoss + machineLoss,
+            };
+        }
+
+        function updatePlateTime(idx) {
+            const plate = state.currentPlates[idx];
+            if (!plate) return;
+            const h = Math.max(0, parseInt(document.getElementById(`plate-time-h-${idx}`)?.value, 10) || 0);
+            const m = Math.max(0, parseInt(document.getElementById(`plate-time-m-${idx}`)?.value, 10) || 0);
+            plate.print_time_hours = Number((h + (m / 60)).toFixed(4));
+            recalcLiveSummary();
+        }
+
+        function updatePlateQuantityBadge(idx) {
+            const plate = state.currentPlates[idx];
+            const badge = document.getElementById(`plate-qty-badge-${idx}`);
+            if (!plate || !badge) return;
+            if ((plate.quantity || 1) > 1) {
+                badge.textContent = `${plate.quantity}x impressões`;
+                badge.hidden = false;
+            } else {
+                badge.hidden = true;
+            }
+        }
+
+        function renderPlates() {
+            const container = document.getElementById('plates-container');
+            if (!container) return;
+
+            container.innerHTML = state.currentPlates.map((plate, idx) => {
+                const selFil = state.filaments.find(f => Number(f.id) === Number(plate.filament_id));
+                const totalMin = Math.round((Number(plate.print_time_hours) || 0) * 60);
+                const timeH = Math.floor(totalMin / 60);
+                const timeM = totalMin % 60;
+
+                const plateFailures = (state.currentFailures || []).filter(f => {
+                    if (plate.id && f.plate_id) return Number(f.plate_id) === Number(plate.id);
+                    return Number(f.plate_idx) === idx;
+                });
+
+                const qty = Math.max(1, parseInt(plate.quantity, 10) || 1);
+
+                return `
+                <md-outlined-card class="card-pad" style="background-color: var(--md-sys-color-surface-container-low);" data-plate-card="${idx}">
+                    <div class="col" style="gap: 16px;">
+                        <!-- Plate Header -->
+                        <div class="row-between">
+                            <div class="row" style="gap: 10px; flex: 1; min-width: 220px;">
+                                <div style="flex: 1; max-width: 340px;">
+                                    <md-outlined-text-field
+                                        data-plate-role="name"
+                                        data-idx="${idx}"
+                                        label="Nome da Placa"
+                                        value="${escapeHtml(plate.name || `Placa ${idx + 1}`)}">
+                                    </md-outlined-text-field>
+                                </div>
+                                <span id="plate-qty-badge-${idx}" class="m3-status-pill completed mono-num" ${qty > 1 ? '' : 'hidden'}>${qty}x impressões</span>
+                            </div>
+
+                            <div class="row-wrap" style="gap: 6px; align-items: center;">
+                                <md-outlined-button type="button" data-plate-action="failure" data-idx="${idx}" title="Registrar perda/refugo nesta placa">
+                                    <md-icon slot="icon" style="color: var(--md-sys-color-error);">warning</md-icon>
+                                    Falha
+                                </md-outlined-button>
+
+                                <md-filled-tonal-button type="button" data-plate-action="import-single" data-idx="${idx}" title="Importar .3mf ou .gcode nesta placa">
+                                    <md-icon slot="icon">upload_file</md-icon>
+                                    3MF/Gcode
+                                </md-filled-tonal-button>
+                                <input type="file" accept=".3mf,.gcode,.gcode.3mf" class="visually-hidden" data-plate-file-input="${idx}">
+
+                                <div style="position: relative;">
+                                    <md-icon-button id="plate-more-btn-${idx}" type="button" data-plate-action="menu-toggle" data-idx="${idx}" aria-label="Mais opções da placa" aria-haspopup="menu" aria-controls="plate-more-menu-${idx}" title="Mais opções">
+                                        <md-icon>more_vert</md-icon>
+                                    </md-icon-button>
+                                    <md-menu id="plate-more-menu-${idx}" anchor="plate-more-btn-${idx}" positioning="popover">
+                                        <md-menu-item data-plate-action="duplicate" data-idx="${idx}">
+                                            <md-icon slot="start">content_copy</md-icon>
+                                            <div slot="headline">Duplicar Placa</div>
+                                        </md-menu-item>
+                                        <md-menu-item data-plate-action="remove" data-idx="${idx}">
+                                            <md-icon slot="start" style="color: var(--md-sys-color-error);">delete</md-icon>
+                                            <div slot="headline" style="color: var(--md-sys-color-error);">Remover Placa</div>
+                                        </md-menu-item>
+                                    </md-menu>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group A: Hardware & Filament -->
+                        <div class="grid-2col">
+                            <div class="col" style="gap: 8px;">
+                                <md-outlined-select
+                                    data-plate-role="printer"
+                                    data-idx="${idx}"
+                                    label="Impressora"
+                                    menu-positioning="popover"
+                                    value="${plate.printer_id ? String(plate.printer_id) : ''}">
+                                    <md-select-option value="" ${!plate.printer_id ? 'selected' : ''}>
+                                        <div slot="headline">Personalizada (Manual)</div>
+                                    </md-select-option>
+                                    ${state.printers.map(p => `
+                                        <md-select-option value="${Number(p.id)}" ${Number(plate.printer_id) === Number(p.id) ? 'selected' : ''}>
+                                            <div slot="headline">${escapeHtml(p.name)} (R$ ${Number(p.machine_hourly_rate || 0).toFixed(2)}/h)</div>
+                                        </md-select-option>
+                                    `).join('')}
+                                </md-outlined-select>
+
+                                <div class="manual-rate-box" ${plate.printer_id ? 'hidden' : ''}>
+                                    <md-outlined-text-field
+                                        data-plate-role="custom-printer-rate"
+                                        data-idx="${idx}"
+                                        type="number"
+                                        step="any"
+                                        min="0"
+                                        label="Taxa Manual da Máquina"
+                                        prefix-text="R$"
+                                        suffix-text="/h"
+                                        value="${String(plate.custom_printer_hourly_rate ?? 2.50)}">
+                                    </md-outlined-text-field>
+                                </div>
+                            </div>
+
+                            <div class="col" style="gap: 8px;">
+                                <md-outlined-select
+                                    data-plate-role="filament"
+                                    data-idx="${idx}"
+                                    label="Filamento"
+                                    menu-positioning="popover"
+                                    ${plate.slicer_filament_profile ? `supporting-text="Fatiado com: ${escapeHtml(cleanProfileName(plate.slicer_filament_profile))}"` : ''}
+                                    value="${plate.filament_id ? String(plate.filament_id) : ''}">
+                                    <span slot="leading-icon" class="m3-swatch-dot" style="width: 18px; height: 18px; background-color: ${escapeHtml(selFil?.color_hex || '#9ca3af')};"></span>
+                                    <md-select-option value="" ${!plate.filament_id ? 'selected' : ''}>
+                                        <div slot="headline">Personalizado (Manual)</div>
+                                    </md-select-option>
+                                    ${state.filaments.map(f => `
+                                        <md-select-option value="${Number(f.id)}" ${Number(plate.filament_id) === Number(f.id) ? 'selected' : ''}>
+                                            <span slot="start" class="m3-swatch-dot" style="width: 16px; height: 16px; background-color: ${escapeHtml(f.color_hex || '#10b981')};"></span>
+                                            <div slot="headline">${escapeHtml(f.name)}</div>
+                                            <div slot="supporting-text">${escapeHtml(f.material)} · ${formatCurrency(f.spool_price)} / ${Number(f.spool_weight_g || 1000)}g</div>
+                                        </md-select-option>
+                                    `).join('')}
+                                </md-outlined-select>
+
+                                <div class="manual-rate-box" ${plate.filament_id ? 'hidden' : ''}>
+                                    <md-outlined-text-field
+                                        data-plate-role="custom-filament-rate"
+                                        data-idx="${idx}"
+                                        type="number"
+                                        step="any"
+                                        min="0"
+                                        label="Custo Manual por Grama"
+                                        prefix-text="R$"
+                                        suffix-text="/g"
+                                        value="${String(plate.custom_filament_cost_per_g ?? 0.10)}">
+                                    </md-outlined-text-field>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group B: Time, Weight, Failure Margin & Batch Copies -->
+                        <div class="plate-params-grid">
+                            <div class="plate-time-pair-cell">
+                                <div class="plate-time-pair">
+                                    <md-outlined-text-field
+                                        id="plate-time-h-${idx}"
+                                        data-plate-role="time"
+                                        data-idx="${idx}"
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        label="Horas"
+                                        suffix-text="h"
+                                        value="${timeH}">
+                                    </md-outlined-text-field>
+                                    <md-outlined-text-field
+                                        id="plate-time-m-${idx}"
+                                        data-plate-role="time"
+                                        data-idx="${idx}"
+                                        type="number"
+                                        min="0"
+                                        max="59"
+                                        step="1"
+                                        label="Min"
+                                        suffix-text="m"
+                                        value="${timeM}">
+                                    </md-outlined-text-field>
+                                </div>
+                            </div>
+
+                            <md-outlined-text-field
+                                data-plate-role="part-weight"
+                                data-idx="${idx}"
+                                type="number"
+                                step="any"
+                                min="0"
+                                label="Filamento (g)"
+                                suffix-text="g"
+                                value="${String(plate.part_weight_g ?? 0)}">
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field
+                                data-plate-role="purge-weight"
+                                data-idx="${idx}"
+                                type="number"
+                                step="any"
+                                min="0"
+                                label="Purga / Torre"
+                                suffix-text="g"
+                                value="${String(plate.purge_weight_g ?? 0)}">
+                            </md-outlined-text-field>
+
+                            <md-outlined-text-field
+                                data-plate-role="failure-margin"
+                                data-idx="${idx}"
+                                type="number"
+                                step="any"
+                                min="0"
+                                label="Falha (%)"
+                                suffix-text="%"
+                                value="${String(plate.failure_margin_percent ?? 10)}">
+                            </md-outlined-text-field>
+
+                            <div class="row" style="gap: 4px; align-items: flex-start;">
+                                <md-outlined-text-field
+                                    data-plate-role="quantity"
+                                    data-idx="${idx}"
+                                    type="number"
+                                    step="1"
+                                    min="1"
+                                    label="Cópias"
+                                    value="${qty}">
+                                </md-outlined-text-field>
+                                <md-icon-button type="button" data-plate-action="batch-single" data-idx="${idx}" aria-label="Calcular cópias por lote na placa ${idx + 1}" title="Calcular cópias por lote" style="margin-top: 6px;">
+                                    <md-icon>calculate</md-icon>
+                                </md-icon-button>
+                            </div>
+                        </div>
+
+                        <!-- Plate Failures History -->
+                        ${plateFailures.length > 0 ? `
+                        <div class="scrap-alert-box">
+                            <div class="row-between">
+                                <span class="md-typescale-label-large row" style="gap: 6px;">
+                                    <md-icon style="font-size: 18px; width: 18px; height: 18px;">warning</md-icon>
+                                    Falhas registradas nesta placa (${plateFailures.length})
+                                </span>
+                                <span class="md-typescale-label-medium mono-num">
+                                    Total: ${formatCurrency(plateFailures.reduce((acc, pf) => acc + calculateLocalFailureCost(pf, plate).total_cost, 0))}
+                                </span>
+                            </div>
+                            <div class="col" style="gap: 6px;">
+                                ${plateFailures.map(pf => {
+                                    const gIdx = state.currentFailures.indexOf(pf);
+                                    const cInfo = calculateLocalFailureCost(pf, plate);
+                                    return `
+                                    <div class="surface-subbox" style="padding: 8px 12px; gap: 6px; background-color: var(--md-sys-color-surface);">
+                                        <div class="row-between">
+                                            <div class="row-wrap" style="gap: 8px;">
+                                                <span class="m3-status-pill cancelled">${escapeHtml(REASON_LABELS[pf.reason] || pf.reason)}</span>
+                                                <span class="md-typescale-body-small mono-num">${Number(pf.lost_filament_weight_g || 0).toFixed(1)}g · ${Number(pf.lost_time_hours || 0).toFixed(1)}h</span>
+                                                <span class="md-typescale-label-small muted-text">${pf.charged_to_client ? 'Cobrado cliente' : 'Absorvido'}</span>
+                                            </div>
+                                            <div class="row" style="gap: 6px;">
+                                                <span class="mono-num" style="font-weight: 700; color: var(--md-sys-color-error);">- ${formatCurrency(cInfo.total_cost)}</span>
+                                                <md-icon-button type="button" data-delete-failure="true" data-plate-idx="${idx}" data-fail-id="${escapeHtml(pf.id || '')}" data-global-idx="${gIdx}" aria-label="Excluir registro de falha">
+                                                    <md-icon>delete</md-icon>
+                                                </md-icon-button>
+                                            </div>
+                                        </div>
+                                        ${pf.reason_notes ? `<span class="md-typescale-body-small muted-text">${escapeHtml(pf.reason_notes)}</span>` : ''}
+                                    </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <!-- Plate Cost Footer -->
+                        <md-divider></md-divider>
+                        <div class="row-between">
+                            <span id="plate-summary-text-${idx}" class="md-typescale-body-small mono-num muted-text">Calculando placa...</span>
+                            <span class="m3-status-pill quoted mono-num">
+                                Custo da Placa: <strong id="plate-cost-${idx}" style="margin-left: 4px;">R$ 0,00</strong>
+                            </span>
+                        </div>
+                    </div>
+                </md-outlined-card>
+                `;
+            }).join('');
+
+            wirePlateEvents(container);
+            recalcLiveSummary();
+        }
+
+        function wirePlateEvents(container) {
+            container.querySelectorAll('[data-plate-role]').forEach(el => {
+                const idx = Number(el.dataset.idx);
+                const role = el.dataset.plateRole;
+                const plate = state.currentPlates[idx];
+                if (!plate) return;
+
+                if (role === 'name') {
+                    el.addEventListener('input', () => { plate.name = el.value; });
+                } else if (role === 'printer') {
+                    el.addEventListener('change', () => {
+                        plate.printer_id = el.value ? parseInt(el.value, 10) : null;
+                        if (plate.printer_id) {
+                            plate.custom_printer_hourly_rate = null;
+                        } else if (plate.custom_printer_hourly_rate == null) {
+                            plate.custom_printer_hourly_rate = 2.50;
+                        }
+                        renderPlates();
+                    });
+                } else if (role === 'custom-printer-rate') {
+                    el.addEventListener('input', () => {
+                        plate.custom_printer_hourly_rate = Math.max(0, parseLocaleFloat(el.value, 0));
+                        recalcLiveSummary();
+                    });
+                } else if (role === 'filament') {
+                    el.addEventListener('change', () => {
+                        plate.filament_id = el.value ? parseInt(el.value, 10) : null;
+                        if (plate.filament_id) {
+                            plate.custom_filament_cost_per_g = null;
+                        } else if (plate.custom_filament_cost_per_g == null) {
+                            plate.custom_filament_cost_per_g = 0.10;
+                        }
+                        renderPlates();
+                    });
+                } else if (role === 'custom-filament-rate') {
+                    el.addEventListener('input', () => {
+                        plate.custom_filament_cost_per_g = Math.max(0, parseLocaleFloat(el.value, 0));
+                        recalcLiveSummary();
+                    });
+                } else if (role === 'time') {
+                    el.addEventListener('input', () => updatePlateTime(idx));
+                } else if (role === 'part-weight') {
+                    el.addEventListener('input', () => {
+                        plate.part_weight_g = Math.max(0, parseLocaleFloat(el.value, 0));
+                        recalcLiveSummary();
+                    });
+                } else if (role === 'purge-weight') {
+                    el.addEventListener('input', () => {
+                        plate.purge_weight_g = Math.max(0, parseLocaleFloat(el.value, 0));
+                        recalcLiveSummary();
+                    });
+                } else if (role === 'failure-margin') {
+                    el.addEventListener('input', () => {
+                        plate.failure_margin_percent = Math.max(0, parseLocaleFloat(el.value, 0));
+                        recalcLiveSummary();
+                    });
+                } else if (role === 'quantity') {
+                    el.addEventListener('input', () => {
+                        plate.quantity = Math.max(1, parseInt(el.value, 10) || 1);
+                        updatePlateQuantityBadge(idx);
+                        recalcLiveSummary();
+                    });
+                }
+            });
+
+            container.querySelectorAll('[data-plate-action]').forEach(btn => {
+                const idx = Number(btn.dataset.idx);
+                const action = btn.dataset.plateAction;
+                btn.addEventListener('click', (e) => {
+                    if (action === 'menu-toggle') {
+                        e.stopPropagation();
+                        const menu = document.getElementById(`plate-more-menu-${idx}`);
+                        if (menu) menu.open = !menu.open;
+                    } else if (action === 'failure') {
+                        openFailureDialog(idx);
+                    } else if (action === 'batch-single') {
+                        openBatchDialog(idx);
+                    } else if (action === 'import-single') {
+                        const input = container.querySelector(`[data-plate-file-input="${idx}"]`);
+                        input?.click();
+                    } else if (action === 'duplicate') {
+                        const orig = state.currentPlates[idx];
+                        if (!orig) return;
+                        const cloned = JSON.parse(JSON.stringify(orig));
+                        delete cloned.id;
+                        cloned.name = `${orig.name || 'Placa'} (Cópia)`;
+                        state.currentPlates.splice(idx + 1, 0, cloned);
+                        renderPlates();
+                        showSnackbar('Placa duplicada com sucesso!', 'content_copy');
+                    } else if (action === 'remove') {
+                        if (state.currentPlates.length <= 1) {
+                            showSnackbar('O projeto precisa ter pelo menos uma placa.', 'info');
+                            return;
+                        }
+                        state.currentPlates.splice(idx, 1);
+                        renderPlates();
+                        showSnackbar('Placa removida.', 'delete');
+                    }
+                });
+            });
+
+            container.querySelectorAll('[data-plate-file-input]').forEach(inp => {
+                const idx = Number(inp.dataset.plateFileInput);
+                inp.addEventListener('change', (e) => handleSinglePlateFile(e, idx));
+            });
+
+            container.querySelectorAll('[data-delete-failure="true"]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    deleteFailureLog(btn.dataset.failId, Number(btn.dataset.globalIdx));
+                });
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // 5. BOM Manager
+        // ---------------------------------------------------------------------
+        function renderBOM() {
+            const container = document.getElementById('bom-container');
+            if (!container) return;
+
+            if (!state.currentBOM || state.currentBOM.length === 0) {
+                container.innerHTML = `
+                    <div class="surface-subbox" style="align-items: center; text-align: center; padding: 28px 20px; border-style: dashed;">
+                        <div class="icon-badge-surface secondary" aria-hidden="true">
+                            <md-icon>add_shopping_cart</md-icon>
+                        </div>
+                        <span class="md-typescale-title-small">Nenhum insumo adicional cadastrado</span>
+                        <span class="md-typescale-body-small muted-text" style="max-width: 400px;">
+                            Adicione parafusos, insertos de latão, ímãs, rolamentos ou embalagens para somar ao custo base do projeto.
+                        </span>
+                        <md-filled-tonal-button type="button" id="btn-empty-add-bom" style="margin-top: 4px;">
+                            <md-icon slot="icon">add</md-icon>
+                            Adicionar Primeiro Insumo
+                        </md-filled-tonal-button>
+                    </div>
+                `;
+                document.getElementById('btn-empty-add-bom')?.addEventListener('click', addNewBomRow);
+                return;
+            }
+
+            container.innerHTML = state.currentBOM.map((item, idx) => `
+                <div class="bom-row-card">
+                    <div class="bom-top-row">
+                        <div style="flex: 1 1 220px; min-width: 0;">
+                            <md-outlined-text-field
+                                data-bom-role="name"
+                                data-idx="${idx}"
+                                label="Item / Descrição"
+                                placeholder="Ex: Parafuso M3x12"
+                                value="${escapeHtml(item.name || '')}">
+                            </md-outlined-text-field>
+                        </div>
+
+                        <div class="row" style="gap: 6px; margin-inline-start: auto; flex-shrink: 0;">
+                            <span class="m3-status-pill mono-num" id="bom-subtotal-${idx}">
+                                ${formatCurrency((item.quantity || 1) * (item.unit_cost || 0))}
+                            </span>
+                            <md-icon-button type="button" data-bom-remove="${idx}" aria-label="Remover insumo" title="Remover Insumo" style="--md-icon-button-icon-color: var(--md-sys-color-error);">
+                                <md-icon>delete</md-icon>
+                            </md-icon-button>
+                        </div>
+                    </div>
+
+                    <div class="bom-meta-grid">
+                        <md-outlined-select data-bom-role="category" data-idx="${idx}" label="Categoria" menu-positioning="popover" value="${escapeHtml(item.category || 'Fixadores')}">
+                            <md-select-option value="Fixadores" ${item.category === 'Fixadores' ? 'selected' : ''}><div slot="headline">Fixadores</div></md-select-option>
+                            <md-select-option value="Insertos" ${item.category === 'Insertos' ? 'selected' : ''}><div slot="headline">Insertos</div></md-select-option>
+                            <md-select-option value="Eletrônica" ${item.category === 'Eletrônica' ? 'selected' : ''}><div slot="headline">Eletrônica</div></md-select-option>
+                            <md-select-option value="Embalagem" ${item.category === 'Embalagem' ? 'selected' : ''}><div slot="headline">Embalagem</div></md-select-option>
+                            <md-select-option value="Outros" ${item.category === 'Outros' ? 'selected' : ''}><div slot="headline">Outros</div></md-select-option>
+                        </md-outlined-select>
+
+                        <md-outlined-text-field
+                            data-bom-role="qty"
+                            data-idx="${idx}"
+                            type="number"
+                            min="1"
+                            step="1"
+                            label="Qtd"
+                            value="${Math.max(1, parseInt(item.quantity, 10) || 1)}">
+                        </md-outlined-text-field>
+
+                        <md-outlined-text-field
+                            data-bom-role="cost"
+                            data-idx="${idx}"
+                            type="number"
+                            min="0"
+                            step="any"
+                            label="Custo Unit."
+                            prefix-text="R$"
+                            value="${String(item.unit_cost ?? 0)}">
+                        </md-outlined-text-field>
+                    </div>
+                </div>
+            `).join('');
+
+            container.querySelectorAll('[data-bom-role]').forEach(el => {
+                const idx = Number(el.dataset.idx);
+                const role = el.dataset.bomRole;
+                const item = state.currentBOM[idx];
+                if (!item) return;
+
+                if (role === 'name') {
+                    el.addEventListener('input', () => { item.name = el.value; });
+                } else if (role === 'category') {
+                    el.addEventListener('change', () => { item.category = el.value; });
+                } else if (role === 'qty') {
+                    el.addEventListener('input', () => {
+                        item.quantity = Math.max(1, parseInt(el.value, 10) || 1);
+                        recalcLiveSummary();
+                    });
+                } else if (role === 'cost') {
+                    el.addEventListener('input', () => {
+                        item.unit_cost = Math.max(0, parseLocaleFloat(el.value, 0));
+                        recalcLiveSummary();
+                    });
+                }
+            });
+
+            container.querySelectorAll('[data-bom-remove]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    state.currentBOM.splice(Number(btn.dataset.bomRemove), 1);
+                    renderBOM();
+                    recalcLiveSummary();
+                });
+            });
+        }
+
+        function addNewBomRow() {
+            state.currentBOM.push({
+                name: 'Parafuso M3x12 Inox',
+                category: 'Fixadores',
+                quantity: 4,
+                unit_cost: 0.50,
+                notes: '',
+            });
+            renderBOM();
+            recalcLiveSummary();
+        }
+
+        // ---------------------------------------------------------------------
+        // 6. Real-Time Client-Side Calculation Engine
+        // ---------------------------------------------------------------------
+        function recalcLiveSummary() {
+            const printersMap = {};
+            state.printers.forEach(p => { printersMap[p.id] = p; });
+            const filamentsMap = {};
+            state.filaments.forEach(f => { filamentsMap[f.id] = f; });
+
+            let totalPlatesCost = 0;
+            let totalMaterialCost = 0;
+            let totalMachineCost = 0;
+            let totalTimeHours = 0;
+            let totalWeightGrams = 0;
+            let totalPartsProduced = 0;
+
+            state.currentPlates.forEach((plate, idx) => {
+                const printer = plate.printer_id ? printersMap[plate.printer_id] : null;
+                const filament = plate.filament_id ? filamentsMap[plate.filament_id] : null;
+
+                let costPerGram = 0.09;
+                if (filament && filament.spool_weight_g > 0) {
+                    costPerGram = filament.spool_price / filament.spool_weight_g;
+                } else if (plate.custom_filament_cost_per_g != null) {
+                    costPerGram = parseLocaleFloat(plate.custom_filament_cost_per_g, 0);
+                }
+
+                let machineHourlyRate = 2.0;
+                if (printer) {
+                    machineHourlyRate = printer.machine_hourly_rate ?? 2.0;
+                } else if (plate.custom_printer_hourly_rate != null) {
+                    machineHourlyRate = parseLocaleFloat(plate.custom_printer_hourly_rate, 0);
+                }
+
+                const qty = Math.max(1, parseInt(plate.quantity, 10) || 1);
+                const ppp = Math.max(1, parseInt(plate.parts_per_plate, 10) || 1);
+                const printTime = Math.max(0, Number(plate.print_time_hours) || 0);
+                const rawWeight = Math.max(0, (Number(plate.part_weight_g) || 0) + (Number(plate.purge_weight_g) || 0));
+                const failureFactor = 1.0 + (Math.max(0, Number(plate.failure_margin_percent) || 0) / 100);
+                const effectiveWeight = rawWeight * failureFactor;
+
+                const unitMat = effectiveWeight * costPerGram;
+                const unitMach = printTime * machineHourlyRate;
+                const plateTotal = (unitMat + unitMach) * qty;
+
+                totalPlatesCost += plateTotal;
+                totalMaterialCost += unitMat * qty;
+                totalMachineCost += unitMach * qty;
+                totalTimeHours += printTime * qty;
+                totalWeightGrams += rawWeight * qty;
+                totalPartsProduced += qty * ppp;
+
+                setText(`plate-cost-${idx}`, formatCurrency(plateTotal));
+                setText(
+                    `plate-summary-text-${idx}`,
+                    `${qty}x · ${(printTime * qty).toFixed(1)}h · ${(rawWeight * qty).toFixed(1)}g (Mat: ${formatCurrency(unitMat * qty)} + Máq: ${formatCurrency(unitMach * qty)})`
+                );
+            });
+
+            let totalBOMCost = 0;
+            state.currentBOM.forEach((item, idx) => {
+                const sub = Math.max(1, item.quantity || 1) * Math.max(0, item.unit_cost || 0);
+                totalBOMCost += sub;
+                setText(`bom-subtotal-${idx}`, formatCurrency(sub));
+            });
+
+            const cadHours = parseLocaleFloat(document.getElementById('proj-cad-hours')?.value, 0);
+            const cadRate = parseLocaleFloat(document.getElementById('proj-cad-rate')?.value, 50);
+            const postHours = parseLocaleFloat(document.getElementById('proj-post-hours')?.value, 0);
+            const postRate = parseLocaleFloat(document.getElementById('proj-post-rate')?.value, 30);
+            const totalLaborCost = (cadHours * cadRate) + (postHours * postRate);
+
+            const overheadCost = Math.max(0, parseLocaleFloat(document.getElementById('proj-overhead')?.value, 0));
+            const baseCost = totalPlatesCost + totalBOMCost + totalLaborCost + overheadCost;
+
+            const marginPercent = Math.max(0, parseLocaleFloat(document.getElementById('proj-margin')?.value, 30));
+            const taxPercent = Math.min(99, Math.max(0, parseLocaleFloat(document.getElementById('proj-tax')?.value, 0)));
+            const discountPercent = Math.min(100, Math.max(0, parseLocaleFloat(document.getElementById('proj-discount')?.value, 0)));
+            const shippingCost = Math.max(0, parseLocaleFloat(document.getElementById('proj-shipping')?.value, 0));
+
+            const taxDivisor = Math.max(0.01, 1.0 - (taxPercent / 100.0));
+            const suggestedPrice = baseCost > 0 ? ((baseCost * (1.0 + (marginPercent / 100.0))) / taxDivisor) : 0;
+
+            const discountAmount = suggestedPrice * (discountPercent / 100.0);
+            const subtotalAfterDiscount = suggestedPrice - discountAmount;
+            const taxAmount = subtotalAfterDiscount * (taxPercent / 100.0);
+            const netRevenue = subtotalAfterDiscount - taxAmount;
+            const netProfit = netRevenue - baseCost;
+            const effectiveMargin = baseCost > 0 ? (netProfit / baseCost * 100.0) : 0;
+            const finalPrice = subtotalAfterDiscount + shippingCost;
+
+            setText('live-weight', `${totalWeightGrams.toFixed(1)} g`);
+            setText('live-time', `${totalTimeHours.toFixed(1)} h`);
+            setText('live-material-cost', formatCurrency(totalMaterialCost));
+            setText('live-machine-cost', formatCurrency(totalMachineCost));
+            setText('live-bom-cost', formatCurrency(totalBOMCost));
+            setText('live-labor-cost', formatCurrency(totalLaborCost));
+            setText('live-overhead-cost', formatCurrency(overheadCost));
+            setText('live-base-cost', formatCurrency(baseCost));
+            setText('live-suggested-price', formatCurrency(suggestedPrice));
+            setText('live-discount-amount', `- ${formatCurrency(discountAmount)}`);
+            setText('live-shipping-amount', `+ ${formatCurrency(shippingCost)}`);
+            setText('live-tax-amount', formatCurrency(taxAmount));
+            setText('live-final-price', formatCurrency(finalPrice));
+            setText('live-net-profit', formatCurrency(netProfit));
+            setText('live-per-unit-hint', totalPartsProduced > 1 ? `${formatCurrency(finalPrice / totalPartsProduced)}/un` : '');
+
+            const netEl = document.getElementById('live-net-profit');
+            if (netEl) {
+                netEl.style.color = netProfit < 0
+                    ? 'var(--md-sys-color-error)'
+                    : 'var(--md-sys-color-primary)';
+            }
+
+            const marginPill = document.querySelector('.profit-margin-pill');
+            if (marginPill) {
+                marginPill.textContent = `${effectiveMargin >= 0 ? '+' : ''}${effectiveMargin.toFixed(1)}%`;
+                marginPill.className = 'm3-status-pill mono-num profit-margin-pill ' + (netProfit < 0 ? 'cancelled' : effectiveMargin >= 15 ? 'completed' : 'quoted');
+            }
+
+            const barMat = document.querySelector('.cost-bar-mat');
+            const barMach = document.querySelector('.cost-bar-mach');
+            const barLabor = document.querySelector('.cost-bar-labor');
+            const barBom = document.querySelector('.cost-bar-bom');
+            const barOver = document.querySelector('.cost-bar-over');
+            if (barMat && barMach && barLabor && barBom && barOver) {
+                if (baseCost > 0) {
+                    const pMat = (totalMaterialCost / baseCost) * 100;
+                    const pMach = (totalMachineCost / baseCost) * 100;
+                    const pLab = (totalLaborCost / baseCost) * 100;
+                    const pBom = (totalBOMCost / baseCost) * 100;
+                    const pOver = (overheadCost / baseCost) * 100;
+                    barMat.style.width = `${pMat.toFixed(1)}%`;
+                    barMach.style.width = `${pMach.toFixed(1)}%`;
+                    barLabor.style.width = `${pLab.toFixed(1)}%`;
+                    barBom.style.width = `${pBom.toFixed(1)}%`;
+                    barOver.style.width = `${pOver.toFixed(1)}%`;
+                    setText('cpv-percent-summary', `Mat ${pMat.toFixed(0)}% · Máq ${pMach.toFixed(0)}%`);
+                } else {
+                    barMat.style.width = '20%';
+                    barMach.style.width = '20%';
+                    barLabor.style.width = '20%';
+                    barBom.style.width = '20%';
+                    barOver.style.width = '20%';
+                    setText('cpv-percent-summary', 'Base 100%');
+                }
+            }
+
+            // Scrap loss breakdown
+            const scrapSection = document.getElementById('live-scrap-section');
+            if (scrapSection) {
+                if (state.currentFailures && state.currentFailures.length > 0) {
+                    let scrapCost = 0;
+                    let scrapG = 0;
+                    let scrapH = 0;
+                    let scrapAbsorbed = 0;
+
+                    state.currentFailures.forEach(f => {
+                        const plate = (f.plate_id != null)
+                            ? state.currentPlates.find(p => Number(p.id) === Number(f.plate_id))
+                            : state.currentPlates[f.plate_idx];
+                        const info = calculateLocalFailureCost(f, plate, printersMap, filamentsMap);
+                        scrapCost += info.total_cost;
+                        scrapG += Number(f.lost_filament_weight_g || 0);
+                        scrapH += Number(f.lost_time_hours || 0);
+                        if (!f.charged_to_client) scrapAbsorbed += info.total_cost;
+                    });
+
+                    scrapSection.hidden = false;
+                    setText('live-scrap-cost', `- ${formatCurrency(scrapCost)}`);
+                    setText('live-scrap-details', `${scrapG.toFixed(1)}g descartados · ${scrapH.toFixed(1)}h perdidas (${state.currentFailures.length} falha${state.currentFailures.length > 1 ? 's' : ''})`);
+                    setText('live-actual-net-profit', formatCurrency(netProfit - scrapAbsorbed));
+                } else {
+                    scrapSection.hidden = true;
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 7. Hybrid Slicer Import (.3MF & .GCODE)
+        // ---------------------------------------------------------------------
+        async function handleSlicerFiles(files) {
+            if (!files || files.length === 0) return;
+            const fileList = Array.from(files).sort((a, b) =>
+                (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
+            );
+
+            showSnackbar(
+                fileList.length === 1
+                    ? `Processando metadados de ${fileList[0].name}...`
+                    : `Processando lote de ${fileList.length} arquivos...`,
+                'sync'
+            );
+
+            const defaultPrinter = state.printers[0] || null;
+            const extracted = [];
+            let successFiles = 0;
+
+            for (const file of fileList) {
+                const lower = (file.name || '').toLowerCase();
+                const cleanFileName = (file.name || '').replace(/^.*[\\\/]/, '').replace(/\.(?:gcode\.3mf|3mf|gcode)$/i, '').trim();
+
+                try {
+                    if (lower.endsWith('.3mf') || lower.endsWith('.gcode.3mf')) {
+                        const plates = await window.parse3mfMetadata(file);
+                        if (plates && plates.length > 0) {
+                            if (cleanFileName) {
+                                if (plates.length === 1) plates[0].name = cleanFileName;
+                                else plates.forEach((p, idx) => { p.name = `${cleanFileName} - Placa ${idx + 1}`; });
+                            }
+                            plates.forEach(p => {
+                                p.printer_id = defaultPrinter ? defaultPrinter.id : null;
+                                p.custom_printer_hourly_rate = defaultPrinter ? null : 2.50;
+
+                                const matched = findBestMatchingFilament(
+                                    state.filaments,
+                                    p.name || '',
+                                    p.slicer_filament_profile || '',
+                                    p.filament_type || '',
+                                    p.filament_color_hex || ''
+                                );
+                                p.filament_id = matched ? matched.id : null;
+                                p.custom_filament_cost_per_g = matched ? null : 0.10;
+                                p.failure_margin_percent = (state.user?.default_failure_rate ?? 10);
+                                p.quantity = p.quantity || 1;
+                                p.parts_per_plate = p.parts_per_plate || 1;
+                                p.notes = p.notes || '';
+                            });
+                            extracted.push(...plates);
+                            successFiles++;
+                        }
+                    } else if (lower.endsWith('.gcode')) {
+                        const text = await file.text();
+                        const meta = window.parseGcodeMetadata(text, file.name);
+                        const newPlate = {
+                            name: cleanFileName || `Placa ${extracted.length + 1}`,
+                            printer_id: defaultPrinter ? defaultPrinter.id : null,
+                            custom_printer_hourly_rate: defaultPrinter ? null : 2.50,
+                            filament_id: null,
+                            custom_filament_cost_per_g: null,
+                            print_time_hours: meta.print_time_hours || 0,
+                            part_weight_g: meta.part_weight_g || 0,
+                            purge_weight_g: 0,
+                            slicer_filament_profile: cleanProfileName(meta.slicer_filament_profile, file.name) || null,
+                            failure_margin_percent: (state.user?.default_failure_rate ?? 10),
+                            quantity: 1,
+                            parts_per_plate: 1,
+                            notes: '',
+                        };
+
+                        const matched = findBestMatchingFilament(
+                            state.filaments,
+                            newPlate.name || '',
+                            meta.slicer_filament_profile || '',
+                            meta.filament_type || '',
+                            meta.filament_color_hex || ''
+                        );
+                        newPlate.filament_id = matched ? matched.id : null;
+                        newPlate.custom_filament_cost_per_g = matched ? null : 0.10;
+
+                        if (typeof window.analyzeFailureFile === 'function') {
+                            window.analyzeFailureFile(file, 1, newPlate.part_weight_g, newPlate.print_time_hours)
+                                .then(analysis => {
+                                    newPlate._layersAnalysis = analysis;
+                                    newPlate._layersFileName = file.name;
+                                })
+                                .catch(() => {});
+                        }
+
+                        extracted.push(newPlate);
+                        successFiles++;
+                    } else {
+                        showSnackbar(`Formato não suportado para "${file.name}". Use .3mf ou .gcode.`, 'error');
+                    }
+                } catch (err) {
+                    showSnackbar(`Erro ao ler "${file.name}": ${err.message}`, 'error');
+                }
+            }
+
+            if (extracted.length > 0) {
+                if (state.currentPlates.length === 1 && !state.currentPlates[0].print_time_hours && !state.currentPlates[0].part_weight_g) {
+                    state.currentPlates = extracted;
+                } else {
+                    state.currentPlates = [...state.currentPlates, ...extracted];
+                }
+                const nameInput = document.getElementById('proj-name');
+                if (nameInput && !nameInput.value.trim() && extracted[0].name) {
+                    nameInput.value = extracted[0].name;
+                }
+                renderPlates();
+                showSnackbar(
+                    fileList.length === 1
+                        ? `Importado! ${extracted.length} placa(s) adicionada(s).`
+                        : `Lote concluído: ${successFiles} arquivo(s), ${extracted.length} placa(s).`,
+                    'check_circle'
+                );
+            }
+        }
+
+        async function handleSinglePlateFile(e, plateIdx) {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file || !state.currentPlates[plateIdx]) return;
+
+            try {
+                const lower = file.name.toLowerCase();
+                const cleanName = file.name.replace(/^.*[\\\/]/, '').replace(/\.(?:gcode\.3mf|3mf|gcode)$/i, '').trim();
+                const targetPlate = state.currentPlates[plateIdx];
+
+                if (lower.endsWith('.3mf') || lower.endsWith('.gcode.3mf')) {
+                    const plates = await window.parse3mfMetadata(file);
+                    if (plates && plates.length > 0) {
+                        if (cleanName) targetPlate.name = cleanName;
+                        targetPlate.print_time_hours = plates[0].print_time_hours;
+                        targetPlate.part_weight_g = plates[0].part_weight_g;
+                        targetPlate.purge_weight_g = plates[0].purge_weight_g || 0;
+                        targetPlate.slicer_filament_profile = cleanProfileName(plates[0].slicer_filament_profile, file.name) || null;
+
+                        const matched = findBestMatchingFilament(
+                            state.filaments,
+                            targetPlate.name || '',
+                            plates[0].slicer_filament_profile || '',
+                            plates[0].filament_type || '',
+                            plates[0].filament_color_hex || ''
+                        );
+                        if (matched) {
+                            targetPlate.filament_id = matched.id;
+                            targetPlate.custom_filament_cost_per_g = null;
+                        }
+                        if (typeof window.analyzeFailureFile === 'function') {
+                            window.analyzeFailureFile(file, plateIdx + 1, targetPlate.part_weight_g, targetPlate.print_time_hours)
+                                .then(analysis => { targetPlate._layersAnalysis = analysis; targetPlate._layersFileName = file.name; })
+                                .catch(() => {});
+                        }
+                        showSnackbar(`Placa #${plateIdx + 1} atualizada com ${lower.endsWith('.gcode.3mf') ? '.gcode.3mf' : '3MF'}!`, 'check_circle');
+                    }
+                } else if (lower.endsWith('.gcode')) {
+                    const text = await file.text();
+                    const meta = window.parseGcodeMetadata(text, file.name);
+                    if (cleanName) targetPlate.name = cleanName;
+                    targetPlate.print_time_hours = meta.print_time_hours;
+                    targetPlate.part_weight_g = meta.part_weight_g;
+                    targetPlate.slicer_filament_profile = cleanProfileName(meta.slicer_filament_profile, file.name) || null;
+
+                    const matched = findBestMatchingFilament(
+                        state.filaments,
+                        targetPlate.name || '',
+                        meta.slicer_filament_profile || '',
+                        meta.filament_type || '',
+                        meta.filament_color_hex || ''
+                    );
+                    if (matched) {
+                        targetPlate.filament_id = matched.id;
+                        targetPlate.custom_filament_cost_per_g = null;
+                    }
+                    if (typeof window.analyzeFailureFile === 'function') {
+                        window.analyzeFailureFile(file, plateIdx + 1, targetPlate.part_weight_g, targetPlate.print_time_hours)
+                            .then(analysis => { targetPlate._layersAnalysis = analysis; targetPlate._layersFileName = file.name; })
+                            .catch(() => {});
+                    }
+                    showSnackbar(`Placa #${plateIdx + 1} atualizada com G-Code!`, 'check_circle');
+                } else {
+                    showSnackbar('Formato não suportado. Use .3mf ou .gcode.', 'error');
+                    return;
+                }
+                renderPlates();
+            } catch (err) {
+                showSnackbar(`Erro ao importar arquivo: ${err.message}`, 'error');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 8. Save Project & Export PDFs
+        // ---------------------------------------------------------------------
+        async function saveCurrentProject() {
+            const errBox = document.getElementById('calc-error-box');
+            const errText = document.getElementById('calc-error-text');
+            errBox.hidden = true;
+
+            state.currentPlates.forEach((_, idx) => updatePlateTime(idx));
+
+            const nameEl = document.getElementById('proj-name');
+            const name = nameEl.value.trim();
+            if (!name) {
+                errText.textContent = 'Por favor, informe o Título do Projeto antes de salvar.';
+                errBox.hidden = false;
+                nameEl.focus();
+                showSnackbar('Informe o título do projeto.', 'error');
+                return false;
+            }
+
+            const taxVal = parseLocaleFloat(document.getElementById('proj-tax').value, 6);
+            if (taxVal < 0 || taxVal > 99) {
+                errText.textContent = 'A alíquota de impostos deve estar entre 0% e 99%.';
+                errBox.hidden = false;
+                document.getElementById('proj-tax').focus();
+                return false;
+            }
+
+            const payload = {
+                name,
+                client_name: document.getElementById('proj-client-name').value.trim(),
+                client_email: document.getElementById('proj-client-email').value.trim(),
+                client_phone: document.getElementById('proj-client-phone').value.trim(),
+                status: document.getElementById('proj-status').value || 'draft',
+                cad_hours: parseLocaleFloat(document.getElementById('proj-cad-hours').value, 0),
+                cad_hourly_rate: parseLocaleFloat(document.getElementById('proj-cad-rate').value, 0),
+                post_process_hours: parseLocaleFloat(document.getElementById('proj-post-hours').value, 0),
+                post_process_hourly_rate: parseLocaleFloat(document.getElementById('proj-post-rate').value, 0),
+                overhead_cost: parseLocaleFloat(document.getElementById('proj-overhead').value, 0),
+                profit_margin_percent: parseLocaleFloat(document.getElementById('proj-margin').value, 30),
+                tax_rate_percent: taxVal,
+                discount_percent: Math.min(100, parseLocaleFloat(document.getElementById('proj-discount').value, 0)),
+                shipping_cost: parseLocaleFloat(document.getElementById('proj-shipping').value, 0),
+                delivery_days: (() => {
+                    const d = parseInt(document.getElementById('proj-delivery-days').value, 10);
+                    return Number.isNaN(d) ? 3 : Math.max(0, d);
+                })(),
+                payment_terms: document.getElementById('proj-payment-terms').value.trim() || null,
+                warranty_terms: document.getElementById('proj-warranty-terms').value.trim() || null,
+                notes: document.getElementById('proj-notes').value.trim(),
+                plates: state.currentPlates.map(p => ({
+                    id: p.id || null,
+                    name: p.name || 'Placa',
+                    printer_id: p.printer_id || null,
+                    filament_id: p.filament_id || null,
+                    custom_printer_hourly_rate: p.printer_id ? null : parseLocaleFloat(p.custom_printer_hourly_rate, 2.50),
+                    custom_filament_cost_per_g: p.filament_id ? null : parseLocaleFloat(p.custom_filament_cost_per_g, 0.10),
+                    print_time_hours: parseLocaleFloat(p.print_time_hours, 0),
+                    part_weight_g: parseLocaleFloat(p.part_weight_g, 0),
+                    purge_weight_g: parseLocaleFloat(p.purge_weight_g, 0),
+                    failure_margin_percent: parseLocaleFloat(p.failure_margin_percent, 0),
+                    quantity: parseInt(p.quantity, 10) || 1,
+                    parts_per_plate: parseInt(p.parts_per_plate, 10) || 1,
+                    slicer_filament_profile: p.slicer_filament_profile || null,
+                    notes: p.notes || '',
+                })),
+                bom_items: state.currentBOM.map(b => ({
+                    id: b.id || null,
+                    name: b.name || 'Insumo',
+                    category: b.category || 'Fixadores',
+                    quantity: Math.max(1, parseInt(b.quantity, 10) || 1),
+                    unit_cost: Math.max(0, parseLocaleFloat(b.unit_cost, 0)),
+                    notes: b.notes || '',
+                })),
+                failure_logs: (state.currentFailures || []).map(f => {
+                    let targetPlateId = f.plate_id || null;
+                    let targetPlateIdx = f.plate_idx != null ? f.plate_idx : null;
+                    if (!targetPlateId && targetPlateIdx != null && state.currentPlates[targetPlateIdx]) {
+                        targetPlateId = state.currentPlates[targetPlateIdx].id || null;
+                    } else if (targetPlateId) {
+                        const fIdx = state.currentPlates.findIndex(p => Number(p.id) === Number(targetPlateId));
+                        if (fIdx !== -1) targetPlateIdx = fIdx;
+                    }
+                    return {
+                        id: f.id || null,
+                        plate_id: targetPlateId,
+                        plate_idx: targetPlateIdx,
+                        lost_time_hours: parseLocaleFloat(f.lost_time_hours, 0),
+                        lost_filament_weight_g: parseLocaleFloat(f.lost_filament_weight_g, 0),
+                        reason: f.reason || 'other',
+                        reason_notes: f.reason_notes || null,
+                        reprinted: Boolean(f.reprinted),
+                        charged_to_client: Boolean(f.charged_to_client),
+                    };
+                }),
+            };
+
+            const saveBtn = document.getElementById('btn-save-project');
+            if (saveBtn) saveBtn.disabled = true;
+            try {
+                let saved;
+                if (state.currentProject && state.currentProject.id) {
+                    saved = await API.projects.update(state.currentProject.id, payload);
+                    showSnackbar('Orçamento atualizado com sucesso!', 'check_circle');
+                } else {
+                    saved = await API.projects.create(payload);
+                    showSnackbar('Orçamento criado com sucesso!', 'check_circle');
+                }
+
+                state.currentProject = saved;
+                if (saved.plates) state.currentPlates = saved.plates;
+                if (saved.bom_items) state.currentBOM = saved.bom_items;
+                if (saved.failure_logs) state.currentFailures = saved.failure_logs;
+
+                setText('editor-project-title', saved.name || 'Editar Orçamento');
+                setText('editor-project-subtitle', `Orçamento #${String(saved.id).padStart(4, '0')} · Cliente: ${saved.client_name || 'Não informado'}`);
+                const idPill = document.getElementById('project-id-pill');
+                if (idPill) {
+                    idPill.textContent = `#${String(saved.id).padStart(4, '0')}`;
+                    idPill.hidden = false;
+                }
+                window.history.replaceState({}, '', `/calculator?id=${saved.id}`);
+
+                state.projects = await API.projects.list();
+                renderPlates();
+                renderBOM();
+                recalcLiveSummary();
+                return true;
+            } catch (err) {
+                errText.textContent = err?.message || 'Erro ao salvar orçamento.';
+                errBox.hidden = false;
+                showSnackbar(err?.message || 'Erro ao salvar orçamento.', 'error');
+                return false;
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+            }
+        }
+
+        async function exportCurrentPdf(type = 'client') {
+            const ok = await saveCurrentProject();
+            if (!ok || !state.currentProject?.id) return;
+            API.pdf.preview(state.currentProject.id, type);
+        }
+
+        // ---------------------------------------------------------------------
+        // 9. Batch Multiplier Dialog
+        // ---------------------------------------------------------------------
+        function openBatchDialog(targetIdx = null) {
+            batchState.targetPlateIdx = (targetIdx !== null && targetIdx >= 0) ? targetIdx : null;
+            const titleEl = document.getElementById('modal-batch-title');
+            if (batchState.targetPlateIdx !== null && state.currentPlates[batchState.targetPlateIdx]) {
+                const p = state.currentPlates[batchState.targetPlateIdx];
+                titleEl.textContent = `Calculadora de Lote — #${batchState.targetPlateIdx + 1} ${p.name || 'Placa'}`;
+            } else {
+                titleEl.textContent = 'Calculadora de Lotes & Cópias';
+            }
+            document.getElementById('batch-target-units').value = String(batchState.targetUnits || 100);
+            renderBatchDialogList();
+            document.getElementById('dialog-batch')?.show();
+        }
+
+        function renderBatchDialogList() {
+            const container = document.getElementById('batch-plates-list');
+            if (!container) return;
+            const targetUnits = Math.max(1, parseInt(document.getElementById('batch-target-units')?.value, 10) || 100);
+            batchState.targetUnits = targetUnits;
+
+            container.innerHTML = state.currentPlates.map((plate, idx) => {
+                const isTarget = batchState.targetPlateIdx === idx;
+                const ppp = Math.max(1, parseInt(plate.parts_per_plate, 10) || 1);
+                const copies = Math.ceil(targetUnits / ppp);
+                const totalProduced = copies * ppp;
+                const surplus = totalProduced - targetUnits;
+
+                return `
+                <div class="surface-subbox" style="${isTarget ? 'border-color: var(--md-sys-color-primary);' : ''} padding: 12px 14px;">
+                    <div class="row-between">
+                        <div class="row" style="gap: 8px;">
+                            <span class="m3-status-pill quoted mono-num">#${idx + 1}</span>
+                            <strong class="md-typescale-title-small">${escapeHtml(plate.name || `Placa ${idx + 1}`)}</strong>
+                            ${isTarget ? '<span class="m3-status-pill completed">Foco</span>' : ''}
+                        </div>
+                        <span class="md-typescale-label-medium mono-num muted-text">Atual: ${plate.quantity || 1}x</span>
+                    </div>
+
+                    <div class="dialog-row-2" style="align-items: center;">
+                        <md-outlined-text-field
+                            data-batch-parts="${idx}"
+                            type="number"
+                            min="1"
+                            step="1"
+                            label="Peças por mesa"
+                            suffix-text="un"
+                            value="${ppp}">
+                        </md-outlined-text-field>
+
+                        <div class="primary-container-box" style="padding: 10px 12px; gap: 2px;">
+                            <span class="md-typescale-label-small">NECESSÁRIO</span>
+                            <strong class="md-typescale-title-small mono-num">${copies} ${copies === 1 ? 'impressão' : 'impressões'}</strong>
+                            <span class="md-typescale-body-small mono-num">Rende ${totalProduced} un ${surplus > 0 ? `(+${surplus} sobra)` : '(exato)'}</span>
+                        </div>
+                    </div>
+
+                    ${isTarget ? `
+                    <div class="row" style="justify-content: flex-end;">
+                        <md-filled-tonal-button type="button" data-batch-apply-one="${idx}" data-copies="${copies}" data-ppp="${ppp}">
+                            Aplicar apenas nesta placa (${copies}x)
+                        </md-filled-tonal-button>
+                    </div>
+                    ` : ''}
+                </div>
+                `;
+            }).join('');
+
+            container.querySelectorAll('[data-batch-parts]').forEach(el => {
+                el.addEventListener('input', () => {
+                    const idx = Number(el.dataset.batchParts);
+                    if (state.currentPlates[idx]) {
+                        state.currentPlates[idx].parts_per_plate = Math.max(1, parseInt(el.value, 10) || 1);
+                    }
+                    renderBatchDialogList();
+                });
+            });
+
+            container.querySelectorAll('[data-batch-apply-one]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = Number(btn.dataset.batchApplyOne);
+                    const copies = Math.max(1, Number(btn.dataset.copies));
+                    const ppp = Math.max(1, Number(btn.dataset.ppp));
+                    if (state.currentPlates[idx]) {
+                        state.currentPlates[idx].quantity = copies;
+                        state.currentPlates[idx].parts_per_plate = ppp;
+                    }
+                    document.getElementById('dialog-batch')?.close();
+                    renderPlates();
+                    showSnackbar(`Placa #${idx + 1} ajustada para ${copies} cópias!`, 'check_circle');
+                });
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // 10. Failure & Layer Assistant Dialog
+        // ---------------------------------------------------------------------
+        function openFailureDialog(plateIdx) {
+            const plate = state.currentPlates[plateIdx];
+            if (!plate) return;
+
+            document.getElementById('fail-plate-idx').value = String(plateIdx);
+            document.getElementById('fail-plate-id').value = plate.id ? String(plate.id) : '';
+            setText('fail-plate-name', plate.name || `Placa ${plateIdx + 1}`);
+            const weight = Number(plate.part_weight_g || 0);
+            const hrs = Number(plate.print_time_hours || 0);
+            setText('fail-plate-specs', `Previsto: ${hrs.toFixed(1)}h · ${weight.toFixed(1)}g`);
+
+            const halfH = Math.max(0, Math.floor(hrs / 2));
+            const halfM = Math.max(0, Math.round(((hrs / 2) - halfH) * 60));
+            document.getElementById('fail-time-h').value = String(halfH);
+            document.getElementById('fail-time-m').value = String(halfM);
+            document.getElementById('fail-filament-g').value = weight > 0 ? (weight / 2).toFixed(1) : '0';
+            document.getElementById('fail-reason').value = 'warping';
+            document.getElementById('fail-notes').value = '';
+            document.getElementById('fail-reprinted').checked = true;
+            document.getElementById('fail-charge-client').checked = false;
+
+            initFailureAssistantUI(plateIdx);
+            updateLiveFailureCostPreview();
+            document.getElementById('dialog-failure')?.show();
+        }
+
+        function setFailureAssistantExpanded(open) {
+            const body = document.getElementById('fail-assistant-body');
+            const btn = document.getElementById('fail-assistant-toggle-btn');
+            if (!body || !btn) return;
+            body.hidden = !open;
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            btn.innerHTML = `<md-icon slot="icon">${open ? 'close' : 'expand_more'}</md-icon>${open ? 'Fechar' : 'Abrir'}`;
+        }
+
+        function initFailureAssistantUI(plateIdx) {
+            failureAssistantState.plateIdx = plateIdx;
+            const plate = state.currentPlates[plateIdx];
+            if (plate && plate._layersAnalysis && plate._layersAnalysis.totalLayers > 0) {
+                setFailureAssistantAnalysis(plate._layersAnalysis, plate._layersFileName || 'Arquivo da Placa');
+                setFailureAssistantExpanded(true);
+            } else {
+                failureAssistantState.analysis = null;
+                document.getElementById('fail-file-dropzone').hidden = false;
+                document.getElementById('fail-layer-controls').hidden = true;
+                setText('fail-file-label', 'Carregar .gcode ou .3mf');
+                setFailureAssistantExpanded(false);
+            }
+        }
+
+        async function handleFailureAssistantFile(file) {
+            if (!file) return;
+            const plateIdx = parseInt(document.getElementById('fail-plate-idx').value, 10) || 0;
+            const plate = state.currentPlates[plateIdx];
+            setText('fail-file-label', 'Indexando camadas...');
+            try {
+                if (typeof window.analyzeFailureFile !== 'function') {
+                    throw new Error('Parser de camadas indisponível.');
+                }
+                const analysis = await window.analyzeFailureFile(
+                    file,
+                    plateIdx + 1,
+                    plate ? (plate.part_weight_g || 0) : 0,
+                    plate ? (plate.print_time_hours || 0) : 0
+                );
+                if (!analysis || analysis.totalLayers === 0) {
+                    throw new Error('Nenhuma camada encontrada neste arquivo.');
+                }
+                if (plate) {
+                    plate._layersAnalysis = analysis;
+                    plate._layersFileName = file.name;
+                }
+                setFailureAssistantAnalysis(analysis, file.name);
+                showSnackbar(`${analysis.totalLayers} camadas indexadas!`, 'layers');
+            } catch (err) {
+                setText('fail-file-label', 'Carregar .gcode ou .3mf');
+                showSnackbar(err?.message || 'Erro ao indexar arquivo.', 'error');
+            }
+        }
+
+        function setFailureAssistantAnalysis(analysis, fileName) {
+            failureAssistantState.analysis = analysis;
+            document.getElementById('fail-file-dropzone').hidden = true;
+            document.getElementById('fail-layer-controls').hidden = false;
+            setText('fail-analyzed-filename', fileName || 'arquivo.gcode');
+            setText('fail-analyzed-stats', `${analysis.totalLayers} camadas · ${analysis.maxZ.toFixed(2)} mm`);
+            setText('fail-slider-max-label', `Camada ${analysis.totalLayers}`);
+
+            const slider = document.getElementById('fail-layer-slider');
+            const mid = Math.max(1, Math.floor(analysis.totalLayers / 2));
+            if (slider) {
+                slider.min = 1;
+                slider.max = analysis.totalLayers;
+                slider.value = mid;
+            }
+            updateFailureLayerCalculation(mid);
+        }
+
+        function updateFailureLayerCalculation(layerNum) {
+            if (!failureAssistantState.analysis) return;
+            const loss = failureAssistantState.analysis.getLossAtLayer(layerNum);
+            failureAssistantState.currentLayer = loss.layer;
+            failureAssistantState.currentZ = loss.z;
+
+            document.getElementById('fail-input-layer').value = String(loss.layer);
+            document.getElementById('fail-input-z').value = loss.z.toFixed(2);
+            document.getElementById('fail-layer-slider').value = loss.layer;
+            setText('fail-slider-layer-label', `Camada ${loss.layer} (${loss.percent}%)`);
+            setText('fail-calc-filament', `${loss.weightG.toFixed(1)} g (${loss.percent}%)`);
+            setText('fail-calc-time', `${loss.hours}h ${String(loss.minutes).padStart(2, '0')}m`);
+        }
+
+        function updateLiveFailureCostPreview() {
+            const plateIdx = parseInt(document.getElementById('fail-plate-idx').value, 10) || 0;
+            const plate = state.currentPlates[plateIdx];
+            const h = parseInt(document.getElementById('fail-time-h').value, 10) || 0;
+            const m = parseInt(document.getElementById('fail-time-m').value, 10) || 0;
+            const lostHours = Math.max(0, h + (m / 60.0));
+            const lostGrams = Math.max(0, parseLocaleFloat(document.getElementById('fail-filament-g').value, 0));
+
+            const info = calculateLocalFailureCost({ lost_time_hours: lostHours, lost_filament_weight_g: lostGrams }, plate);
+            setText('fail-cost-total', formatCurrency(info.total_cost));
+            setText('fail-cost-calc-text', `Filamento: ${formatCurrency(info.material_loss)} + Máquina: ${formatCurrency(info.machine_loss)}`);
+        }
+
+        async function deleteFailureLog(failId, globalIdx) {
+            if (failId && state.currentProject?.id) {
+                try {
+                    await API.projects.deleteFailure(state.currentProject.id, failId);
+                } catch (err) {
+                    showSnackbar(`Erro ao excluir falha: ${err.message}`, 'error');
+                    return;
+                }
+            }
+            if (globalIdx >= 0 && globalIdx < state.currentFailures.length) {
+                state.currentFailures.splice(globalIdx, 1);
+            } else if (failId) {
+                state.currentFailures = state.currentFailures.filter(f => String(f.id) !== String(failId));
+            }
+            renderPlates();
+            showSnackbar('Registro de falha removido.', 'delete');
+        }
+
+        // ---------------------------------------------------------------------
+        // 11. Open Project Picker Dialog
+        // ---------------------------------------------------------------------
+        function renderOpenProjectPicker(filterText = '') {
+            const listEl = document.getElementById('open-project-items');
+            if (!listEl) return;
+            const term = filterText.trim().toLowerCase();
+            const filtered = (state.projects || []).filter(p =>
+                !term || (p.name || '').toLowerCase().includes(term) || (p.client_name || '').toLowerCase().includes(term)
+            );
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `<div style="padding: 24px; text-align: center;" class="muted-text md-typescale-body-medium">Nenhum orçamento encontrado.</div>`;
+                return;
+            }
+
+            listEl.innerHTML = filtered.slice(0, 30).map(p => `
+                <md-list-item type="button" data-pick-proj="${Number(p.id)}">
+                    <md-icon slot="start">description</md-icon>
+                    <div slot="headline">${escapeHtml(p.name)}</div>
+                    <div slot="supporting-text">#${String(p.id).padStart(4, '0')} · ${escapeHtml(p.client_name || 'Sem cliente')} · ${Number(p.plates_count || 0)} placa(s)</div>
+                    <span slot="end" class="mono-num md-typescale-label-large">${formatCurrency(p.final_price_to_client)}</span>
+                </md-list-item>
+            `).join('');
+
+            listEl.querySelectorAll('[data-pick-proj]').forEach(item => {
+                item.addEventListener('click', async () => {
+                    const pid = Number(item.dataset.pickProj);
+                    document.getElementById('dialog-open-project')?.close();
+                    await loadProjectIntoCalculator(pid);
+                });
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // 12. Auth Helpers
+        // ---------------------------------------------------------------------
+        function openAuthDialog() {
+            const dlg = document.getElementById('auth-dialog');
+            if (dlg && !dlg.open) dlg.show();
+        }
+
+        function closeAuthDialog() {
+            const dlg = document.getElementById('auth-dialog');
+            if (dlg?.open) dlg.close();
+        }
+
+        function setAuthError(msg) {
+            const box = document.getElementById('auth-error-box');
+            const text = document.getElementById('auth-error-text');
+            if (!box || !text) return;
+            box.hidden = !msg;
+            if (msg) text.textContent = msg;
+        }
+
+        // ---------------------------------------------------------------------
+        // 13. Boot & Listeners
+        // ---------------------------------------------------------------------
+        function init() {
+            applyOfficialM3Theme(currentSeed, isDarkMode);
+
+            // Drawer
+            const drawer = document.getElementById('nav-drawer');
+            const setDrawerOpen = (open) => {
+                if (!drawer) return;
+                drawer.opened = open;
+                drawer.classList.toggle('is-open', open);
+            };
+            document.getElementById('drawer-open-btn')?.addEventListener('click', () => setDrawerOpen(!drawer?.opened));
+            document.getElementById('drawer-close-btn')?.addEventListener('click', () => setDrawerOpen(false));
+            drawer?.addEventListener('navigation-drawer-changed', (e) => {
+                drawer.classList.toggle('is-open', Boolean(e.detail?.opened));
+            });
+
+            // Theme Toggle & Seeds
+            document.getElementById('theme-mode-toggle')?.addEventListener('change', (e) => {
+                userOverrodeTheme = true;
+                applyOfficialM3Theme(currentSeed, e.target.selected);
+                showSnackbar(e.target.selected ? 'Tema Escuro (M3 Dark) ativado' : 'Tema Claro (M3 Light) ativado', e.target.selected ? 'dark_mode' : 'light_mode');
+            });
+
+            document.querySelectorAll('.seed-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    applyOfficialM3Theme(btn.dataset.seed, isDarkMode);
+                    showSnackbar(`Paleta HCT aplicada: ${btn.dataset.seed}`, 'palette');
+                });
+            });
+
+            document.querySelectorAll('[data-seed-menu]').forEach(item => {
+                item.addEventListener('click', () => {
+                    applyOfficialM3Theme(item.dataset.seedMenu, isDarkMode);
+                    showSnackbar(`Cor semente alterada para ${item.dataset.seedMenu}`, 'palette');
+                });
+            });
+
+            // Top Menu & Buttons
+            const moreBtn = document.getElementById('top-more-btn');
+            const moreMenu = document.getElementById('top-more-menu');
+            moreBtn?.addEventListener('click', () => {
+                if (moreMenu) moreMenu.open = !moreMenu.open;
+            });
+
+            document.getElementById('btn-new-calc')?.addEventListener('click', () => {
+                openNewProject(true);
+                showSnackbar('Calculadora limpa para novo orçamento!', 'post_add');
+            });
+
+            document.getElementById('btn-refresh-resources')?.addEventListener('click', () => {
+                bootstrapCalculatorData(true).then(() => showSnackbar('Impressoras, filamentos e taxas sincronizados!', 'sync'));
+            });
+
+            document.getElementById('btn-open-saved-project')?.addEventListener('click', () => {
+                document.getElementById('open-project-search').value = '';
+                renderOpenProjectPicker('');
+                document.getElementById('dialog-open-project')?.show();
+            });
+            document.getElementById('open-project-search')?.addEventListener('input', (e) => renderOpenProjectPicker(e.target.value));
+            document.getElementById('open-project-close')?.addEventListener('click', () => document.getElementById('dialog-open-project')?.close());
+
+            // Phone Mask on Client Phone
+            const clientPhone = document.getElementById('proj-client-phone');
+            clientPhone?.addEventListener('input', (e) => {
+                const f = formatPhoneInput(e.target.value);
+                if (e.target.value !== f) e.target.value = f;
+            });
+
+            // Clear non-empty title validation banner on input
+            document.getElementById('proj-name')?.addEventListener('input', () => {
+                if (document.getElementById('proj-name').value.trim()) {
+                    document.getElementById('calc-error-box').hidden = true;
+                }
+            });
+
+            // Live Recalc on All Commercial / Labor / Margin Inputs
+            [
+                'proj-cad-hours', 'proj-cad-rate', 'proj-post-hours', 'proj-post-rate',
+                'proj-overhead', 'proj-margin', 'proj-tax', 'proj-discount', 'proj-shipping'
+            ].forEach(id => {
+                document.getElementById(id)?.addEventListener('input', () => recalcLiveSummary());
+            });
+
+            // Dropzone Events
+            const dropzone = document.getElementById('dropzone');
+            const slicerInput = document.getElementById('file-slicer-input');
+            document.getElementById('btn-pick-slicer-files')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                slicerInput?.click();
+            });
+            dropzone?.addEventListener('click', (e) => {
+                if (!e.target.closest('md-filled-tonal-button') && e.target !== slicerInput) {
+                    slicerInput?.click();
+                }
+            });
+            slicerInput?.addEventListener('change', (e) => {
+                if (e.target.files?.length > 0) {
+                    handleSlicerFiles(e.target.files);
+                    e.target.value = '';
+                }
+            });
+            ['dragenter', 'dragover'].forEach(evt => {
+                dropzone?.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('dragover');
+                });
+            });
+            ['dragleave', 'drop'].forEach(evt => {
+                dropzone?.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('dragover');
+                });
+            });
+            dropzone?.addEventListener('drop', (e) => {
+                if (e.dataTransfer?.files?.length > 0) handleSlicerFiles(e.dataTransfer.files);
+            });
+
+            // Plates & BOM Actions
+            document.getElementById('btn-add-plate-bottom')?.addEventListener('click', () => {
+                const idx = state.currentPlates.length + 1;
+                state.currentPlates.push(createDefaultPlate(idx));
+                renderPlates();
+                document.getElementById('plates-container')?.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+            document.getElementById('btn-add-bom')?.addEventListener('click', addNewBomRow);
+            document.getElementById('btn-open-batch-global')?.addEventListener('click', () => openBatchDialog(null));
+
+            // Save & Export CTAs
+            document.getElementById('btn-save-project')?.addEventListener('click', () => saveCurrentProject());
+            document.getElementById('btn-export-client')?.addEventListener('click', () => exportCurrentPdf('client'));
+            document.getElementById('btn-export-tech')?.addEventListener('click', () => exportCurrentPdf('technical'));
+
+            // Batch Dialog Listeners
+            document.getElementById('batch-target-units')?.addEventListener('input', renderBatchDialogList);
+            document.querySelectorAll('.batch-unit-chip').forEach(ch => {
+                ch.addEventListener('click', () => {
+                    document.getElementById('batch-target-units').value = ch.dataset.units;
+                    renderBatchDialogList();
+                });
+            });
+            document.querySelectorAll('.batch-mult-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const f = Math.max(1, Number(btn.dataset.factor) || 1);
+                    state.currentPlates.forEach(p => { p.quantity = f === 1 ? 1 : Math.max(1, (p.quantity || 1) * f); });
+                    renderPlates();
+                    renderBatchDialogList();
+                    showSnackbar(f === 1 ? 'Cópias redefinidas para 1x.' : `Cópias multiplicadas por ${f}x!`, 'calculate');
+                });
+            });
+            document.getElementById('batch-cancel-btn')?.addEventListener('click', () => document.getElementById('dialog-batch')?.close());
+            document.getElementById('batch-apply-all-btn')?.addEventListener('click', () => {
+                const targetUnits = Math.max(1, parseInt(document.getElementById('batch-target-units').value, 10) || 100);
+                state.currentPlates.forEach(p => {
+                    const ppp = Math.max(1, parseInt(p.parts_per_plate, 10) || 1);
+                    p.quantity = Math.max(1, Math.ceil(targetUnits / ppp));
+                });
+                document.getElementById('dialog-batch')?.close();
+                renderPlates();
+                showSnackbar(`Cópias calculadas para lote de ${targetUnits} peças!`, 'check_circle');
+            });
+
+            // Failure Dialog & Layer Assistant Listeners
+            document.getElementById('fail-cancel-btn')?.addEventListener('click', () => document.getElementById('dialog-failure')?.close());
+            document.getElementById('fail-assistant-toggle-btn')?.addEventListener('click', () => {
+                const body = document.getElementById('fail-assistant-body');
+                setFailureAssistantExpanded(body.hidden);
+            });
+            const failDrop = document.getElementById('fail-file-dropzone');
+            const failFileInput = document.getElementById('fail-file-input');
+            failDrop?.addEventListener('click', () => failFileInput?.click());
+            failFileInput?.addEventListener('change', (e) => {
+                if (e.target.files?.[0]) handleFailureAssistantFile(e.target.files[0]);
+                e.target.value = '';
+            });
+            failDrop?.addEventListener('dragover', (e) => { e.preventDefault(); failDrop.classList.add('dragover'); });
+            failDrop?.addEventListener('dragleave', () => failDrop.classList.remove('dragover'));
+            failDrop?.addEventListener('drop', (e) => {
+                e.preventDefault();
+                failDrop.classList.remove('dragover');
+                if (e.dataTransfer?.files?.[0]) handleFailureAssistantFile(e.dataTransfer.files[0]);
+            });
+            document.getElementById('fail-input-layer')?.addEventListener('input', (e) => updateFailureLayerCalculation(parseInt(e.target.value, 10) || 1));
+            document.getElementById('fail-layer-slider')?.addEventListener('input', (e) => updateFailureLayerCalculation(parseInt(e.target.value, 10) || 1));
+            document.getElementById('fail-input-z')?.addEventListener('input', (e) => {
+                if (!failureAssistantState.analysis) return;
+                const loss = failureAssistantState.analysis.getLossAtZ(parseLocaleFloat(e.target.value, 0));
+                updateFailureLayerCalculation(loss.layer);
+            });
+            document.getElementById('btn-apply-calc-loss')?.addEventListener('click', () => {
+                if (!failureAssistantState.analysis) return;
+                const loss = failureAssistantState.analysis.getLossAtLayer(failureAssistantState.currentLayer);
+                document.getElementById('fail-time-h').value = String(loss.hours);
+                document.getElementById('fail-time-m').value = String(loss.minutes);
+                document.getElementById('fail-filament-g').value = loss.weightG.toFixed(1);
+                updateLiveFailureCostPreview();
+                showSnackbar(`Perda da camada ${loss.layer} aplicada!`, 'bolt');
+            });
+            document.getElementById('btn-fill-full-weight')?.addEventListener('click', () => {
+                const idx = parseInt(document.getElementById('fail-plate-idx').value, 10) || 0;
+                const plate = state.currentPlates[idx];
+                if (plate) {
+                    document.getElementById('fail-filament-g').value = String(plate.part_weight_g || 0);
+                    updateLiveFailureCostPreview();
+                }
+            });
+            ['fail-time-h', 'fail-time-m', 'fail-filament-g'].forEach(id => {
+                document.getElementById(id)?.addEventListener('input', updateLiveFailureCostPreview);
+            });
+            document.getElementById('form-plate-failure')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const plateIdx = parseInt(document.getElementById('fail-plate-idx').value, 10) || 0;
+                const plateIdStr = document.getElementById('fail-plate-id').value;
+                const plateId = plateIdStr ? parseInt(plateIdStr, 10) : null;
+                const h = parseInt(document.getElementById('fail-time-h').value, 10) || 0;
+                const m = parseInt(document.getElementById('fail-time-m').value, 10) || 0;
+                const failureObj = {
+                    plate_id: plateId,
+                    plate_idx: plateIdx,
+                    lost_time_hours: Math.max(0, h + (m / 60.0)),
+                    lost_filament_weight_g: Math.max(0, parseLocaleFloat(document.getElementById('fail-filament-g').value, 0)),
+                    reason: document.getElementById('fail-reason').value || 'warping',
+                    reason_notes: document.getElementById('fail-notes').value.trim() || null,
+                    reprinted: Boolean(document.getElementById('fail-reprinted').checked),
+                    charged_to_client: Boolean(document.getElementById('fail-charge-client').checked),
+                };
+
+                if (state.currentProject?.id && plateId) {
+                    try {
+                        const savedLog = await API.projects.addFailure(state.currentProject.id, failureObj);
+                        failureObj.id = savedLog.id;
+                        showSnackbar('Falha registrada e salva no projeto!', 'check_circle');
+                    } catch (err) {
+                        showSnackbar('Falha adicionada. Salve o projeto para persistir.', 'info');
+                    }
+                } else {
+                    showSnackbar('Falha adicionada! Salve o projeto para gravar no banco.', 'info');
+                }
+                state.currentFailures.push(failureObj);
+                document.getElementById('dialog-failure')?.close();
+                renderPlates();
+            });
+
+            // Auth Tabs & Forms
+            const authTabs = document.getElementById('auth-tabs');
+            const formLogin = document.getElementById('form-login');
+            const formRegister = document.getElementById('form-register');
+            authTabs?.addEventListener('change', () => {
+                const idx = authTabs.activeTabIndex;
+                formLogin.hidden = (idx !== 0);
+                formRegister.hidden = (idx !== 1);
+                setAuthError('');
+            });
+
+            formLogin?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                try {
+                    const email = document.getElementById('login-email').value;
+                    const pass = document.getElementById('login-password').value;
+                    await API.auth.login(email, pass);
+                    closeAuthDialog();
+                    await bootstrapCalculatorData(false);
+                    showSnackbar('Login realizado com sucesso!', 'login');
+                } catch (err) {
+                    setAuthError(err.message || 'Credenciais inválidas.');
+                }
+            });
+
+            formRegister?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                try {
+                    const name = document.getElementById('reg-name').value;
+                    const company = document.getElementById('reg-company').value;
+                    const email = document.getElementById('reg-email').value;
+                    const pass = document.getElementById('reg-password').value;
+                    await API.auth.register(email, pass, name, company);
+                    closeAuthDialog();
+                    await bootstrapCalculatorData(false);
+                    showSnackbar('Conta criada e carregada!', 'person_add');
+                } catch (err) {
+                    setAuthError(err.message || 'Não foi possível criar conta.');
+                }
+            });
+
+            document.getElementById('btn-logout')?.addEventListener('click', () => {
+                API.auth.logout();
+                setDrawerOpen(false);
+            });
+
+            window.addEventListener('auth:unauthorized', () => openAuthDialog());
+            window.addEventListener('auth:logout', () => {
+                state.user = null;
+                openAuthDialog();
+                showSnackbar('Sessão encerrada.', 'logout');
+            });
+
+            // Boot Auth + Data Load
+            if (API.getToken()) {
+                bootstrapCalculatorData(false);
+            } else {
+                openNewProject(false);
+                openAuthDialog();
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
