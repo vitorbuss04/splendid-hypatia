@@ -19,6 +19,20 @@ const state = {
         costBreakdown: null,
         topProjects: null,
     },
+    reportFilter: {
+        preset: 'this_month',
+        startDate: '',
+        endDate: '',
+        dateField: 'created_at',
+        activeTab: 'projects',
+    },
+    reportData: null,
+    reportCharts: {
+        printers: null,
+        materials: null,
+        failures: null,
+        clients: null,
+    },
 };
 
 // ================= UTILITIES & HELPERS =================
@@ -396,7 +410,7 @@ function getRouteFromHash() {
     }
     const [viewPart, queryPart] = hashStr.split('?');
     const view = viewPart.toLowerCase();
-    const validViews = ['dashboard', 'projects', 'project-editor', 'printers', 'filaments', 'settings'];
+    const validViews = ['dashboard', 'projects', 'project-editor', 'printers', 'filaments', 'settings', 'reports'];
     const params = {};
     if (queryPart) {
         const searchParams = new URLSearchParams(queryPart);
@@ -431,7 +445,7 @@ async function applyRoute(route) {
 function navigateTo(viewName) {
     state.activeView = viewName;
 
-    const views = ['dashboard', 'projects', 'project-editor', 'printers', 'filaments', 'settings'];
+    const views = ['dashboard', 'projects', 'project-editor', 'printers', 'filaments', 'settings', 'reports'];
     views.forEach(v => {
         const el = document.getElementById(`view-${v}`);
         if (el) el.classList.add('hidden');
@@ -459,6 +473,7 @@ function navigateTo(viewName) {
         'printers': 'Minhas Impressoras',
         'filaments': 'Meus Filamentos',
         'settings': 'Configurações & Taxas',
+        'reports': 'Relatórios & BI',
     };
     const titleEl = document.getElementById('view-title');
     if (titleEl) titleEl.textContent = titles[viewName] || 'Painel';
@@ -483,6 +498,11 @@ function navigateTo(viewName) {
         loadDashboard();
     } else {
         destroyDashboardCharts();
+    }
+    if (viewName === 'reports') {
+        loadReportsView();
+    } else {
+        destroyReportCharts();
     }
     if (viewName === 'projects') renderProjectsTable();
     if (viewName === 'printers') {
@@ -639,17 +659,114 @@ async function loadAllData() {
     }
 }
 
-// ================= DASHBOARD & METRICS =================
+// ================= DASHBOARD & PERIOD FILTER =================
+
+function calculatePresetDates(preset) {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const toYMD = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    if (preset === 'today') {
+        const str = toYMD(now);
+        return { startDate: str, endDate: str };
+    }
+    if (preset === 'last_7d') {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 6);
+        return { startDate: toYMD(d), endDate: toYMD(now) };
+    }
+    if (preset === 'last_30d') {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 29);
+        return { startDate: toYMD(d), endDate: toYMD(now) };
+    }
+    if (preset === 'this_month') {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return { startDate: toYMD(start), endDate: toYMD(end) };
+    }
+    if (preset === 'last_month') {
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end = new Date(now.getFullYear(), now.getMonth(), 0);
+        return { startDate: toYMD(start), endDate: toYMD(end) };
+    }
+    if (preset === 'this_year') {
+        const start = new Date(now.getFullYear(), 0, 1);
+        const end = new Date(now.getFullYear(), 11, 31);
+        return { startDate: toYMD(start), endDate: toYMD(end) };
+    }
+    return { startDate: '', endDate: '' };
+}
+
+function formatDateBr(ymd) {
+    if (!ymd || ymd.length < 10) return ymd || '';
+    const parts = ymd.slice(0, 10).split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return ymd;
+}
+
+function updateDashboardPeriodUI() {
+    const chips = document.querySelectorAll('#dashboard-period-presets .period-chip');
+    chips.forEach(chip => {
+        if (chip.dataset.preset === state.reportFilter.preset) {
+            chip.classList.add('period-chip-active', 'bg-blue-600', 'text-white');
+            chip.classList.remove('bg-slate-800', 'text-slate-300');
+        } else {
+            chip.classList.remove('period-chip-active', 'bg-blue-600', 'text-white');
+            chip.classList.add('bg-slate-800', 'text-slate-300');
+        }
+    });
+    const startInp = document.getElementById('dashboard-start-date');
+    const endInp = document.getElementById('dashboard-end-date');
+    if (startInp) startInp.value = state.reportFilter.startDate || '';
+    if (endInp) endInp.value = state.reportFilter.endDate || '';
+
+    const label = document.getElementById('dashboard-period-label');
+    if (label) {
+        if (state.reportFilter.startDate && state.reportFilter.endDate) {
+            label.textContent = `${formatDateBr(state.reportFilter.startDate)} até ${formatDateBr(state.reportFilter.endDate)}`;
+        } else {
+            label.textContent = 'Todo o histórico de orçamentos e custos';
+        }
+    }
+}
+
+function setDashboardPeriod(preset) {
+    state.reportFilter.preset = preset;
+    const { startDate, endDate } = calculatePresetDates(preset);
+    state.reportFilter.startDate = startDate;
+    state.reportFilter.endDate = endDate;
+    loadDashboard();
+}
+
+function applyDashboardCustomDates() {
+    const startInp = document.getElementById('dashboard-start-date');
+    const endInp = document.getElementById('dashboard-end-date');
+    state.reportFilter.preset = 'custom';
+    state.reportFilter.startDate = startInp ? startInp.value : '';
+    state.reportFilter.endDate = endInp ? endInp.value : '';
+    loadDashboard();
+}
 
 async function loadDashboard() {
     await loadAllData();
+    if (!state.reportFilter.startDate && state.reportFilter.preset === 'this_month') {
+        const { startDate, endDate } = calculatePresetDates('this_month');
+        state.reportFilter.startDate = startDate;
+        state.reportFilter.endDate = endDate;
+    }
     try {
-        state.dashboardStats = await API.projects.getDashboardStats();
+        const params = {};
+        if (state.reportFilter.startDate) params.start_date = state.reportFilter.startDate;
+        if (state.reportFilter.endDate) params.end_date = state.reportFilter.endDate;
+        if (state.reportFilter.dateField) params.date_field = state.reportFilter.dateField;
+        state.dashboardStats = await API.projects.getDashboardStats(params);
     } catch (e) {
         console.warn("Erro ao buscar dashboard stats:", e);
         state.dashboardStats = null;
     }
     renderDashboard();
+    updateDashboardPeriodUI();
 }
 
 function destroyDashboardCharts() {
@@ -4189,6 +4306,656 @@ window.applyCalculatedBatchCopies = applyCalculatedBatchCopies;
 window.applyQuickBatchMultiplier = applyQuickBatchMultiplier;
 
 // ================= INITIALIZATION =================
+
+// ==========================================================================
+// REPORTS & BUSINESS INTELLIGENCE (BI) MODULE
+// ==========================================================================
+
+function updateReportPeriodUI() {
+    const chips = document.querySelectorAll('#rep-period-presets .period-chip');
+    chips.forEach(chip => {
+        if (chip.dataset.repPreset === state.reportFilter.preset) {
+            chip.classList.add('period-chip-active', 'bg-blue-600', 'text-white');
+            chip.classList.remove('bg-slate-800', 'text-slate-300');
+        } else {
+            chip.classList.remove('period-chip-active', 'bg-blue-600', 'text-white');
+            chip.classList.add('bg-slate-800', 'text-slate-300');
+        }
+    });
+    const startInp = document.getElementById('rep-start-date');
+    const endInp = document.getElementById('rep-end-date');
+    if (startInp) startInp.value = state.reportFilter.startDate || '';
+    if (endInp) endInp.value = state.reportFilter.endDate || '';
+
+    const dateFieldSel = document.getElementById('rep-date-field');
+    if (dateFieldSel) dateFieldSel.value = state.reportFilter.dateField || 'created_at';
+}
+
+function setReportPeriod(preset) {
+    state.reportFilter.preset = preset;
+    const { startDate, endDate } = calculatePresetDates(preset);
+    state.reportFilter.startDate = startDate;
+    state.reportFilter.endDate = endDate;
+    loadReportsView();
+}
+
+function applyReportCustomDates() {
+    const startInp = document.getElementById('rep-start-date');
+    const endInp = document.getElementById('rep-end-date');
+    state.reportFilter.preset = 'custom';
+    state.reportFilter.startDate = startInp ? startInp.value : '';
+    state.reportFilter.endDate = endInp ? endInp.value : '';
+    loadReportsView();
+}
+
+function applyReportDateField() {
+    const sel = document.getElementById('rep-date-field');
+    state.reportFilter.dateField = sel ? sel.value : 'created_at';
+    loadReportsView();
+}
+
+async function loadReportsView() {
+    if (!state.reportFilter.startDate && state.reportFilter.preset === 'this_month') {
+        const { startDate, endDate } = calculatePresetDates('this_month');
+        state.reportFilter.startDate = startDate;
+        state.reportFilter.endDate = endDate;
+    }
+    try {
+        const params = {};
+        if (state.reportFilter.startDate) params.start_date = state.reportFilter.startDate;
+        if (state.reportFilter.endDate) params.end_date = state.reportFilter.endDate;
+        if (state.reportFilter.dateField) params.date_field = state.reportFilter.dateField;
+        if (state.reportFilter.preset) params.preset = state.reportFilter.preset;
+        state.reportData = await API.reports.getDetailed(params);
+    } catch (e) {
+        console.warn("Erro ao buscar dados de relatórios:", e);
+        state.reportData = null;
+    }
+    renderReports();
+    updateReportPeriodUI();
+}
+
+function destroyReportCharts() {
+    if (state.reportCharts) {
+        for (const k of Object.keys(state.reportCharts)) {
+            if (state.reportCharts[k]) {
+                try {
+                    state.reportCharts[k].destroy();
+                } catch (e) {
+                    console.warn("Erro ao destruir gráfico de relatório:", e);
+                }
+                state.reportCharts[k] = null;
+            }
+        }
+    }
+}
+
+function renderReports() {
+    const rep = state.reportData;
+    const fin = rep ? rep.financial : null;
+    const fail = rep ? rep.failures : null;
+
+    // 1. Executive Summary Cards
+    const revApprovedEl = document.getElementById('rep-revenue-approved');
+    const revCountEl = document.getElementById('rep-approved-count-label');
+    const pipeRevEl = document.getElementById('rep-pipeline-revenue');
+    const netProfitEl = document.getElementById('rep-net-profit');
+    const marginEl = document.getElementById('rep-margin-percent');
+    const avgTicketEl = document.getElementById('rep-avg-ticket');
+
+    if (revApprovedEl) revApprovedEl.textContent = formatCurrency(fin ? fin.revenue_approved : 0);
+    if (revCountEl) {
+        const cnt = fin ? fin.approved_projects_count : 0;
+        revCountEl.innerHTML = `<i data-lucide="check-circle" class="w-3 h-3 text-emerald-400"></i> ${cnt} ${cnt === 1 ? 'projeto aprovado' : 'projetos aprovados'}`;
+    }
+    if (pipeRevEl) pipeRevEl.textContent = formatCurrency(fin ? fin.pipeline_revenue : 0);
+    if (netProfitEl) netProfitEl.textContent = formatCurrency(fin ? fin.net_profit : 0);
+    if (marginEl) {
+        const m = fin ? fin.avg_profit_margin_percent : 0;
+        marginEl.innerHTML = `<i data-lucide="percent" class="w-3 h-3 text-teal-400"></i> Margem média: ${m.toFixed(1)}%`;
+    }
+    if (avgTicketEl) avgTicketEl.textContent = formatCurrency(fin ? fin.avg_ticket : 0);
+
+    // 2. Cost Structure Breakdown
+    const baseCostEl = document.getElementById('rep-total-base-cost');
+    const costMatEl = document.getElementById('rep-cost-material');
+    const costEnergyEl = document.getElementById('rep-cost-energy');
+    const costMachEl = document.getElementById('rep-cost-machine');
+    const costLaborEl = document.getElementById('rep-cost-labor');
+    const costBomEl = document.getElementById('rep-cost-bom');
+    const costOverEl = document.getElementById('rep-cost-overhead');
+    const taxEl = document.getElementById('rep-tax-amount');
+    const discEl = document.getElementById('rep-discount-amount');
+
+    if (baseCostEl) baseCostEl.textContent = `Custo Base Total: ${formatCurrency(fin ? fin.total_base_cost : 0)}`;
+    if (costMatEl) costMatEl.textContent = formatCurrency(fin ? fin.material_cost : 0);
+    if (costEnergyEl) costEnergyEl.textContent = formatCurrency(fin ? fin.energy_cost : 0);
+    if (costMachEl) costMachEl.textContent = formatCurrency(fin ? fin.machine_cost : 0);
+    if (costLaborEl) costLaborEl.textContent = formatCurrency(fin ? fin.labor_cost : 0);
+    if (costBomEl) costBomEl.textContent = formatCurrency(fin ? fin.bom_cost : 0);
+    if (costOverEl) costOverEl.textContent = formatCurrency(fin ? fin.overhead_cost : 0);
+    if (taxEl) taxEl.textContent = formatCurrency(fin ? fin.total_tax : 0);
+    if (discEl) discEl.textContent = formatCurrency(fin ? fin.total_discount : 0);
+
+    // 3. Badges
+    const machBadge = document.getElementById('rep-total-machine-hours-badge');
+    const matBadge = document.getElementById('rep-total-materials-kg-badge');
+    const scrapBadge = document.getElementById('rep-scrap-cost-badge');
+
+    const totalHours = rep && rep.printers ? rep.printers.reduce((acc, p) => acc + p.print_hours, 0) : 0;
+    const totalMatKg = rep && rep.materials ? rep.materials.reduce((acc, m) => acc + m.weight_kg, 0) : 0;
+    const totalScrapCost = fail ? fail.total_scrap_cost : 0;
+
+    if (machBadge) machBadge.textContent = `${totalHours.toFixed(1)} h totais`;
+    if (matBadge) matBadge.textContent = `${totalMatKg.toFixed(2)} kg totais`;
+    if (scrapBadge) scrapBadge.textContent = `${formatCurrency(totalScrapCost)} perdidos`;
+
+    // 4. Render Charts
+    destroyReportCharts();
+    renderReportPrintersChart(rep ? rep.printers : []);
+    renderReportMaterialsChart(rep ? rep.materials : []);
+    renderReportFailuresChart(fail ? fail.reasons : []);
+    renderReportClientsChart(rep ? rep.clients : []);
+
+    // 5. Render Tables
+    renderReportProjectsTable(rep ? rep.projects : []);
+    renderReportPrintersTable(rep ? rep.printers : []);
+    renderReportMaterialsTable(rep ? rep.materials : []);
+    renderReportFailuresTable(fail ? fail.reasons : []);
+
+    refreshIcons();
+}
+
+function renderReportPrintersChart(printers) {
+    const canvas = document.getElementById('chart-rep-printers');
+    const empty = document.getElementById('chart-rep-printers-empty');
+    if (!canvas || !window.Chart) return;
+
+    const activePrinters = (printers || []).filter(p => p.print_hours > 0);
+    if (activePrinters.length === 0) {
+        canvas.classList.add('hidden');
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+    canvas.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+
+    state.reportCharts.printers = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: activePrinters.map(p => p.name),
+            datasets: [{
+                label: 'Horas Rodadas (h)',
+                data: activePrinters.map(p => p.print_hours),
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderColor: '#3b82f6',
+                borderWidth: 1,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.parsed.x.toFixed(1)} h de máquina`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(51, 65, 85, 0.25)' },
+                    ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: '#cbd5e1', font: { size: 11, weight: '500' } }
+                }
+            }
+        }
+    });
+}
+
+function renderReportMaterialsChart(materials) {
+    const canvas = document.getElementById('chart-rep-materials');
+    const empty = document.getElementById('chart-rep-materials-empty');
+    if (!canvas || !window.Chart) return;
+
+    const activeMats = (materials || []).filter(m => m.weight_g > 0);
+    if (activeMats.length === 0) {
+        canvas.classList.add('hidden');
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+    canvas.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+
+    // Aggregate by polymer material (PLA, PETG, ABS, TPU, Resina)
+    const polyMap = {};
+    activeMats.forEach(m => {
+        const poly = m.material || 'Outros';
+        polyMap[poly] = (polyMap[poly] || 0) + m.weight_g;
+    });
+
+    const polyLabels = Object.keys(polyMap);
+    const polyData = Object.values(polyMap);
+    const polyColors = [
+        '#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#64748b'
+    ];
+
+    state.reportCharts.materials = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels: polyLabels,
+            datasets: [{
+                data: polyData,
+                backgroundColor: polyColors.slice(0, polyLabels.length),
+                borderColor: '#151d2e',
+                borderWidth: 3,
+                hoverOffset: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { color: '#cbd5e1', font: { size: 11 }, boxWidth: 12 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => {
+                            const g = ctx.parsed;
+                            const kg = (g / 1000.0).toFixed(2);
+                            return ` ${ctx.label}: ${kg} kg (${g.toFixed(0)} g)`;
+                        }
+                    }
+                }
+            },
+            cutout: '62%'
+        }
+    });
+}
+
+function renderReportFailuresChart(reasons) {
+    const canvas = document.getElementById('chart-rep-failures');
+    const empty = document.getElementById('chart-rep-failures-empty');
+    if (!canvas || !window.Chart) return;
+
+    const activeReasons = (reasons || []).filter(r => r.total_cost > 0 || r.count > 0);
+    if (activeReasons.length === 0) {
+        canvas.classList.add('hidden');
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+    canvas.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+
+    state.reportCharts.failures = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: activeReasons.map(r => r.reason_label.split('(')[0].trim()),
+            datasets: [{
+                label: 'Prejuízo (R$)',
+                data: activeReasons.map(r => r.total_cost),
+                backgroundColor: 'rgba(244, 63, 94, 0.8)',
+                borderColor: '#f43f5e',
+                borderWidth: 1,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => {
+                            const r = activeReasons[ctx.dataIndex];
+                            return ` Prejuízo: ${formatCurrency(r.total_cost)} (${r.count} falhas, ${r.lost_time_hours.toFixed(1)}h)`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#cbd5e1', font: { size: 10 } }
+                },
+                y: {
+                    grid: { color: 'rgba(51, 65, 85, 0.25)' },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { family: 'JetBrains Mono', size: 10 },
+                        callback: (v) => `R$ ${v}`
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderReportClientsChart(clients) {
+    const canvas = document.getElementById('chart-rep-clients');
+    const empty = document.getElementById('chart-rep-clients-empty');
+    if (!canvas || !window.Chart) return;
+
+    const top5 = (clients || []).filter(c => c.total_revenue > 0).slice(0, 5);
+    if (top5.length === 0) {
+        canvas.classList.add('hidden');
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+    canvas.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+
+    state.reportCharts.clients = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: top5.map(c => c.client_name),
+            datasets: [{
+                label: 'Faturamento Fechado (R$)',
+                data: top5.map(c => c.approved_revenue),
+                backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                borderColor: '#f59e0b',
+                borderWidth: 1,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ` Faturamento: ${formatCurrency(ctx.parsed.x)}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(51, 65, 85, 0.25)' },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { family: 'JetBrains Mono', size: 10 },
+                        callback: (v) => `R$ ${v}`
+                    }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: '#cbd5e1', font: { size: 11, weight: '500' } }
+                }
+            }
+        }
+    });
+}
+
+function switchReportTab(tab) {
+    state.reportFilter.activeTab = tab;
+    const tabs = ['projects', 'printers', 'materials', 'failures'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`rep-tab-btn-${t}`);
+        const content = document.getElementById(`rep-tab-content-${t}`);
+        if (t === tab) {
+            if (btn) {
+                btn.classList.add('active', 'text-blue-400');
+                btn.classList.remove('text-slate-400');
+            }
+            if (content) content.classList.remove('hidden');
+        } else {
+            if (btn) {
+                btn.classList.remove('active', 'text-blue-400');
+                btn.classList.add('text-slate-400');
+            }
+            if (content) content.classList.add('hidden');
+        }
+    });
+}
+
+function renderReportProjectsTable(projects) {
+    const container = document.getElementById('rep-tab-content-projects');
+    if (!container) return;
+
+    if (!projects || projects.length === 0) {
+        container.innerHTML = `
+            <div class="p-8 text-center text-slate-500 text-xs">
+                <i data-lucide="folder" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                Nenhum projeto encontrado para o período selecionado.
+            </div>
+        `;
+        return;
+    }
+
+    const rows = projects.map(p => {
+        const stLabel = formatStatusBadge(p.status);
+        const dt = p.created_at ? formatDateBr(p.created_at.slice(0, 10)) : '-';
+        return `
+            <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+                <td class="px-4 py-3 text-xs font-semibold text-white whitespace-nowrap">
+                    <button type="button" onclick="openProject(${p.id})" class="text-blue-400 hover:text-blue-300 font-bold hover:underline">
+                        ${escapeHtml(p.name)}
+                    </button>
+                </td>
+                <td class="px-4 py-3 text-xs text-slate-300 whitespace-nowrap">${escapeHtml(p.client_name || '-')}</td>
+                <td class="px-4 py-3 whitespace-nowrap">${stLabel}</td>
+                <td class="px-4 py-3 text-xs font-mono text-slate-400 whitespace-nowrap">${dt}</td>
+                <td class="px-4 py-3 text-xs font-mono text-slate-300 text-right whitespace-nowrap">${p.total_print_time_hours.toFixed(1)} h</td>
+                <td class="px-4 py-3 text-xs font-mono text-slate-300 text-right whitespace-nowrap">${p.total_filament_weight_g.toFixed(0)} g</td>
+                <td class="px-4 py-3 text-xs font-mono text-emerald-400 text-right whitespace-nowrap font-bold">${formatCurrency(p.net_profit)}</td>
+                <td class="px-4 py-3 text-xs font-mono text-white text-right whitespace-nowrap font-extrabold">${formatCurrency(p.final_price)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-900/50">
+                    <th class="px-4 py-2.5">Projeto</th>
+                    <th class="px-4 py-2.5">Cliente</th>
+                    <th class="px-4 py-2.5">Status</th>
+                    <th class="px-4 py-2.5">Data</th>
+                    <th class="px-4 py-2.5 text-right">Horas</th>
+                    <th class="px-4 py-2.5 text-right">Peso</th>
+                    <th class="px-4 py-2.5 text-right">Lucro Líquido</th>
+                    <th class="px-4 py-2.5 text-right">Preço Final</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+function renderReportPrintersTable(printers) {
+    const container = document.getElementById('rep-tab-content-printers');
+    if (!container) return;
+
+    if (!printers || printers.length === 0) {
+        container.innerHTML = `
+            <div class="p-8 text-center text-slate-500 text-xs">
+                <i data-lucide="printer" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                Nenhuma impressora rodou no período selecionado.
+            </div>
+        `;
+        return;
+    }
+
+    const rows = printers.map(p => `
+        <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+            <td class="px-4 py-3 text-xs font-bold text-white whitespace-nowrap">${escapeHtml(p.name)}</td>
+            <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">${escapeHtml(p.model || '-')}</td>
+            <td class="px-4 py-3 text-xs font-mono text-blue-300 font-bold text-right whitespace-nowrap">${p.print_hours.toFixed(1)} h</td>
+            <td class="px-4 py-3 text-xs font-mono text-slate-300 text-right whitespace-nowrap">${p.plates_count}</td>
+            <td class="px-4 py-3 text-xs font-mono text-yellow-300 text-right whitespace-nowrap">${formatCurrency(p.energy_cost)}</td>
+            <td class="px-4 py-3 text-xs font-mono text-slate-300 text-right whitespace-nowrap">${formatCurrency(p.depreciation_cost)}</td>
+            <td class="px-4 py-3 text-xs font-mono text-slate-300 text-right whitespace-nowrap">${formatCurrency(p.maintenance_cost)}</td>
+            <td class="px-4 py-3 text-xs font-mono text-white font-extrabold text-right whitespace-nowrap">${formatCurrency(p.total_cost)}</td>
+            <td class="px-4 py-3 text-xs font-mono text-blue-400 text-right whitespace-nowrap">${p.utilization_percent.toFixed(1)}%</td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-900/50">
+                    <th class="px-4 py-2.5">Máquina</th>
+                    <th class="px-4 py-2.5">Modelo</th>
+                    <th class="px-4 py-2.5 text-right">Horas</th>
+                    <th class="px-4 py-2.5 text-right">Bandejas</th>
+                    <th class="px-4 py-2.5 text-right">Energia</th>
+                    <th class="px-4 py-2.5 text-right">Depreciação</th>
+                    <th class="px-4 py-2.5 text-right">Manutenção</th>
+                    <th class="px-4 py-2.5 text-right">Custo Total</th>
+                    <th class="px-4 py-2.5 text-right">Ocupação</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+function renderReportMaterialsTable(materials) {
+    const container = document.getElementById('rep-tab-content-materials');
+    if (!container) return;
+
+    if (!materials || materials.length === 0) {
+        container.innerHTML = `
+            <div class="p-8 text-center text-slate-500 text-xs">
+                <i data-lucide="cylinder" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                Nenhum filamento consumido no período selecionado.
+            </div>
+        `;
+        return;
+    }
+
+    const rows = materials.map(m => `
+        <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+            <td class="px-4 py-3 text-xs font-bold text-white whitespace-nowrap">
+                <span class="badge-mat-${(m.material || 'pla').toLowerCase()} px-2 py-0.5 rounded text-[10px] font-bold mr-1.5">${escapeHtml(m.material)}</span>
+                ${escapeHtml(m.filament_name)}
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">${escapeHtml(m.brand || '-')}</td>
+            <td class="px-4 py-3 text-xs text-slate-300 whitespace-nowrap">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full border border-slate-600 shrink-0" style="background-color: ${m.color_hex || '#10b981'}"></span>
+                    <span>${escapeHtml(m.color || 'Padrão')}</span>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-xs font-mono text-purple-300 font-bold text-right whitespace-nowrap">${m.weight_g.toFixed(0)} g</td>
+            <td class="px-4 py-3 text-xs font-mono text-slate-300 text-right whitespace-nowrap">${m.weight_kg.toFixed(3)} kg</td>
+            <td class="px-4 py-3 text-xs font-mono text-slate-300 text-right whitespace-nowrap">${m.spools_consumed.toFixed(2)} un</td>
+            <td class="px-4 py-3 text-xs font-mono text-emerald-400 font-bold text-right whitespace-nowrap">${formatCurrency(m.cost)}</td>
+            <td class="px-4 py-3 text-xs font-mono text-blue-400 text-right whitespace-nowrap">${m.percentage.toFixed(1)}%</td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-900/50">
+                    <th class="px-4 py-2.5">Filamento / Material</th>
+                    <th class="px-4 py-2.5">Marca</th>
+                    <th class="px-4 py-2.5">Cor</th>
+                    <th class="px-4 py-2.5 text-right">Consumo (g)</th>
+                    <th class="px-4 py-2.5 text-right">Consumo (kg)</th>
+                    <th class="px-4 py-2.5 text-right">Carretéis (1kg)</th>
+                    <th class="px-4 py-2.5 text-right">Custo Total</th>
+                    <th class="px-4 py-2.5 text-right">Fração (%)</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+function renderReportFailuresTable(reasons) {
+    const container = document.getElementById('rep-tab-content-failures');
+    if (!container) return;
+
+    if (!reasons || reasons.length === 0) {
+        container.innerHTML = `
+            <div class="p-8 text-center text-slate-500 text-xs">
+                <i data-lucide="check-circle" class="w-8 h-8 mx-auto mb-2 text-emerald-500 opacity-60"></i>
+                Nenhum log de falha ou refugo registrado no período.
+            </div>
+        `;
+        return;
+    }
+
+    const rows = reasons.map(r => `
+        <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+            <td class="px-4 py-3 text-xs font-bold text-white whitespace-nowrap">
+                <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-rose-400 inline-block mr-1"></i>
+                ${escapeHtml(r.reason_label)}
+            </td>
+            <td class="px-4 py-3 text-xs font-mono text-slate-300 text-right whitespace-nowrap">${r.count}</td>
+            <td class="px-4 py-3 text-xs font-mono text-yellow-300 text-right whitespace-nowrap">${r.lost_time_hours.toFixed(1)} h</td>
+            <td class="px-4 py-3 text-xs font-mono text-purple-300 text-right whitespace-nowrap">${r.lost_weight_g.toFixed(0)} g</td>
+            <td class="px-4 py-3 text-xs font-mono text-rose-400 font-bold text-right whitespace-nowrap">${formatCurrency(r.total_cost)}</td>
+            <td class="px-4 py-3 text-xs font-mono text-slate-400 text-right whitespace-nowrap">${r.percentage.toFixed(1)}%</td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-900/50">
+                    <th class="px-4 py-2.5">Causa da Falha</th>
+                    <th class="px-4 py-2.5 text-right">Ocorrências</th>
+                    <th class="px-4 py-2.5 text-right">Horas Perdidas</th>
+                    <th class="px-4 py-2.5 text-right">Material Perdido</th>
+                    <th class="px-4 py-2.5 text-right">Prejuízo (R$)</th>
+                    <th class="px-4 py-2.5 text-right">Impacto (%)</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+async function exportReportsCsv() {
+    try {
+        const params = {
+            report_type: 'projects',
+            start_date: state.reportFilter.startDate || '',
+            end_date: state.reportFilter.endDate || '',
+            date_field: state.reportFilter.dateField || 'created_at',
+        };
+        await API.reports.downloadCsv(params);
+        showToast("Relatório exportado com sucesso!", "success");
+    } catch (e) {
+        showToast("Erro ao exportar relatório CSV.", "error");
+    }
+}
+
+async function exportCurrentReportTabCsv() {
+    try {
+        const tab = state.reportFilter.activeTab || 'projects';
+        const typeMap = {
+            'projects': 'projects',
+            'printers': 'machines',
+            'materials': 'materials',
+            'failures': 'failures'
+        };
+        const params = {
+            report_type: typeMap[tab] || 'projects',
+            start_date: state.reportFilter.startDate || '',
+            end_date: state.reportFilter.endDate || '',
+            date_field: state.reportFilter.dateField || 'created_at',
+        };
+        await API.reports.downloadCsv(params);
+        showToast("Tabela exportada com sucesso!", "success");
+    } catch (e) {
+        showToast("Erro ao exportar tabela CSV.", "error");
+    }
+}
 
 window.addEventListener('DOMContentLoaded', async () => {
     initSidebarState();

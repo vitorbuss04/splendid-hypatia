@@ -1081,6 +1081,96 @@ div:has(> #live-final-price)::before {
     scroll-behavior: auto !important;
 }
 
+/* ==========================================================================
+   12. PERIOD SELECTOR & BUSINESS INTELLIGENCE REPORTS
+   ========================================================================== */
+.period-chip {
+    transition: all 150ms ease;
+    cursor: pointer;
+    border: 1px solid rgba(51, 65, 85, 0.6);
+    user-select: none;
+}
+
+.period-chip:hover {
+    border-color: rgba(96, 165, 250, 0.6);
+    color: #ffffff;
+}
+
+.period-chip-active,
+.period-chip.active {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.45);
+}
+
+.report-tab-btn {
+    transition: all 140ms ease;
+    border-bottom: 2px solid transparent;
+}
+
+.report-tab-btn.active {
+    color: #60a5fa !important;
+    border-bottom-color: #3b82f6 !important;
+}
+
+/* Print Stylesheet for Reports */
+@media print {
+    body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+    }
+
+    aside,
+    header,
+    #dashboard-period-presets,
+    .no-print,
+    button:not(.print-keep),
+    .sidebar-nav-item {
+        display: none !important;
+    }
+
+    #app-layout {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    main {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .card-dark {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+    }
+
+    .card-dark * {
+        color: #0f172a !important;
+    }
+
+    .text-white {
+        color: #0f172a !important;
+    }
+
+    .text-slate-400,
+    .text-slate-300,
+    .text-slate-500 {
+        color: #475569 !important;
+    }
+
+    .chart-card {
+        page-break-inside: avoid;
+    }
+}
+
+
 
 
 

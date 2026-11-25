@@ -199,6 +199,12 @@
                         </div>
                         <span class="sidebar-text flex-1 text-left truncate">Projetos & Orçamentos</span>
                     </button>
+                    <button onclick="navigateTo('reports')" id="nav-reports" title="Relatórios & BI" class="sidebar-nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
+                        <div class="m3-nav-pill">
+                            <span class="material-symbols-outlined text-[20px] shrink-0">bar_chart</span>
+                        </div>
+                        <span class="sidebar-text flex-1 text-left truncate">Relatórios & BI</span>
+                    </button>
                     <button onclick="navigateTo('printers')" id="nav-printers" title="Minhas Impressoras" class="sidebar-nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:bg-slate-800 hover:text-white">
                         <div class="m3-nav-pill">
                             <span class="material-symbols-outlined text-[20px] shrink-0">print</span>
@@ -283,6 +289,43 @@
                 
                 <!-- 1. DASHBOARD VIEW -->
                 <section id="view-dashboard" class="space-y-8 animate-fade-in">
+                    <!-- Period Selector Bar for Dashboard -->
+                    <div class="card-dark p-4 flex flex-wrap items-center justify-between gap-4 border-slate-800/80 bg-slate-900/60 shadow-lg">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
+                                <i data-lucide="calendar" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-bold text-white uppercase tracking-wider">Período de Análise</h3>
+                                <p class="text-[11px] text-slate-400" id="dashboard-period-label">Filtrando indicadores e gráficos</p>
+                            </div>
+                        </div>
+
+                        <!-- Period Presets Chips -->
+                        <div class="flex flex-wrap items-center gap-1.5" id="dashboard-period-presets">
+                            <button type="button" onclick="setDashboardPeriod('today')" data-preset="today" class="period-chip px-3 py-1 text-xs font-medium rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">Hoje</button>
+                            <button type="button" onclick="setDashboardPeriod('last_7d')" data-preset="last_7d" class="period-chip px-3 py-1 text-xs font-medium rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">7 Dias</button>
+                            <button type="button" onclick="setDashboardPeriod('last_30d')" data-preset="last_30d" class="period-chip px-3 py-1 text-xs font-medium rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">30 Dias</button>
+                            <button type="button" onclick="setDashboardPeriod('this_month')" data-preset="this_month" class="period-chip period-chip-active px-3 py-1 text-xs font-semibold rounded-full bg-blue-600 text-white shadow-sm transition-all">Este Mês</button>
+                            <button type="button" onclick="setDashboardPeriod('last_month')" data-preset="last_month" class="period-chip px-3 py-1 text-xs font-medium rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">Mês Anterior</button>
+                            <button type="button" onclick="setDashboardPeriod('this_year')" data-preset="this_year" class="period-chip px-3 py-1 text-xs font-medium rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">Este Ano</button>
+                            <button type="button" onclick="setDashboardPeriod('all')" data-preset="all" class="period-chip px-3 py-1 text-xs font-medium rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">Tudo</button>
+                        </div>
+
+                        <!-- Custom Date Range Inputs + Link to Reports -->
+                        <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-1.5 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
+                                <span class="text-[10px] uppercase font-bold text-slate-500">De</span>
+                                <input type="date" id="dashboard-start-date" onchange="applyDashboardCustomDates()" class="bg-transparent text-white border-none outline-none text-xs font-mono p-0 focus:ring-0">
+                                <span class="text-[10px] uppercase font-bold text-slate-500">Até</span>
+                                <input type="date" id="dashboard-end-date" onchange="applyDashboardCustomDates()" class="bg-transparent text-white border-none outline-none text-xs font-mono p-0 focus:ring-0">
+                            </div>
+                            <button onclick="navigateTo('reports')" class="btn-secondary px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 text-blue-400 hover:text-white transition-all">
+                                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i>
+                                <span>Relatório Completo</span>
+                            </button>
+                        </div>
+                    </div>
                     <!-- Metric Cards Grid (4 Stat Cards - 8dp grid spacing) -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         <!-- Stat 1: Total Projects -->
@@ -1286,6 +1329,317 @@
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </section>
+
+                <!-- 7. DETAILED REPORTS & BI VIEW -->
+                <section id="view-reports" class="space-y-6 hidden animate-fade-in">
+                    <!-- Reports Header & Period Control Panel -->
+                    <div class="card-dark p-6 border-slate-800/80 bg-slate-900/60 shadow-xl space-y-4">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-800/80">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white tracking-tight">Relatórios & Business Intelligence</h3>
+                                    <p class="text-xs text-slate-400">Controle financeiro, ocupação de máquinas, insumos consumidos e perdas por refugo</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 no-print">
+                                <button type="button" onclick="exportReportsCsv()" class="btn-secondary px-3.5 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 text-blue-400 hover:text-white transition-all">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                    <span>Exportar Planilha (CSV)</span>
+                                </button>
+                                <button type="button" onclick="window.print()" class="btn-primary px-3.5 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all">
+                                    <i data-lucide="printer" class="w-4 h-4"></i>
+                                    <span>Imprimir / Salvar PDF</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Period Filtering Toolbar -->
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pt-1">
+                            <!-- Presets -->
+                            <div class="flex flex-wrap items-center gap-1.5" id="rep-period-presets">
+                                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Período:</span>
+                                <button type="button" onclick="setReportPeriod('today')" data-rep-preset="today" class="period-chip px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">Hoje</button>
+                                <button type="button" onclick="setReportPeriod('last_7d')" data-rep-preset="last_7d" class="period-chip px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">7 Dias</button>
+                                <button type="button" onclick="setReportPeriod('last_30d')" data-rep-preset="last_30d" class="period-chip px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">30 Dias</button>
+                                <button type="button" onclick="setReportPeriod('this_month')" data-rep-preset="this_month" class="period-chip period-chip-active px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-sm transition-all">Este Mês</button>
+                                <button type="button" onclick="setReportPeriod('last_month')" data-rep-preset="last_month" class="period-chip px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">Mês Anterior</button>
+                                <button type="button" onclick="setReportPeriod('this_year')" data-rep-preset="this_year" class="period-chip px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">Este Ano</button>
+                                <button type="button" onclick="setReportPeriod('all')" data-rep-preset="all" class="period-chip px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">Todo o Histórico</button>
+                            </div>
+
+                            <!-- Custom Date Inputs & Field Filter -->
+                            <div class="flex flex-wrap items-center gap-3">
+                                <div class="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
+                                    <span class="text-[10px] uppercase font-bold text-slate-500">De</span>
+                                    <input type="date" id="rep-start-date" onchange="applyReportCustomDates()" class="bg-transparent text-white border-none outline-none text-xs font-mono p-0 focus:ring-0">
+                                    <span class="text-[10px] uppercase font-bold text-slate-500">Até</span>
+                                    <input type="date" id="rep-end-date" onchange="applyReportCustomDates()" class="bg-transparent text-white border-none outline-none text-xs font-mono p-0 focus:ring-0">
+                                </div>
+
+                                <div class="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
+                                    <span class="text-[10px] uppercase font-bold text-slate-500">Critério:</span>
+                                    <select id="rep-date-field" onchange="applyReportDateField()" class="bg-transparent text-white border-none outline-none text-xs p-0 focus:ring-0">
+                                        <option value="created_at" class="bg-slate-900 text-white">Data de Criação (Entrada)</option>
+                                        <option value="updated_at" class="bg-slate-900 text-white">Data de Atualização (Fechamento)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 1. Executive Summary Financial Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="card-dark p-6 border-l-4 border-l-emerald-500 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Faturamento Realizado</p>
+                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            </div>
+                            <h3 class="text-2xl font-extrabold text-emerald-400 font-mono" id="rep-revenue-approved">R$ 0,00</h3>
+                            <p class="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5" id="rep-approved-count-label">
+                                <i data-lucide="check-circle" class="w-3 h-3 text-emerald-400"></i> 0 projetos aprovados
+                            </p>
+                        </div>
+
+                        <div class="card-dark p-6 border-l-4 border-l-blue-500 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pipeline em Negociação</p>
+                                <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                            </div>
+                            <h3 class="text-2xl font-extrabold text-blue-400 font-mono" id="rep-pipeline-revenue">R$ 0,00</h3>
+                            <p class="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5">
+                                <i data-lucide="hourglass" class="w-3 h-3 text-blue-400"></i> Propostas enviadas / rascunho
+                            </p>
+                        </div>
+
+                        <div class="card-dark p-6 border-l-4 border-l-teal-500 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Lucro Líquido Real</p>
+                                <span class="w-2 h-2 rounded-full bg-teal-400"></span>
+                            </div>
+                            <h3 class="text-2xl font-extrabold text-teal-300 font-mono" id="rep-net-profit">R$ 0,00</h3>
+                            <p class="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5" id="rep-margin-percent">
+                                <i data-lucide="percent" class="w-3 h-3 text-teal-400"></i> Margem média: 0,0%
+                            </p>
+                        </div>
+
+                        <div class="card-dark p-6 border-l-4 border-l-amber-500 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ticket Médio</p>
+                                <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                            </div>
+                            <h3 class="text-2xl font-extrabold text-amber-300 font-mono" id="rep-avg-ticket">R$ 0,00</h3>
+                            <p class="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5">
+                                <i data-lucide="receipt" class="w-3 h-3 text-amber-400"></i> Média por pedido fechado
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 2. Cost Structure DRE Breakdown Card -->
+                    <div class="card-dark p-6 space-y-4">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center">
+                                    <i data-lucide="layers" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-white tracking-tight">Detalhamento dos Custos Operacionais & Fiscais do Período</h4>
+                                    <p class="text-[11px] text-slate-400">Composição analítica de todas as despesas incorridas nos trabalhos fechados</p>
+                                </div>
+                            </div>
+                            <span class="text-xs font-mono font-bold text-slate-300 px-3 py-1 rounded-full bg-slate-800 border border-slate-700" id="rep-total-base-cost">
+                                Custo Base Total: R$ 0,00
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 pt-1">
+                            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Filamentos</p>
+                                <p class="text-sm font-bold font-mono text-purple-300" id="rep-cost-material">R$ 0,00</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Energia</p>
+                                <p class="text-sm font-bold font-mono text-yellow-300" id="rep-cost-energy">R$ 0,00</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Máquinas</p>
+                                <p class="text-sm font-bold font-mono text-blue-300" id="rep-cost-machine">R$ 0,00</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Mão de Obra</p>
+                                <p class="text-sm font-bold font-mono text-emerald-300" id="rep-cost-labor">R$ 0,00</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Insumos BOM</p>
+                                <p class="text-sm font-bold font-mono text-cyan-300" id="rep-cost-bom">R$ 0,00</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Overhead</p>
+                                <p class="text-sm font-bold font-mono text-slate-300" id="rep-cost-overhead">R$ 0,00</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Impostos</p>
+                                <p class="text-sm font-bold font-mono text-rose-300" id="rep-tax-amount">R$ 0,00</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center space-y-1">
+                                <p class="text-[10px] uppercase font-bold text-slate-500">Descontos</p>
+                                <p class="text-sm font-bold font-mono text-orange-300" id="rep-discount-amount">R$ 0,00</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. BI Strategic Charts Grid (2x2) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Chart 1: Parque de Máquinas -->
+                        <div class="card-dark p-6 chart-card flex flex-col justify-between">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center">
+                                        <i data-lucide="printer" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-bold text-white tracking-tight">Utilização do Parque de Máquinas</h4>
+                                        <p class="text-[11px] text-slate-400">Horas rodadas por impressora</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-slate-800 text-blue-400 border border-slate-700" id="rep-total-machine-hours-badge">
+                                    0 h totais
+                                </span>
+                            </div>
+                            <div class="chart-canvas-wrapper relative flex items-center justify-center">
+                                <canvas id="chart-rep-printers"></canvas>
+                                <div id="chart-rep-printers-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-xs">
+                                    <i data-lucide="printer" class="w-8 h-8 mb-1.5 opacity-40"></i>
+                                    <span>Sem impressões registradas no período</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chart 2: Consumo por Tipo de Material -->
+                        <div class="card-dark p-6 chart-card flex flex-col justify-between">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center">
+                                        <i data-lucide="cylinder" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-bold text-white tracking-tight">Consumo por Tipo de Polímero</h4>
+                                        <p class="text-[11px] text-slate-400">Distribuição percentual (PLA, PETG, TPU, Resina)</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-slate-800 text-purple-400 border border-slate-700" id="rep-total-materials-kg-badge">
+                                    0,0 kg totais
+                                </span>
+                            </div>
+                            <div class="chart-canvas-wrapper relative flex items-center justify-center">
+                                <canvas id="chart-rep-materials"></canvas>
+                                <div id="chart-rep-materials-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-xs">
+                                    <i data-lucide="cylinder" class="w-8 h-8 mb-1.5 opacity-40"></i>
+                                    <span>Sem consumo de filamento no período</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chart 3: Qualidade & Refugo por Causa -->
+                        <div class="card-dark p-6 chart-card flex flex-col justify-between">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center">
+                                        <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-bold text-white tracking-tight">Prejuízo com Falhas & Refugo</h4>
+                                        <p class="text-[11px] text-slate-400">Pareto de causas (Warping, Entupimento, Queda)</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20" id="rep-scrap-cost-badge">
+                                    R$ 0,00 perdidos
+                                </span>
+                            </div>
+                            <div class="chart-canvas-wrapper relative flex items-center justify-center">
+                                <canvas id="chart-rep-failures"></canvas>
+                                <div id="chart-rep-failures-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-xs">
+                                    <i data-lucide="check-circle-2" class="w-8 h-8 mb-1.5 text-emerald-500 opacity-60"></i>
+                                    <span class="text-emerald-400">Zero falhas registradas no período!</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chart 4: Top Clientes por Faturamento -->
+                        <div class="card-dark p-6 chart-card flex flex-col justify-between">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+                                        <i data-lucide="users" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-bold text-white tracking-tight">Principais Clientes (Curva ABC)</h4>
+                                        <p class="text-[11px] text-slate-400">Ranking por faturamento fechado</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-slate-800 text-amber-400 border border-slate-700">
+                                    Top 5 Clientes
+                                </span>
+                            </div>
+                            <div class="chart-canvas-wrapper relative flex items-center justify-center">
+                                <canvas id="chart-rep-clients"></canvas>
+                                <div id="chart-rep-clients-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-xs">
+                                    <i data-lucide="users" class="w-8 h-8 mb-1.5 opacity-40"></i>
+                                    <span>Nenhum cliente cadastrado no período</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Tabbed Detailed Extratos & Data Tables -->
+                    <div class="card-dark p-6 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+                            <!-- Table Tabs -->
+                            <div class="flex flex-wrap items-center gap-4 text-xs font-semibold" id="rep-tabs-nav">
+                                <button type="button" onclick="switchReportTab('projects')" id="rep-tab-btn-projects" class="report-tab-btn active pb-2 flex items-center gap-1.5 text-blue-400">
+                                    <i data-lucide="folder" class="w-4 h-4"></i>
+                                    <span>Extrato de Projetos</span>
+                                </button>
+                                <button type="button" onclick="switchReportTab('printers')" id="rep-tab-btn-printers" class="report-tab-btn pb-2 flex items-center gap-1.5 text-slate-400 hover:text-white">
+                                    <i data-lucide="printer" class="w-4 h-4"></i>
+                                    <span>Parque de Máquinas</span>
+                                </button>
+                                <button type="button" onclick="switchReportTab('materials')" id="rep-tab-btn-materials" class="report-tab-btn pb-2 flex items-center gap-1.5 text-slate-400 hover:text-white">
+                                    <i data-lucide="cylinder" class="w-4 h-4"></i>
+                                    <span>Consumo de Filamentos</span>
+                                </button>
+                                <button type="button" onclick="switchReportTab('failures')" id="rep-tab-btn-failures" class="report-tab-btn pb-2 flex items-center gap-1.5 text-slate-400 hover:text-white">
+                                    <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                                    <span>Registro de Falhas & Refugo</span>
+                                </button>
+                            </div>
+
+                            <!-- Table CSV Export Shortcut -->
+                            <div class="no-print">
+                                <button type="button" onclick="exportCurrentReportTabCsv()" class="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors">
+                                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                                    <span>Baixar esta tabela (CSV)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tab Containers -->
+                        <div id="rep-tab-content-projects" class="overflow-x-auto">
+                            <!-- Injected by app.js: renderReportProjectsTable() -->
+                        </div>
+                        <div id="rep-tab-content-printers" class="overflow-x-auto hidden">
+                            <!-- Injected by app.js: renderReportPrintersTable() -->
+                        </div>
+                        <div id="rep-tab-content-materials" class="overflow-x-auto hidden">
+                            <!-- Injected by app.js: renderReportMaterialsTable() -->
+                        </div>
+                        <div id="rep-tab-content-failures" class="overflow-x-auto hidden">
+                            <!-- Injected by app.js: renderReportFailuresTable() -->
+                        </div>
                     </div>
                 </section>
 

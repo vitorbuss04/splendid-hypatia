@@ -112,12 +112,20 @@ MONTH_NAMES_PT = {
 
 @router.get("/dashboard-stats", response_model=schemas.DashboardStatsResponse)
 def get_dashboard_stats(
+    start_date: Optional[str] = Query(None, description="Data inicial YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="Data final YYYY-MM-DD"),
+    date_field: Optional[str] = Query("created_at", description="created_at ou updated_at"),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    projects = db.query(models.Project).filter(
-        models.Project.user_id == current_user.id
-    ).order_by(models.Project.id.desc()).all()
+    from backend.routes.report_routes import filter_user_projects
+    projects = filter_user_projects(
+        user_id=current_user.id,
+        db=db,
+        start_date=start_date,
+        end_date=end_date,
+        date_field=date_field or "created_at"
+    )
 
     printers = db.query(models.Printer).filter(models.Printer.user_id == current_user.id).all()
     filaments = db.query(models.Filament).filter(models.Filament.user_id == current_user.id).all()

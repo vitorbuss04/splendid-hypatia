@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from backend.database import init_db
-from backend.routes import auth_routes, printer_routes, filament_routes, project_routes
+from backend.routes import auth_routes, printer_routes, filament_routes, project_routes, report_routes
 from backend.config import APP_ENV
 
 # Initialize tables
@@ -90,6 +90,7 @@ app.include_router(auth_routes.router)
 app.include_router(printer_routes.router)
 app.include_router(filament_routes.router)
 app.include_router(project_routes.router)
+app.include_router(report_routes.router)
 
 # Healthcheck
 @app.get("/api/health", tags=["Sistema"])

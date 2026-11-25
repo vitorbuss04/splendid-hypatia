@@ -360,3 +360,95 @@ class DashboardStatsResponse(BaseModel):
     total_scrap_cost: float = 0.0
     total_scrap_filament_g: float = 0.0
     scrap_rate_percent: float = 0.0
+
+
+# ----------------- BI & Detailed Reports Schemas -----------------
+
+class ReportPeriodInfo(BaseModel):
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    preset: Optional[str] = None
+    date_field: str = "created_at"
+
+class ReportFinancialSummary(BaseModel):
+    total_projects: int = 0
+    approved_projects_count: int = 0
+    revenue_approved: float = 0.0
+    pipeline_revenue: float = 0.0
+    total_revenue: float = 0.0
+    material_cost: float = 0.0
+    machine_cost: float = 0.0
+    energy_cost: float = 0.0
+    labor_cost: float = 0.0
+    bom_cost: float = 0.0
+    overhead_cost: float = 0.0
+    total_base_cost: float = 0.0
+    net_profit: float = 0.0
+    avg_profit_margin_percent: float = 0.0
+    total_tax: float = 0.0
+    total_discount: float = 0.0
+    total_shipping: float = 0.0
+    avg_ticket: float = 0.0
+
+class ReportPrinterUsageItem(BaseModel):
+    printer_id: Optional[int] = None
+    name: str
+    model: Optional[str] = None
+    print_hours: float = 0.0
+    plates_count: int = 0
+    energy_cost: float = 0.0
+    depreciation_cost: float = 0.0
+    maintenance_cost: float = 0.0
+    total_cost: float = 0.0
+    utilization_percent: float = 0.0
+
+class ReportMaterialUsageItem(BaseModel):
+    material: str = "PLA"
+    filament_id: Optional[int] = None
+    filament_name: str
+    brand: Optional[str] = None
+    color: Optional[str] = None
+    color_hex: Optional[str] = "#10b981"
+    weight_g: float = 0.0
+    weight_kg: float = 0.0
+    spools_consumed: float = 0.0
+    cost: float = 0.0
+    percentage: float = 0.0
+
+class ReportFailureItem(BaseModel):
+    reason: str
+    reason_label: str
+    count: int = 0
+    lost_weight_g: float = 0.0
+    lost_time_hours: float = 0.0
+    total_cost: float = 0.0
+    percentage: float = 0.0
+
+class ReportFailureSummary(BaseModel):
+    total_scrap_cost: float = 0.0
+    total_lost_weight_g: float = 0.0
+    total_lost_hours: float = 0.0
+    total_failures_count: int = 0
+    scrap_rate_percent: float = 0.0
+    reasons: List[ReportFailureItem] = []
+
+class ReportClientItem(BaseModel):
+    client_name: str
+    client_email: Optional[str] = None
+    client_phone: Optional[str] = None
+    projects_count: int = 0
+    approved_projects_count: int = 0
+    approved_revenue: float = 0.0
+    total_revenue: float = 0.0
+    net_profit: float = 0.0
+    total_hours: float = 0.0
+
+class ReportDetailedResponse(BaseModel):
+    period: ReportPeriodInfo
+    financial: ReportFinancialSummary
+    printers: List[ReportPrinterUsageItem] = []
+    materials: List[ReportMaterialUsageItem] = []
+    failures: ReportFailureSummary = ReportFailureSummary()
+    clients: List[ReportClientItem] = []
+    projects: List[ProjectListItem] = []
+

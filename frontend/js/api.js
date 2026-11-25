@@ -142,7 +142,10 @@ const API = {
     // Projects endpoints
     projects: {
         list: () => API.request("/api/projects"),
-        getDashboardStats: () => API.request("/api/projects/dashboard-stats"),
+        getDashboardStats: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request(`/api/projects/dashboard-stats${query ? '?' + query : ''}`);
+        },
         get: (id) => API.request(`/api/projects/${id}`),
         create: (data) => API.request("/api/projects", { method: "POST", body: JSON.stringify(data) }),
         update: (id, data) => API.request(`/api/projects/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -151,6 +154,46 @@ const API = {
         getSummary: (id) => API.request(`/api/projects/${id}/summary`),
         addFailure: (projectId, data) => API.request(`/api/projects/${projectId}/failures`, { method: "POST", body: JSON.stringify(data) }),
         deleteFailure: (projectId, failureId) => API.request(`/api/projects/${projectId}/failures/${failureId}`, { method: "DELETE" }),
+    },
+
+    // BI & Reports endpoints
+    reports: {
+        getDetailed: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return API.request(`/api/reports/detailed${query ? '?' + query : ''}`);
+        },
+        async downloadCsv(params = {}) {
+            const token = API.getToken();
+            const query = new URLSearchParams(params).toString();
+            const url = `/api/reports/export/csv${query ? '?' + query : ''}`;
+            const res = await fetch(url, {
+                headers: {
+                    ...(token ? { "Authorization": `Bearer ${token}` } : {})
+                }
+            });
+
+            if (!res.ok) {
+                throw new Error("Erro ao exportar CSV.");
+            }
+
+            const blob = await res.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.style.display = "none";
+            a.href = downloadUrl;
+
+            const disposition = res.headers.get("Content-Disposition");
+            let filename = `relatorio_${params.report_type || 'projetos'}.csv`;
+            if (disposition && disposition.includes("filename=")) {
+                filename = disposition.split("filename=")[1].replace(/["']/g, "");
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            a.remove();
+        }
     },
 
     // Plates endpoints
