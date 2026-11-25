@@ -105,6 +105,8 @@
 /* Explicit Labs Component Token Bindings (Ensures Light/Dark parity for @material/web/labs/*) */
 :root {
     --md-navigation-drawer-container-color: var(--md-sys-color-surface-container-low);
+    --md-navigation-drawer-container-width: 300px;
+    --md-navigation-drawer-container-shape: 0;
     --md-navigation-drawer-modal-container-color: var(--md-sys-color-surface-container-low);
     --md-navigation-drawer-modal-container-width: 320px;
     --md-navigation-drawer-modal-scrim-color: var(--md-sys-color-scrim);
@@ -127,6 +129,76 @@ md-navigation-drawer-modal {
 md-navigation-drawer-modal.is-open,
 md-navigation-drawer-modal[opened] {
     pointer-events: auto;
+}
+
+/* Desktop Docked Navigation Drawer (hidden on compact screens) */
+md-navigation-drawer#nav-drawer-desktop {
+    display: none;
+}
+
+@media (min-width: 1100px) {
+    body.has-responsive-drawer,
+    body:has(> md-navigation-drawer-modal#nav-drawer) {
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+    }
+
+    body.has-responsive-drawer > .app-shell,
+    body:has(> md-navigation-drawer-modal#nav-drawer) > .app-shell {
+        flex: 1 1 0%;
+        min-width: 0;
+    }
+
+    md-navigation-drawer#nav-drawer-desktop {
+        display: flex;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        flex-shrink: 0;
+        z-index: 25;
+        border-right: 1px solid transparent;
+        transition: border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    md-navigation-drawer#nav-drawer-desktop.is-open,
+    md-navigation-drawer#nav-drawer-desktop[opened] {
+        border-right-color: var(--md-sys-color-outline-variant);
+    }
+
+    md-navigation-drawer#nav-drawer-desktop .drawer-content {
+        width: 100%;
+        min-height: 100%;
+        height: auto !important;
+    }
+
+    md-navigation-drawer-modal#nav-drawer {
+        display: none !important;
+    }
+
+    #drawer-close-btn {
+        display: none !important;
+    }
+}
+
+/* Blend navigation drawer list and items with drawer background + full pill hover shape */
+.drawer-content md-list {
+    --md-list-container-color: transparent;
+    background-color: transparent;
+}
+
+.drawer-content md-list-item {
+    --md-list-item-container-color: transparent;
+    border-radius: var(--md-sys-shape-corner-full);
+    overflow: hidden;
+}
+
+.drawer-content md-list-item::part(ripple) {
+    border-radius: var(--md-sys-shape-corner-full);
+}
+
+.drawer-content md-list-item::part(focus-ring) {
+    --md-focus-ring-shape: var(--md-sys-shape-corner-full);
 }
 
 /* Guarantee M3 Dialogs always layer above sticky Top App Bar and Nav Drawer */
@@ -766,6 +838,61 @@ md-slider {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
+}
+
+/* Fullscreen Material 3 Page & Data Loading Overlay */
+.m3-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-primary);
+}
+
+body:not(.m3-page-loading) > .m3-loading-overlay {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.16s ease, visibility 0.16s ease;
+}
+
+body.m3-page-loading > :not(#m3-page-loading-overlay) {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+body.m3-page-loading > md-dialog[open] {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+md-circular-progress.m3-loading-spinner {
+    --md-circular-progress-size: 56px;
+    --md-circular-progress-active-indicator-width: 8;
+    width: 56px;
+    height: 56px;
+}
+
+@keyframes m3-fallback-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+md-circular-progress.m3-loading-spinner:not(:defined) {
+    display: inline-block;
+    width: 56px;
+    height: 56px;
+    border-radius: 9999px;
+    border: 4px solid var(--md-sys-color-surface-container-highest);
+    border-top-color: var(--md-sys-color-primary);
+    border-right-color: var(--md-sys-color-primary);
+    animation: m3-fallback-spin 0.85s linear infinite;
 }
 
 /* Accessibility: Forced Colors Mode (Windows High Contrast) */

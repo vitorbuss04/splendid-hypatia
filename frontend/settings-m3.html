@@ -15,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
 
     <!-- Shared Material 3 Tokens, Color-Scheme & Structural CSS Grid Layout -->
-    <link rel="stylesheet" href="/static/css/material-theme.css?v=2.0.8">
+    <link rel="stylesheet" href="/static/css/material-theme.css?v=2.1.1">
 
     <!-- Official Import Map: Unbundled @material/web@2.5.0 shares singletons cleanly -->
     <script type="importmap">
@@ -46,21 +46,20 @@
         }
     </script>
 </head>
-<body>
+<body class="m3-page-loading">
+    <div id="m3-page-loading-overlay" class="m3-loading-overlay" role="status" aria-live="polite" aria-label="Carregando página">
+        <md-circular-progress class="m3-loading-spinner" indeterminate four-color aria-hidden="true"></md-circular-progress>
+    </div>
+
     <!-- Modal Navigation Drawer (@material/web/labs/navigationdrawer) -->
     <md-navigation-drawer-modal id="nav-drawer" pivot="start" aria-label="Menu de Navegação Principal">
         <div class="drawer-content" style="height: 100%;">
-            <div class="row-between" style="padding: 8px 12px;">
-                <div class="row">
-                    <div class="icon-badge-surface" aria-hidden="true">
-                        <md-icon class="filled">precision_manufacturing</md-icon>
-                    </div>
-                    <div class="col" style="gap: 2px;">
-                        <span class="md-typescale-title-medium">3D Print Calc Pro</span>
-                        <span class="md-typescale-label-small muted-text">Material Design 3</span>
-                    </div>
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 12px 12px 8px;">
+                <div class="icon-badge-surface" style="width: 72px; height: 72px; border-radius: var(--md-sys-shape-corner-full);" aria-hidden="true">
+                    <md-icon class="filled" style="font-size: 36px; width: 36px; height: 36px;">precision_manufacturing</md-icon>
                 </div>
-                <md-icon-button id="drawer-close-btn" aria-label="Fechar Menu">
+                <span id="drawer-company-title" class="md-typescale-title-medium" style="max-width: 100%; overflow: hidden; text-overflow: ellipsis;">3D Print Calc Pro</span>
+                <md-icon-button id="drawer-close-btn" aria-label="Fechar Menu" style="position: absolute; top: 0; right: 4px;">
                     <md-icon>close</md-icon>
                 </md-icon-button>
             </div>
@@ -101,20 +100,6 @@
                 </md-list-item>
             </md-list>
 
-            <md-divider></md-divider>
-
-            <span class="md-typescale-label-medium muted-text" style="padding: 4px 16px;">Dynamic Color (HCT)</span>
-            <div style="padding: 4px 16px;" class="col">
-                <span class="md-typescale-body-small muted-text">Cor Semente do Tema:</span>
-                <div class="row-wrap">
-                    <button type="button" class="seed-btn" data-seed="#6750A4" style="background:#6750A4;" aria-label="M3 Baseline Purple" aria-pressed="false"></button>
-                    <button type="button" class="seed-btn" data-seed="#2563EB" style="background:#2563EB;" aria-label="Royal Cobalt" aria-pressed="true"></button>
-                    <button type="button" class="seed-btn" data-seed="#006874" style="background:#006874;" aria-label="Ocean Teal" aria-pressed="false"></button>
-                    <button type="button" class="seed-btn" data-seed="#006D3B" style="background:#006D3B;" aria-label="Emerald" aria-pressed="false"></button>
-                    <button type="button" class="seed-btn" data-seed="#B3261E" style="background:#B3261E;" aria-label="Crimson" aria-pressed="false"></button>
-                </div>
-            </div>
-
             <div style="margin-top: auto; padding: 12px 12px 4px;" class="col">
                 <md-divider></md-divider>
                 <div class="surface-subbox" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px;">
@@ -148,7 +133,6 @@
 
                     <div class="top-app-bar-title-group">
                         <span class="md-typescale-title-large">Configurações &amp; Taxas</span>
-                        <span class="md-typescale-body-small muted-text">3D Print Calc Pro · Preferências Globais da Oficina</span>
                     </div>
                 </div>
 
@@ -188,21 +172,6 @@
                                 <md-icon slot="start">toll</md-icon>
                                 <div slot="headline">Meus Filamentos</div>
                             </md-menu-item>
-
-                            <md-sub-menu>
-                                <md-menu-item slot="item">
-                                    <md-icon slot="start">color_lens</md-icon>
-                                    <div slot="headline">Cor Semente (HCT)</div>
-                                    <md-icon slot="end">arrow_right</md-icon>
-                                </md-menu-item>
-                                <md-menu slot="menu">
-                                    <md-menu-item data-seed-menu="#6750A4"><div slot="headline">M3 Purple (#6750A4)</div></md-menu-item>
-                                    <md-menu-item data-seed-menu="#2563EB"><div slot="headline">Royal Cobalt (#2563EB)</div></md-menu-item>
-                                    <md-menu-item data-seed-menu="#006874"><div slot="headline">Ocean Teal (#006874)</div></md-menu-item>
-                                    <md-menu-item data-seed-menu="#006D3B"><div slot="headline">Emerald (#006D3B)</div></md-menu-item>
-                                    <md-menu-item data-seed-menu="#B3261E"><div slot="headline">Crimson (#B3261E)</div></md-menu-item>
-                                </md-menu>
-                            </md-sub-menu>
                         </md-menu>
                     </div>
                 </div>
@@ -235,6 +204,61 @@
                     <span id="settings-error-text" class="md-typescale-body-medium">Erro ao salvar configurações.</span>
                 </div>
             </div>
+
+            <!-- SECTION: Aparência & Personalização (Salva por usuário) -->
+            <md-elevated-card class="card-pad" id="appearance-settings-card" aria-label="Configurações de Aparência">
+                <div class="col" style="gap: 16px;">
+                    <div class="row-between">
+                        <div class="col" style="gap: 4px;">
+                            <div class="row" style="gap: 10px;">
+                                <md-icon style="color: var(--md-sys-color-primary);" aria-hidden="true">palette</md-icon>
+                                <h2 class="md-typescale-title-medium" style="margin: 0;">Aparência &amp; Tema</h2>
+                            </div>
+                            <span class="md-typescale-body-small muted-text">Personalize o modo claro/escuro e a cor principal do seu perfil (salvos por usuário)</span>
+                        </div>
+                        <md-text-button type="button" id="btn-reset-appearance">
+                            <md-icon slot="icon">restart_alt</md-icon>
+                            Restaurar Padrão
+                        </md-text-button>
+                    </div>
+
+                    <md-divider></md-divider>
+
+                    <div class="grid-2col" style="gap: 20px;">
+                        <div class="col" style="gap: 8px;">
+                            <span class="md-typescale-label-large">Modo de Exibição</span>
+                            <span class="md-typescale-body-small muted-text">Escolha tema claro, escuro ou seguir o sistema operacional</span>
+                            <md-chip-set id="pref-theme-mode-chips" aria-label="Modo de exibição claro ou escuro">
+                                <md-filter-chip data-theme-mode="system" label="Automático (Sistema)" selected>
+                                    <md-icon slot="icon">brightness_auto</md-icon>
+                                </md-filter-chip>
+                                <md-filter-chip data-theme-mode="light" label="Claro">
+                                    <md-icon slot="icon">light_mode</md-icon>
+                                </md-filter-chip>
+                                <md-filter-chip data-theme-mode="dark" label="Escuro">
+                                    <md-icon slot="icon">dark_mode</md-icon>
+                                </md-filter-chip>
+                            </md-chip-set>
+                        </div>
+
+                        <div class="col" style="gap: 8px;">
+                            <span class="md-typescale-label-large">Cor Semente do Tema (Dynamic Color HCT)</span>
+                            <span class="md-typescale-body-small muted-text">Gera automaticamente toda a paleta Material 3 da sua conta</span>
+                            <div class="row-wrap" style="gap: 10px; padding-top: 2px;">
+                                <button type="button" class="seed-btn" data-seed="#6750A4" style="background:#6750A4;" aria-label="M3 Purple (#6750A4)" title="M3 Purple (#6750A4)" aria-pressed="false"></button>
+                                <button type="button" class="seed-btn" data-seed="#2563EB" style="background:#2563EB;" aria-label="Royal Cobalt (#2563EB)" title="Royal Cobalt (#2563EB)" aria-pressed="true"></button>
+                                <button type="button" class="seed-btn" data-seed="#006874" style="background:#006874;" aria-label="Ocean Teal (#006874)" title="Ocean Teal (#006874)" aria-pressed="false"></button>
+                                <button type="button" class="seed-btn" data-seed="#006D3B" style="background:#006D3B;" aria-label="Emerald (#006D3B)" title="Emerald (#006D3B)" aria-pressed="false"></button>
+                                <button type="button" class="seed-btn" data-seed="#B3261E" style="background:#B3261E;" aria-label="Crimson (#B3261E)" title="Crimson (#B3261E)" aria-pressed="false"></button>
+                                <div class="row" style="gap: 8px; margin-left: 4px;">
+                                    <input type="color" id="pref-theme-color-picker" class="m3-color-picker" value="#2563eb" aria-label="Escolher cor personalizada" title="Escolher cor personalizada" style="width: 36px; height: 36px; padding: 2px;">
+                                    <span id="pref-theme-color-hex" class="md-typescale-label-medium mono-num muted-text">#2563EB</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </md-elevated-card>
 
             <form id="form-settings" class="col" style="gap: 24px;" aria-label="Formulário de Preferências da Oficina">
                 <!-- SECTION A: Identidade Comercial & Pagamentos -->
@@ -410,76 +434,19 @@
 
     <!-- Official M3 Dynamic Theme + Settings Controller -->
     <script type="module">
+        import { initResponsiveDrawer } from '/static/js/m3-drawer.js?v=1.0.1';
+        import { startPageLoading, markUiReady, clearPageLoading } from '/static/js/m3-loader.js?v=1.0.0';
         import {
-            argbFromHex,
-            themeFromSourceColor,
-            applyTheme,
-            hexFromArgb,
-        } from '@material/material-color-utilities';
-
-        // ---------------------------------------------------------------------
-        // 1. Dynamic HCT Color Theme Engine
-        // ---------------------------------------------------------------------
-        let currentSeed = '#2563EB';
-        const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        let isDarkMode = colorSchemeQuery.matches;
-        let userOverrodeTheme = false;
+            DEFAULT_THEME_MODE,
+            DEFAULT_THEME_SEED,
+            initThemeController,
+            syncThemeFromUser,
+            applyThemeState,
+            getThemeState,
+            saveUserThemePreferences,
+        } from '/static/js/m3-theme.js?v=1.0.2';
 
         let currentUser = null;
-
-        function applyOfficialM3Theme(seedHex, dark) {
-            currentSeed = seedHex;
-            isDarkMode = dark;
-
-            const theme = themeFromSourceColor(argbFromHex(seedHex));
-            const root = document.documentElement;
-            applyTheme(theme, { target: root, dark });
-
-            const neutral = theme.palettes.neutral;
-            const tones = dark
-                ? {
-                    'surface-dim': 6,
-                    'surface-bright': 24,
-                    'surface-container-lowest': 4,
-                    'surface-container-low': 10,
-                    'surface-container': 12,
-                    'surface-container-high': 17,
-                    'surface-container-highest': 22,
-                }
-                : {
-                    'surface-dim': 87,
-                    'surface-bright': 98,
-                    'surface-container-lowest': 100,
-                    'surface-container-low': 96,
-                    'surface-container': 94,
-                    'surface-container-high': 92,
-                    'surface-container-highest': 90,
-                };
-
-            for (const [token, toneVal] of Object.entries(tones)) {
-                root.style.setProperty(`--md-sys-color-${token}`, hexFromArgb(neutral.tone(toneVal)));
-            }
-
-            const surfaceHex = hexFromArgb(neutral.tone(dark ? 6 : 98));
-            root.style.setProperty('--md-sys-color-surface', surfaceHex);
-            root.style.setProperty('--md-sys-color-background', surfaceHex);
-
-            root.dataset.theme = dark ? 'dark' : 'light';
-            root.style.colorScheme = dark ? 'dark' : 'light';
-
-            const themeBtn = document.getElementById('theme-mode-toggle');
-            if (themeBtn) themeBtn.selected = dark;
-
-            document.querySelectorAll('.seed-btn').forEach(btn => {
-                btn.setAttribute('aria-pressed', btn.dataset.seed?.toUpperCase() === seedHex.toUpperCase() ? 'true' : 'false');
-            });
-        }
-
-        colorSchemeQuery.addEventListener('change', (e) => {
-            if (!userOverrodeTheme) {
-                applyOfficialM3Theme(currentSeed, e.matches);
-            }
-        });
 
         // ---------------------------------------------------------------------
         // 2. Formatting, Phone Masking & Notifications
@@ -513,6 +480,7 @@
             const loader = document.getElementById('settings-loader');
             if (loader) loader.hidden = false;
             document.getElementById('settings-error-box').hidden = true;
+            const releaseLoad = startPageLoading();
 
             try {
                 const user = await API.auth.getMe();
@@ -528,11 +496,13 @@
                 }
             } finally {
                 if (loader) loader.hidden = true;
+                releaseLoad();
             }
         }
 
         function updateUserProfile(user) {
             if (!user) return;
+            syncThemeFromUser(user);
             const nameEl = document.getElementById('user-display-name');
             const companyEl = document.getElementById('user-display-company');
             const avatarEl = document.getElementById('user-avatar');
@@ -582,40 +552,59 @@
         // 4. Boot & Wire Listeners
         // ---------------------------------------------------------------------
         function init() {
-            applyOfficialM3Theme(currentSeed, isDarkMode);
+            initThemeController({ onNotify: showSnackbar });
 
-            // Drawer
-            const drawer = document.getElementById('nav-drawer');
-            const setDrawerOpen = (open) => {
-                if (!drawer) return;
-                drawer.opened = open;
-                drawer.classList.toggle('is-open', open);
+            // Drawer (responsive desktop push / mobile modal)
+            const setDrawerOpen = initResponsiveDrawer();
+
+            // Appearance Settings (Theme Mode + Dynamic HCT Color, saved per user)
+            const persistAppearance = async (patch, message, icon) => {
+                try {
+                    const res = await saveUserThemePreferences(patch);
+                    if (res?.user) currentUser = res.user;
+                    showSnackbar(message, icon);
+                } catch (err) {
+                    showSnackbar(err?.message || 'Erro ao salvar aparência.', 'error');
+                }
             };
-            document.getElementById('drawer-open-btn')?.addEventListener('click', () => setDrawerOpen(!drawer?.opened));
-            document.getElementById('drawer-close-btn')?.addEventListener('click', () => setDrawerOpen(false));
-            drawer?.addEventListener('navigation-drawer-changed', (e) => {
-                drawer.classList.toggle('is-open', Boolean(e.detail?.opened));
+
+            document.getElementById('pref-theme-mode-chips')?.addEventListener('click', (e) => {
+                const chip = e.target.closest('md-filter-chip');
+                if (!chip) return;
+                const mode = chip.getAttribute('data-theme-mode') || 'system';
+                queueMicrotask(() => {
+                    const labels = {
+                        system: ['Modo Automático (Sistema) ativado', 'brightness_auto'],
+                        light: ['Tema Claro ativado', 'light_mode'],
+                        dark: ['Tema Escuro ativado', 'dark_mode'],
+                    };
+                    const [msg, ic] = labels[mode] || labels.system;
+                    persistAppearance({ themeMode: mode }, msg, ic);
+                });
             });
 
-            // Theme Toggle & Seed Presets
-            document.getElementById('theme-mode-toggle')?.addEventListener('change', (e) => {
-                userOverrodeTheme = true;
-                applyOfficialM3Theme(currentSeed, e.target.selected);
-                showSnackbar(e.target.selected ? 'Tema Escuro (M3 Dark) ativado' : 'Tema Claro (M3 Light) ativado', e.target.selected ? 'dark_mode' : 'light_mode');
-            });
-
-            document.querySelectorAll('.seed-btn').forEach(btn => {
+            document.querySelectorAll('#appearance-settings-card .seed-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    applyOfficialM3Theme(btn.dataset.seed, isDarkMode);
-                    showSnackbar(`Paleta HCT aplicada: ${btn.dataset.seed}`, 'palette');
+                    const seed = btn.dataset.seed;
+                    persistAppearance({ seedColor: seed }, `Paleta HCT aplicada: ${seed}`, 'palette');
                 });
             });
 
-            document.querySelectorAll('[data-seed-menu]').forEach(item => {
-                item.addEventListener('click', () => {
-                    applyOfficialM3Theme(item.dataset.seedMenu, isDarkMode);
-                    showSnackbar(`Cor semente alterada para ${item.dataset.seedMenu}`, 'palette');
-                });
+            const colorPicker = document.getElementById('pref-theme-color-picker');
+            colorPicker?.addEventListener('input', (e) => {
+                applyThemeState({ seedColor: e.target.value });
+            });
+            colorPicker?.addEventListener('change', (e) => {
+                const seed = e.target.value.toUpperCase();
+                persistAppearance({ seedColor: seed }, `Cor personalizada aplicada: ${seed}`, 'palette');
+            });
+
+            document.getElementById('btn-reset-appearance')?.addEventListener('click', () => {
+                persistAppearance(
+                    { themeMode: DEFAULT_THEME_MODE, seedColor: DEFAULT_THEME_SEED },
+                    'Aparência restaurada para o padrão.',
+                    'restart_alt',
+                );
             });
 
             // Top More Menu & Refresh
@@ -663,6 +652,7 @@
                     return;
                 }
 
+                const activeTheme = getThemeState();
                 const payload = {
                     company_name: document.getElementById('pref-company').value.trim(),
                     full_name: document.getElementById('pref-fullname').value.trim(),
@@ -676,6 +666,8 @@
                     default_post_rate: Math.max(0, parseFloat(document.getElementById('pref-post-rate').value || 30) || 0),
                     default_payment_terms: document.getElementById('pref-payment-terms').value.trim() || null,
                     default_warranty_terms: document.getElementById('pref-warranty-terms').value.trim() || null,
+                    theme_mode: activeTheme.themeMode,
+                    theme_seed_color: activeTheme.seedColor,
                 };
 
                 if (saveBtn) saveBtn.disabled = true;
@@ -749,9 +741,10 @@
 
             // Boot Auth + Preferences Load
             if (API.getToken()) {
-                fetchAndPopulateSettings();
+                fetchAndPopulateSettings().finally(() => markUiReady());
             } else {
                 openAuthDialog();
+                markUiReady();
             }
         }
 

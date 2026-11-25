@@ -47,8 +47,14 @@ def init_db():
                     conn.execute(text(f"ALTER TABLE {prefix}users ADD COLUMN default_payment_terms VARCHAR(500)"))
                 if "default_warranty_terms" not in user_cols:
                     conn.execute(text(f"ALTER TABLE {prefix}users ADD COLUMN default_warranty_terms VARCHAR(500)"))
+                if "theme_mode" not in user_cols:
+                    conn.execute(text(f"ALTER TABLE {prefix}users ADD COLUMN theme_mode VARCHAR(20) DEFAULT 'system'"))
+                if "theme_seed_color" not in user_cols:
+                    conn.execute(text(f"ALTER TABLE {prefix}users ADD COLUMN theme_seed_color VARCHAR(20) DEFAULT '#2563EB'"))
                 conn.execute(text(f"UPDATE {prefix}users SET default_payment_terms = 'A combinar / 50% na aprovação e 50% na entrega.' WHERE default_payment_terms IS NULL"))
                 conn.execute(text(f"UPDATE {prefix}users SET default_warranty_terms = 'Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas.' WHERE default_warranty_terms IS NULL"))
+                conn.execute(text(f"UPDATE {prefix}users SET theme_mode = 'system' WHERE theme_mode IS NULL"))
+                conn.execute(text(f"UPDATE {prefix}users SET theme_seed_color = '#2563EB' WHERE theme_seed_color IS NULL"))
             if "filaments" in tables:
                 fil_cols = [c["name"] for c in inspector.get_columns("filaments", schema=DB_SCHEMA)]
                 if "color_hex" not in fil_cols:

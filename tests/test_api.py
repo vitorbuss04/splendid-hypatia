@@ -1144,6 +1144,43 @@ def test_plate_parts_per_plate_batch_persistence(client, make_user):
     assert updated_proj["plates"][0]["parts_per_plate"] == 10
 
 
+def test_user_appearance_preferences_isolation(client, make_user):
+    user_a = make_user(email="theme_a@example.com")
+    user_b = make_user(email="theme_b@example.com")
+
+    me_a0 = client.get("/api/auth/me", headers=user_a["headers"])
+    assert me_a0.status_code == 200
+    assert me_a0.json()["theme_mode"] == "system"
+    assert me_a0.json()["theme_seed_color"] == "#2563EB"
+
+    upd_a = client.put("/api/auth/preferences", json={
+        "theme_mode": "dark",
+        "theme_seed_color": "#006D3B",
+    }, headers=user_a["headers"])
+    assert upd_a.status_code == 200
+    assert upd_a.json()["theme_mode"] == "dark"
+    assert upd_a.json()["theme_seed_color"] == "#006D3B"
+
+    upd_b = client.put("/api/auth/preferences", json={
+        "theme_mode": "light",
+        "theme_seed_color": "#B3261E",
+    }, headers=user_b["headers"])
+    assert upd_b.status_code == 200
+    assert upd_b.json()["theme_mode"] == "light"
+    assert upd_b.json()["theme_seed_color"] == "#B3261E"
+
+    # Re-fetch per user to confirm isolation & DB persistence
+    me_a = client.get("/api/auth/me", headers=user_a["headers"]).json()
+    me_b = client.get("/api/auth/me", headers=user_b["headers"]).json()
+    assert me_a["theme_mode"] == "dark" and me_a["theme_seed_color"] == "#006D3B"
+    assert me_b["theme_mode"] == "light" and me_b["theme_seed_color"] == "#B3261E"
+
+    # Reject invalid theme_mode or malformed hex color
+    assert client.put("/api/auth/preferences", json={"theme_mode": "sepia"}, headers=user_a["headers"]).status_code == 422
+    assert client.put("/api/auth/preferences", json={"theme_seed_color": "blue"}, headers=user_a["headers"]).status_code == 422
+
+
+
 
 
 

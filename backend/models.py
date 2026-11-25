@@ -29,6 +29,8 @@ class User(Base):
     default_post_rate = Column(Float, default=30.0)  # R$/h
     default_payment_terms = Column(String(500), nullable=True, default="A combinar / 50% na aprovação e 50% na entrega.")
     default_warranty_terms = Column(String(500), nullable=True, default="Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas.")
+    theme_mode = Column(String(20), nullable=False, default="system")
+    theme_seed_color = Column(String(20), nullable=False, default="#2563EB")
 
     created_at = Column(DateTime, default=get_utc_now)
 

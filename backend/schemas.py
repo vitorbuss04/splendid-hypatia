@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 import datetime
 
@@ -27,6 +27,8 @@ class UserPreferencesUpdate(BaseModel):
     default_post_rate: Optional[float] = Field(None, ge=0)
     default_payment_terms: Optional[str] = None
     default_warranty_terms: Optional[str] = None
+    theme_mode: Optional[Literal["system", "light", "dark"]] = None
+    theme_seed_color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 class UserResponse(BaseModel):
     id: int
@@ -43,6 +45,8 @@ class UserResponse(BaseModel):
     default_post_rate: float
     default_payment_terms: Optional[str] = None
     default_warranty_terms: Optional[str] = None
+    theme_mode: Optional[str] = "system"
+    theme_seed_color: Optional[str] = "#2563EB"
     created_at: Optional[datetime.datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
