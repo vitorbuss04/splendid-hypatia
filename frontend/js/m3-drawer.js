@@ -107,9 +107,52 @@ export function initResponsiveDrawer() {
         desktopDrawer.classList.toggle('is-open', Boolean(e.detail?.opened));
     });
 
+    const SAFE_AVATAR_URL_RE = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i;
+    const brandAvatarEl = drawerContent.children[0]?.querySelector('.icon-badge-surface') || null;
+    const defaultBrandAvatarHtml = brandAvatarEl ? brandAvatarEl.innerHTML : '';
+
+    const setBadgePhoto = (el, photoUrl, fallbackHtml, isTextFallback = false) => {
+        if (!el) return;
+        const safeUrl = SAFE_AVATAR_URL_RE.test(String(photoUrl || '').trim())
+            ? String(photoUrl).trim()
+            : '';
+        if (safeUrl) {
+            let img = el.querySelector('img.m3-profile-avatar-img');
+            if (!img) {
+                el.innerHTML = '';
+                img = document.createElement('img');
+                img.className = 'm3-profile-avatar-img';
+                img.alt = '';
+                el.appendChild(img);
+            }
+            if (img.src !== safeUrl) img.src = safeUrl;
+            el.classList.add('m3-avatar-has-photo');
+        } else {
+            el.classList.remove('m3-avatar-has-photo');
+            if (isTextFallback) {
+                el.textContent = fallbackHtml;
+            } else {
+                el.innerHTML = fallbackHtml;
+            }
+        }
+    };
+
+    const applyProfileBranding = (profile) => {
+        const titleEl = drawerContent.querySelector('#drawer-company-title') || document.getElementById('drawer-company-title');
+        if (titleEl) {
+            const companyName = String(profile?.company_name || '').trim();
+            titleEl.textContent = companyName || '3D Print Calc Pro';
+        }
+        const photo = profile?.profile_photo || '';
+        setBadgePhoto(brandAvatarEl, photo, defaultBrandAvatarHtml, false);
+
+        const footerAvatarEl = drawerContent.querySelector('#user-avatar') || document.getElementById('user-avatar');
+        const fullName = String(profile?.full_name || profile?.email || 'Usuário').trim();
+        const initials = fullName.split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() || '').join('') || 'U';
+        setBadgePhoto(footerAvatarEl, photo, initials, true);
+    };
+
     const syncDrawerBrand = (user = null) => {
-        const titleEl = document.getElementById('drawer-company-title');
-        if (!titleEl) return;
         let profile = user;
         if (!profile) {
             try {
@@ -118,15 +161,14 @@ export function initResponsiveDrawer() {
                 profile = null;
             }
         }
-        const companyName = String(profile?.company_name || '').trim();
-        titleEl.textContent = companyName || '3D Print Calc Pro';
+        applyProfileBranding(profile);
+        queueMicrotask(() => applyProfileBranding(profile));
     };
 
     desktopMedia.addEventListener('change', syncDrawerHost);
     window.addEventListener('m3:user-synced', (e) => syncDrawerBrand(e.detail));
     window.addEventListener('auth:logout', () => {
-        const titleEl = document.getElementById('drawer-company-title');
-        if (titleEl) titleEl.textContent = '3D Print Calc Pro';
+        applyProfileBranding(null);
     });
     syncDrawerHost();
     syncDrawerBrand();

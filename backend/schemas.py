@@ -1,6 +1,41 @@
-from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+import base64
 import datetime
+import re
+from typing import Optional, List, Dict, Any, Literal
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
+
+_PROFILE_PHOTO_RE = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,([A-Za-z0-9+/=]+)$", re.IGNORECASE)
+_MAX_PROFILE_PHOTO_CHARS = 700_000
+
+
+def _validate_profile_photo_data_url(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    if len(cleaned) > _MAX_PROFILE_PHOTO_CHARS:
+        raise ValueError("A imagem selecionada excede o limite de tamanho permitido.")
+    match = _PROFILE_PHOTO_RE.match(cleaned)
+    if not match:
+        raise ValueError("Formato de imagem inválido. Envie PNG, JPG, WebP ou GIF.")
+    fmt = match.group(1).lower()
+    b64_data = match.group(2)
+    try:
+        raw = base64.b64decode(b64_data, validate=True)
+    except Exception as exc:
+        raise ValueError("Dados da imagem em base64 inválidos.") from exc
+    if not raw:
+        raise ValueError("Imagem vazia.")
+    valid_header = (
+        (fmt == "png" and raw.startswith(b"\x89PNG\r\n\x1a\n"))
+        or (fmt in ("jpeg", "jpg") and raw.startswith(b"\xff\xd8\xff"))
+        or (fmt == "gif" and raw.startswith((b"GIF87a", b"GIF89a")))
+        or (fmt == "webp" and len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP")
+    )
+    if not valid_header:
+        raise ValueError("O conteúdo do arquivo não corresponde ao formato de imagem declarado.")
+    return cleaned
 
 # ----------------- Auth & User Schemas -----------------
 
@@ -29,6 +64,12 @@ class UserPreferencesUpdate(BaseModel):
     default_warranty_terms: Optional[str] = None
     theme_mode: Optional[Literal["system", "light", "dark"]] = None
     theme_seed_color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    profile_photo: Optional[str] = None
+
+    @field_validator("profile_photo")
+    @classmethod
+    def check_profile_photo(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_profile_photo_data_url(v)
 
 class UserResponse(BaseModel):
     id: int
@@ -47,6 +88,7 @@ class UserResponse(BaseModel):
     default_warranty_terms: Optional[str] = None
     theme_mode: Optional[str] = "system"
     theme_seed_color: Optional[str] = "#2563EB"
+    profile_photo: Optional[str] = None
     created_at: Optional[datetime.datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

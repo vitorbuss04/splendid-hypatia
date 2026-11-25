@@ -31,6 +31,7 @@ class User(Base):
     default_warranty_terms = Column(String(500), nullable=True, default="Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas.")
     theme_mode = Column(String(20), nullable=False, default="system")
     theme_seed_color = Column(String(20), nullable=False, default="#2563EB")
+    profile_photo = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=get_utc_now)
 

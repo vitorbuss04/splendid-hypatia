@@ -1180,6 +1180,62 @@ def test_user_appearance_preferences_isolation(client, make_user):
     assert client.put("/api/auth/preferences", json={"theme_seed_color": "blue"}, headers=user_a["headers"]).status_code == 422
 
 
+def test_user_profile_photo_upload_and_isolation(client, make_user):
+    import base64
+
+    user_a = make_user(email="photo_a@example.com")
+    user_b = make_user(email="photo_b@example.com")
+
+    # Tiny valid 1x1 PNG header + IDAT/IEND minimal bytes
+    valid_png_b64 = base64.b64encode(
+        b"\x89PNG\r\n\x1a\n"
+        b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
+        b"\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0\x00\x00\x03\x01\x01\x00\xc9\xfe\x92\xef"
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"
+    ).decode("ascii")
+    png_data_url = f"data:image/png;base64,{valid_png_b64}"
+
+    # Upload profile photo for user A
+    res_a = client.put(
+        "/api/auth/preferences",
+        json={"profile_photo": png_data_url},
+        headers=user_a["headers"],
+    )
+    assert res_a.status_code == 200
+    assert res_a.json()["profile_photo"] == png_data_url
+
+    # Confirm user B stays isolated (no photo) while user A persists via /me
+    me_a = client.get("/api/auth/me", headers=user_a["headers"]).json()
+    me_b = client.get("/api/auth/me", headers=user_b["headers"]).json()
+    assert me_a["profile_photo"] == png_data_url
+    assert me_b["profile_photo"] is None
+
+    # Updating other preferences must preserve existing profile_photo
+    res_other = client.put(
+        "/api/auth/preferences",
+        json={"company_name": "Studio Foto"},
+        headers=user_a["headers"],
+    )
+    assert res_other.status_code == 200
+    assert res_other.json()["company_name"] == "Studio Foto"
+    assert res_other.json()["profile_photo"] == png_data_url
+
+    # Reject SVG (XSS risk) and spoofed image header payloads
+    svg_payload = "data:image/svg+xml;base64," + base64.b64encode(b"<svg/>").decode("ascii")
+    spoofed_png = "data:image/png;base64," + base64.b64encode(b"NOT_A_PNG").decode("ascii")
+    assert client.put("/api/auth/preferences", json={"profile_photo": svg_payload}, headers=user_a["headers"]).status_code == 422
+    assert client.put("/api/auth/preferences", json={"profile_photo": spoofed_png}, headers=user_a["headers"]).status_code == 422
+
+    # Remove profile photo cleanly
+    res_clear = client.put(
+        "/api/auth/preferences",
+        json={"profile_photo": None},
+        headers=user_a["headers"],
+    )
+    assert res_clear.status_code == 200
+    assert res_clear.json()["profile_photo"] is None
+
+
 
 
 

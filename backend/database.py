@@ -51,6 +51,8 @@ def init_db():
                     conn.execute(text(f"ALTER TABLE {prefix}users ADD COLUMN theme_mode VARCHAR(20) DEFAULT 'system'"))
                 if "theme_seed_color" not in user_cols:
                     conn.execute(text(f"ALTER TABLE {prefix}users ADD COLUMN theme_seed_color VARCHAR(20) DEFAULT '#2563EB'"))
+                if "profile_photo" not in user_cols:
+                    conn.execute(text(f"ALTER TABLE {prefix}users ADD COLUMN profile_photo TEXT"))
                 conn.execute(text(f"UPDATE {prefix}users SET default_payment_terms = 'A combinar / 50% na aprovação e 50% na entrega.' WHERE default_payment_terms IS NULL"))
                 conn.execute(text(f"UPDATE {prefix}users SET default_warranty_terms = 'Garantia de fabricação contra defeitos dimensionais ou delaminação de camadas conforme especificações acordadas.' WHERE default_warranty_terms IS NULL"))
                 conn.execute(text(f"UPDATE {prefix}users SET theme_mode = 'system' WHERE theme_mode IS NULL"))

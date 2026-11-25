@@ -421,6 +421,35 @@ md-text-button md-icon {
     color: var(--md-sys-color-on-tertiary-container);
 }
 
+.m3-profile-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: inherit;
+}
+
+.m3-avatar-has-photo {
+    padding: 0 !important;
+    overflow: hidden;
+    background-color: var(--md-sys-color-surface-container-high) !important;
+    border: 2px solid var(--md-sys-color-outline-variant);
+}
+
+.m3-photo-preview {
+    width: 84px;
+    height: 84px;
+    border-radius: var(--md-sys-shape-corner-full);
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    border: 2px solid var(--md-sys-color-outline-variant);
+}
+
 /* Responsive Grids */
 .grid-kpis {
     display: grid;
