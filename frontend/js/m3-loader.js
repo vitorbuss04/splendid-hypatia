@@ -60,6 +60,8 @@ export async function markUiReady() {
     requestAnimationFrame(() => updateBodyLoadingClass());
 }
 
+let redirectingToLogin = false;
+
 /**
  * Clears any stuck loading overlay (for example on unauthenticated 401 redirect).
  */
@@ -67,4 +69,22 @@ export function clearPageLoading() {
     pendingLoads = 0;
     initialBootDone = true;
     updateBodyLoadingClass();
+}
+
+/**
+ * Redirects unauthenticated or logged-out users to the dedicated /login page
+ * while keeping the loading screen active so protected shells never flash.
+ */
+export function redirectToLogin({ includeNext = true } = {}) {
+    if (redirectingToLogin || window.location.pathname === '/login') return;
+    redirectingToLogin = true;
+    document.body.classList.add('m3-page-loading');
+    const current = window.location.pathname + window.location.search;
+    const isSafeNext =
+        includeNext &&
+        current.startsWith('/') &&
+        !current.startsWith('//') &&
+        !current.startsWith('/login');
+    const query = isSafeNext ? `?next=${encodeURIComponent(current)}` : '';
+    window.location.replace(`/login${query}`);
 }

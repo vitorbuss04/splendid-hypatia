@@ -116,6 +116,13 @@ if FRONTEND_DIR.exists():
             headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
         )
 
+    @app.get("/login")
+    def serve_login():
+        return FileResponse(
+            str(FRONTEND_DIR / "login-m3.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
     @app.get("/calculator")
     @app.get("/project-editor")
     def serve_calculator():

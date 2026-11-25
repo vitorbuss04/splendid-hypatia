@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- MANDATORY: Declare supported color schemes before first paint -->
+    <meta name="color-scheme" content="light dark">
+    <title>3D Print Calc Pro | Entrar</title>
+
+    <!-- Google Fonts: Roboto, Roboto Mono & Material Symbols Outlined -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://esm.run" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+
+    <!-- Shared Material 3 Tokens & Layout Styles -->
+    <link rel="stylesheet" href="/static/css/material-theme.css?v=2.1.1">
+
+    <!-- Official Import Map -->
+    <script type="importmap">
+    {
+      "imports": {
+        "tslib": "https://esm.run/tslib@2.8.1",
+        "lit": "https://esm.run/lit@3.3.3",
+        "lit/": "https://esm.run/lit@3.3.3/",
+        "@lit/context": "https://esm.run/@lit/context@1.1.6",
+        "@material/web/": "https://cdn.jsdelivr.net/npm/@material/web@2.5.0/",
+        "@material/material-color-utilities": "https://esm.run/@material/material-color-utilities"
+      }
+    }
+    </script>
+
+    <!-- Register Official @material/web Components -->
+    <script type="module">
+        import '@material/web/all.js';
+        import '@material/web/labs/card/elevated-card.js';
+        import '@material/web/labs/navigationdrawer/navigation-drawer-modal.js';
+
+        import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
+        if (typescaleStyles?.styleSheet) {
+            document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+        }
+    </script>
+
+    <style>
+        .login-viewport {
+            min-height: 100vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            position: relative;
+        }
+
+        .login-theme-corner {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 10;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 440px;
+            padding: 28px 24px;
+        }
+
+        .login-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 10px;
+        }
+
+        #auth-tabs md-primary-tab {
+            --md-primary-tab-container-color: transparent;
+            --md-primary-tab-container-shape: var(--md-sys-shape-corner-large);
+            border-radius: var(--md-sys-shape-corner-large);
+            overflow: hidden;
+        }
+
+        #auth-tabs md-primary-tab:hover {
+            --md-primary-tab-container-shape: var(--md-sys-shape-corner-large);
+        }
+
+        #auth-tabs md-primary-tab::part(focus-ring) {
+            --md-focus-ring-shape: var(--md-sys-shape-corner-large);
+        }
+    </style>
+</head>
+<body class="m3-page-loading">
+    <div id="m3-page-loading-overlay" class="m3-loading-overlay" role="status" aria-live="polite" aria-label="Carregando página">
+        <md-circular-progress class="m3-loading-spinner" indeterminate four-color aria-hidden="true"></md-circular-progress>
+    </div>
+
+    <div class="login-theme-corner">
+        <md-filled-tonal-icon-button id="theme-mode-toggle" toggle aria-label="Alternar Modo Escuro ou Claro" title="Alternar Claro / Escuro">
+            <md-icon>light_mode</md-icon>
+            <md-icon slot="selected" class="filled">dark_mode</md-icon>
+        </md-filled-tonal-icon-button>
+    </div>
+
+    <main class="login-viewport">
+        <md-elevated-card class="login-card">
+            <div class="col" style="gap: 20px;">
+                <div class="login-brand">
+                    <div class="icon-badge-surface" style="width: 72px; height: 72px; border-radius: var(--md-sys-shape-corner-full);" aria-hidden="true">
+                        <md-icon class="filled" style="font-size: 36px; width: 36px; height: 36px;">precision_manufacturing</md-icon>
+                    </div>
+                    <div class="col" style="gap: 4px; align-items: center;">
+                        <h1 class="md-typescale-headline-small" style="margin: 0;">3D Print Calc Pro</h1>
+                        <p class="md-typescale-body-small muted-text" style="margin: 0; max-width: 340px;">
+                            Entre na sua conta para gerenciar orçamentos, impressoras e filamentos
+                        </p>
+                    </div>
+                </div>
+
+                <md-tabs id="auth-tabs" aria-label="Modo de Autenticação">
+                    <md-primary-tab selected>Entrar</md-primary-tab>
+                    <md-primary-tab>Criar Conta</md-primary-tab>
+                </md-tabs>
+
+                <div id="auth-error-box" class="surface-subbox" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); border-color: transparent;" role="alert" aria-live="assertive" hidden>
+                    <div class="row" style="gap: 8px;">
+                        <md-icon>error</md-icon>
+                        <span id="auth-error-text" class="md-typescale-body-small">Erro ao autenticar</span>
+                    </div>
+                </div>
+
+                <!-- Login Form -->
+                <form id="form-login" class="col" style="gap: 14px;" novalidate>
+                    <md-outlined-text-field id="login-email" type="email" autocomplete="username" enterkeyhint="next" label="E-mail" placeholder="seu@email.com" required>
+                        <md-icon slot="leading-icon">mail</md-icon>
+                    </md-outlined-text-field>
+
+                    <md-outlined-text-field id="login-password" type="password" autocomplete="current-password" enterkeyhint="go" label="Senha" required>
+                        <md-icon slot="leading-icon">key</md-icon>
+                        <md-icon-button id="toggle-login-pass" type="button" slot="trailing-icon" aria-label="Mostrar ou ocultar senha">
+                            <md-icon>visibility</md-icon>
+                        </md-icon-button>
+                    </md-outlined-text-field>
+
+                    <md-filled-button id="btn-login-submit" type="submit" class="full-width" style="margin-top: 4px;">
+                        <md-icon slot="icon">login</md-icon>
+                        Entrar no Sistema
+                    </md-filled-button>
+                </form>
+
+                <!-- Register Form -->
+                <form id="form-register" class="col" style="gap: 14px;" novalidate hidden>
+                    <md-outlined-text-field id="reg-name" autocomplete="name" enterkeyhint="next" label="Nome Completo" required>
+                        <md-icon slot="leading-icon">person</md-icon>
+                    </md-outlined-text-field>
+
+                    <md-outlined-text-field id="reg-company" autocomplete="organization" enterkeyhint="next" label="Empresa / Oficina (Opcional)">
+                        <md-icon slot="leading-icon">store</md-icon>
+                    </md-outlined-text-field>
+
+                    <md-outlined-text-field id="reg-email" type="email" autocomplete="username" enterkeyhint="next" label="E-mail" required>
+                        <md-icon slot="leading-icon">mail</md-icon>
+                    </md-outlined-text-field>
+
+                    <md-outlined-text-field id="reg-password" type="password" autocomplete="new-password" enterkeyhint="go" label="Senha (Mín. 6 dígitos)" minlength="6" required>
+                        <md-icon slot="leading-icon">key</md-icon>
+                        <md-icon-button id="toggle-reg-pass" type="button" slot="trailing-icon" aria-label="Mostrar ou ocultar senha">
+                            <md-icon>visibility</md-icon>
+                        </md-icon-button>
+                    </md-outlined-text-field>
+
+                    <md-filled-button id="btn-reg-submit" type="submit" class="full-width" style="margin-top: 4px;">
+                        <md-icon slot="icon">person_add</md-icon>
+                        Criar Conta Limpa
+                    </md-filled-button>
+                </form>
+            </div>
+        </md-elevated-card>
+    </main>
+
+    <!-- Real Backend REST API Client -->
+    <script src="/static/js/api.js"></script>
+
+    <!-- Login Controller -->
+    <script type="module">
+        import { initThemeController, syncThemeFromUser } from '/static/js/m3-theme.js?v=1.0.2';
+        import { startPageLoading, markUiReady } from '/static/js/m3-loader.js?v=1.0.1';
+
+        function getSafeNextUrl() {
+            const raw = new URLSearchParams(window.location.search).get('next') || '/';
+            if (raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/login')) {
+                return raw;
+            }
+            return '/';
+        }
+
+        function setAuthError(msg) {
+            const box = document.getElementById('auth-error-box');
+            const text = document.getElementById('auth-error-text');
+            if (!box || !text) return;
+            box.hidden = !msg;
+            if (msg) text.textContent = msg;
+        }
+
+        function bindPasswordToggle(btnId, fieldId) {
+            const btn = document.getElementById(btnId);
+            const field = document.getElementById(fieldId);
+            if (!btn || !field) return;
+            btn.addEventListener('click', () => {
+                const isPass = field.type === 'password';
+                field.type = isPass ? 'text' : 'password';
+                const ic = btn.querySelector('md-icon');
+                if (ic) ic.textContent = isPass ? 'visibility_off' : 'visibility';
+            });
+        }
+
+        function bindEnterSubmit(form) {
+            if (!form) return;
+            form.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+                // Avoid double triggering when focus is on a button (including password visibility toggle)
+                if (e.target.closest('md-icon-button, button, md-filled-button')) return;
+                e.preventDefault();
+                form.requestSubmit();
+            });
+        }
+
+        async function init() {
+            initThemeController();
+
+            // Check existing session before showing login form
+            if (API.getToken()) {
+                try {
+                    const user = await API.auth.getMe();
+                    syncThemeFromUser(user);
+                    window.location.replace(getSafeNextUrl());
+                    return;
+                } catch {
+                    API.clearSession();
+                }
+            }
+
+            const authTabs = document.getElementById('auth-tabs');
+            const formLogin = document.getElementById('form-login');
+            const formRegister = document.getElementById('form-register');
+            const loginBtn = document.getElementById('btn-login-submit');
+            const regBtn = document.getElementById('btn-reg-submit');
+
+            bindPasswordToggle('toggle-login-pass', 'login-password');
+            bindPasswordToggle('toggle-reg-pass', 'reg-password');
+            bindEnterSubmit(formLogin);
+            bindEnterSubmit(formRegister);
+
+            authTabs?.addEventListener('change', () => {
+                const idx = authTabs.activeTabIndex;
+                formLogin.hidden = (idx !== 0);
+                formRegister.hidden = (idx !== 1);
+                setAuthError('');
+                requestAnimationFrame(() => {
+                    document.getElementById(idx === 0 ? 'login-email' : 'reg-name')?.focus();
+                });
+            });
+
+            let submitting = false;
+
+            formLogin?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (submitting) return;
+                setAuthError('');
+
+                const emailEl = document.getElementById('login-email');
+                const passEl = document.getElementById('login-password');
+                const email = (emailEl?.value || '').trim();
+                const pass = passEl?.value || '';
+
+                if (!email) {
+                    setAuthError('Informe seu e-mail.');
+                    emailEl?.focus();
+                    return;
+                }
+                if (!pass) {
+                    setAuthError('Informe sua senha.');
+                    passEl?.focus();
+                    return;
+                }
+
+                submitting = true;
+                if (loginBtn) loginBtn.disabled = true;
+                try {
+                    const res = await API.auth.login(email, pass);
+                    if (res?.user) syncThemeFromUser(res.user);
+                    startPageLoading();
+                    window.location.replace(getSafeNextUrl());
+                } catch (err) {
+                    setAuthError(err?.message || 'E-mail ou senha inválidos.');
+                    submitting = false;
+                    if (loginBtn) loginBtn.disabled = false;
+                }
+            });
+
+            formRegister?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (submitting) return;
+                setAuthError('');
+
+                const nameEl = document.getElementById('reg-name');
+                const companyEl = document.getElementById('reg-company');
+                const emailEl = document.getElementById('reg-email');
+                const passEl = document.getElementById('reg-password');
+
+                const name = (nameEl?.value || '').trim();
+                const company = (companyEl?.value || '').trim();
+                const email = (emailEl?.value || '').trim();
+                const pass = passEl?.value || '';
+
+                if (!name) {
+                    setAuthError('Informe seu nome completo.');
+                    nameEl?.focus();
+                    return;
+                }
+                if (!email) {
+                    setAuthError('Informe um e-mail válido.');
+                    emailEl?.focus();
+                    return;
+                }
+                if (pass.length < 6) {
+                    setAuthError('A senha deve ter no mínimo 6 caracteres.');
+                    passEl?.focus();
+                    return;
+                }
+
+                submitting = true;
+                if (regBtn) regBtn.disabled = true;
+                try {
+                    const res = await API.auth.register(email, pass, name, company);
+                    if (res?.user) syncThemeFromUser(res.user);
+                    startPageLoading();
+                    window.location.replace(getSafeNextUrl());
+                } catch (err) {
+                    setAuthError(err?.message || 'Não foi possível criar conta.');
+                    submitting = false;
+                    if (regBtn) regBtn.disabled = false;
+                }
+            });
+
+            await markUiReady();
+            requestAnimationFrame(() => document.getElementById('login-email')?.focus());
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>

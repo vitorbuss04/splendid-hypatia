@@ -226,60 +226,6 @@
          OFFICIAL MATERIAL 3 DIALOGS (Auth, Printer Form & Delete Confirm)
          ========================================================================= -->
 
-    <!-- Auth Dialog -->
-    <md-dialog id="auth-dialog" aria-label="Autenticação 3D Print Calc Pro">
-        <md-icon slot="icon">lock_open</md-icon>
-        <div slot="headline">3D Print Calc Pro</div>
-
-        <div slot="content" class="col" style="min-width: 280px;">
-            <span class="md-typescale-body-small muted-text">Entre na sua conta para gerenciar seu parque de impressoras no visual Material 3.</span>
-
-            <md-tabs id="auth-tabs" aria-label="Modo de Autenticação">
-                <md-primary-tab selected>Entrar</md-primary-tab>
-                <md-primary-tab>Criar Conta</md-primary-tab>
-            </md-tabs>
-
-            <div id="auth-error-box" class="surface-subbox" style="background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); border-color: transparent;" hidden>
-                <div class="row" style="gap: 8px;">
-                    <md-icon>error</md-icon>
-                    <span id="auth-error-text" class="md-typescale-body-small">Erro ao autenticar</span>
-                </div>
-            </div>
-
-            <form id="form-login" class="col">
-                <md-outlined-text-field id="login-email" type="email" autocomplete="username" label="E-mail" placeholder="seu@email.com" required>
-                    <md-icon slot="leading-icon">mail</md-icon>
-                </md-outlined-text-field>
-                <md-outlined-text-field id="login-password" type="password" autocomplete="current-password" label="Senha" required>
-                    <md-icon slot="leading-icon">key</md-icon>
-                </md-outlined-text-field>
-                <md-filled-button type="submit" class="full-width">
-                    <md-icon slot="icon">login</md-icon>
-                    Entrar no Sistema
-                </md-filled-button>
-            </form>
-
-            <form id="form-register" class="col" hidden>
-                <md-outlined-text-field id="reg-name" autocomplete="name" label="Nome Completo" required>
-                    <md-icon slot="leading-icon">person</md-icon>
-                </md-outlined-text-field>
-                <md-outlined-text-field id="reg-company" autocomplete="organization" label="Empresa / Oficina (Opcional)">
-                    <md-icon slot="leading-icon">store</md-icon>
-                </md-outlined-text-field>
-                <md-outlined-text-field id="reg-email" type="email" autocomplete="username" label="E-mail" required>
-                    <md-icon slot="leading-icon">mail</md-icon>
-                </md-outlined-text-field>
-                <md-outlined-text-field id="reg-password" type="password" autocomplete="new-password" label="Senha (Mín. 6 dígitos)" minlength="6" required>
-                    <md-icon slot="leading-icon">key</md-icon>
-                </md-outlined-text-field>
-                <md-filled-button type="submit" class="full-width">
-                    <md-icon slot="icon">person_add</md-icon>
-                    Criar Conta Limpa
-                </md-filled-button>
-            </form>
-        </div>
-    </md-dialog>
-
     <!-- Create / Edit Printer Dialog -->
     <md-dialog id="dialog-printer" aria-labelledby="dialog-printer-title">
         <md-icon slot="icon">print</md-icon>
@@ -355,7 +301,7 @@
     <script type="module">
         import { initResponsiveDrawer } from '/static/js/m3-drawer.js?v=1.0.1';
         import { initThemeController, syncThemeFromUser } from '/static/js/m3-theme.js?v=1.0.2';
-        import { startPageLoading, markUiReady, clearPageLoading } from '/static/js/m3-loader.js?v=1.0.0';
+        import { startPageLoading, markUiReady, redirectToLogin } from '/static/js/m3-loader.js?v=1.0.1';
 
         let currentUser = null;
         let allPrinters = [];
@@ -431,7 +377,7 @@
             } catch (err) {
                 console.warn('Erro ao carregar impressoras:', err);
                 if (!API.getToken()) {
-                    openAuthDialog();
+                    redirectToLogin();
                 } else {
                     showSnackbar(err?.message || 'Erro ao carregar impressoras.', 'error');
                 }
@@ -671,24 +617,6 @@
             document.getElementById('dialog-delete-printer')?.show();
         }
 
-        function openAuthDialog() {
-            const dlg = document.getElementById('auth-dialog');
-            if (dlg && !dlg.open) dlg.show();
-        }
-
-        function closeAuthDialog() {
-            const dlg = document.getElementById('auth-dialog');
-            if (dlg?.open) dlg.close();
-        }
-
-        function setAuthError(msg) {
-            const box = document.getElementById('auth-error-box');
-            const text = document.getElementById('auth-error-text');
-            if (!box || !text) return;
-            box.hidden = !msg;
-            if (msg) text.textContent = msg;
-        }
-
         // ---------------------------------------------------------------------
         // 5. Boot & Wire Listeners
         // ---------------------------------------------------------------------
@@ -727,63 +655,12 @@
                 queueMicrotask(() => setStatusFilter(status));
             });
 
-            // Auth Tabs & Forms
-            const authTabs = document.getElementById('auth-tabs');
-            const formLogin = document.getElementById('form-login');
-            const formRegister = document.getElementById('form-register');
-            authTabs?.addEventListener('change', () => {
-                const idx = authTabs.activeTabIndex;
-                formLogin.hidden = (idx !== 0);
-                formRegister.hidden = (idx !== 1);
-                setAuthError('');
-            });
-
-            formLogin?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                setAuthError('');
-                try {
-                    const email = document.getElementById('login-email').value;
-                    const pass = document.getElementById('login-password').value;
-                    await API.auth.login(email, pass);
-                    closeAuthDialog();
-                    await fetchAndRenderPrinters();
-                    showSnackbar('Login realizado com sucesso!', 'login');
-                } catch (err) {
-                    setAuthError(err.message || 'Credenciais inválidas.');
-                }
-            });
-
-            formRegister?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                setAuthError('');
-                try {
-                    const name = document.getElementById('reg-name').value;
-                    const company = document.getElementById('reg-company').value;
-                    const email = document.getElementById('reg-email').value;
-                    const pass = document.getElementById('reg-password').value;
-                    await API.auth.register(email, pass, name, company);
-                    closeAuthDialog();
-                    await fetchAndRenderPrinters();
-                    showSnackbar('Conta criada e carregada!', 'person_add');
-                } catch (err) {
-                    setAuthError(err.message || 'Não foi possível criar conta.');
-                }
-            });
-
             document.getElementById('btn-logout')?.addEventListener('click', () => {
                 API.auth.logout();
-                setDrawerOpen(false);
             });
 
-            window.addEventListener('auth:unauthorized', () => openAuthDialog());
-            window.addEventListener('auth:logout', () => {
-                currentUser = null;
-                allPrinters = [];
-                updateCountsSummary(0);
-                renderPrintersGrid();
-                openAuthDialog();
-                showSnackbar('Sessão encerrada.', 'logout');
-            });
+            window.addEventListener('auth:unauthorized', () => redirectToLogin());
+            window.addEventListener('auth:logout', () => redirectToLogin({ includeNext: false }));
 
             // Printer Dialog + Live Preview + Validation
             const printerDlg = document.getElementById('dialog-printer');
@@ -884,9 +761,7 @@
             if (API.getToken()) {
                 fetchAndRenderPrinters().finally(() => markUiReady());
             } else {
-                renderPrintersGrid();
-                openAuthDialog();
-                markUiReady();
+                redirectToLogin();
             }
         }
 
